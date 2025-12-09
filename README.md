@@ -7,5 +7,6 @@ A tool for searching Middle Korean texts (encoded in Hanyang PUA) using regular 
 - The tool does not require any corpus to be stored inside the repository. Instead, it always takes one or more external Middle Korean text files (or folders) as input.
 
 ## Project Status
-This project is in the initial setup and design stage. 
-More details and functionality will be added gradually as development proceeds. 
+The first working version of the parser has been implemented.
+It reads Hanyang PUA-encoded Middle Korean text, detects source markers, tokenizes both main text and notes, and assigns metadata to each token.
+Yale conversion and regex-based search will be added next.
