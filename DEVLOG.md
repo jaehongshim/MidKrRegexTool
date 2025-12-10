@@ -42,3 +42,16 @@ The tool will always take one or more external file paths as input.
 - Begin drafting the Yale conversion layer (`yale.py`) to fill the `yale` field of tokens.
 - Draft `search.py`, which will search specific strings based on regex.
 - Later: add `pytest`-based tests for parser behavior.
+
+## 2025-12-10
+
+### What I did today
+- Improved `quick_check_parser.py` to make parser verification easier:
+- Reviewed parser behavior with the sample excerpt and confirmed correct handling of:
+    - source marker resets,
+    - note vs. main text distinction,
+    - token indexing logic.
+- Add parser behavior documentation to `design.md`.
+
+### Next tasks
+- Begin drafting the Yale conversion module (`yale.py`)
