@@ -55,3 +55,24 @@ The tool will always take one or more external file paths as input.
 
 ### Next tasks
 - Begin drafting the Yale conversion module (`yale.py`)
+
+## 2025-12-11
+
+### What I did today
+- Implemented `yale.py`
+    - Used YaleKorean package (https://github.com/SeHaan/YaleKorean/)
+- Connected the parser output to the Yale conversion module (`yale.py`).
+- Verified the pipeline using `quick_check_parser.py`, confirming:
+    - correct PUA -> Unicode -> Yale transformations,
+    - consistent behavior for mixed hanja/PUA tokens,
+    - Collected several post-processing rule candidates based on the observed ouput patterns. 
+
+### Decisions made
+- Yale conversion will be kept as a separate stage rather than integrated into the parser.
+- Post-processing of Yale output will be handled later, after the search module is implemented.
+
+### Next tasks
+- Begin implementing `search.py`, which will support:
+    - regex search over Yale forms,
+    - extraction of matched tokens and their metadata,
+- After search is stable, revisit and finalize the post-processing rules.
