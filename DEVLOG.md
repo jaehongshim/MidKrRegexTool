@@ -76,3 +76,22 @@ The tool will always take one or more external file paths as input.
     - regex search over Yale forms,
     - extraction of matched tokens and their metadata,
 - After search is stable, revisit and finalize the post-processing rules.
+
+## 2025-12-12 (logged on 2025-12-15)
+
+> Note: The following work was carried on December 12, 2025
+> but is being committed and logged on December 15, 2025
+
+### Work summary
+
+- Implemented and experimented with a helper script (`quick_check_parser.py`).
+- Explored how parsed tokens flow through:
+    - file parsing (`parse_file`)
+    - token objects (`Token`)
+    - Yale romanization attachment (`attach_yale`)
+    - regex-based search over `token.yale`
+- Encountered significant complexity relative to the intended goal of a "quick" inspection script.
+
+### Notes
+
+- The helper script was helpful for checking whether the program runs as expected, but not helpful at all in terms of learning how to implement programs. 
