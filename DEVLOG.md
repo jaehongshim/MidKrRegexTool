@@ -95,3 +95,17 @@ The tool will always take one or more external file paths as input.
 ### Notes
 
 - The helper script was helpful for checking whether the program runs as expected, but not helpful at all in terms of learning how to implement programs. 
+
+## 2025-12-16
+
+### Work summary
+
+- Implemented `report.py`, which plays the following two key roles:
+    1. Display search results
+    2. Optionally save the results as a UTF-8 text file.
+- Designed `report.py` so that only `report_hits` and `maybe_save_hits` are exposed as its public interface. 
+
+### Next tasks
+
+- Extend the module to support processing multiple files at once. 
+- Add an optional `comment` field to the list of `Token` objects so that the researcher can keep track of what they intended to investigate with a given regex pattern.

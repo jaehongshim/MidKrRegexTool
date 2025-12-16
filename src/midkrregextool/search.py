@@ -16,15 +16,10 @@ from .model import Token
 
 def search_tokens(tokens: Iterable[Token], pattern: str, *, flags=0) -> list[Token]:
     """
-    Docstring for search_tokens
+    Input:
+
+    Output:
     
-    :param tokens: Description
-    :type tokens: Iterable[Token]
-    :param pattern: Description
-    :type pattern: str
-    :param flags: Description
-    :return: Description
-    :rtype: list[Token]
     """
     rx = re.compile(pattern, flags)
 
