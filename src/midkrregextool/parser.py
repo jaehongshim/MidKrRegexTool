@@ -123,19 +123,21 @@ def parse_file(path: str | Path) -> List[Token]:
                 ]
             '''
             
+            inside_note = "MAIN"    # The beginning is always the main body text, so set the flag as "MAIN" 
 
             for part in parts:
                 if not part: 
                     continue # Skip the remaining processes and go on to the next cycle.
 
+
                 if part == "[note]":
                     # Enter note mode: subsequent tokens will have is_note=True.
-                    inside_note = True
+                    inside_note = "NOTE"
                     continue
 
                 if part == "[/note]":
                     # Exit note mode: subsequent tokens will have is_note=False.
-                    inside_note = False
+                    inside_note = "MAIN"
                     continue
 
                 # This is a normal text segment (either inside or outside a note).

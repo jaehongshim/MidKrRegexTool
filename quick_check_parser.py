@@ -28,7 +28,7 @@ from midkrregextool.parser import parse_file
 from midkrregextool.model import Token
 from midkrregextool.yale import attach_yale
 from midkrregextool.search import search_tokens
-from midkrregextool.report import report_hits, maybe_save_hits, ask_yes_no
+from midkrregextool.report import report_hits, report_bigram_hits, maybe_save_hits, ask_yes_no
 
 def format_token(token: Token) -> str:                      
     """
@@ -134,7 +134,10 @@ def main(argv: list[str] | None = None) -> None:
         hits = search_tokens(tokens, pattern)
 
         # Display search results
-        report_hits(hits, pattern=pattern)
+        if " " in pattern:
+            report_bigram_hits(hits, pattern=pattern)
+        else:
+            report_hits(hits, pattern=pattern)
 
         # Optionally save the search results to a file.
         maybe_save_hits(hits, pattern=pattern)

@@ -14,7 +14,7 @@ from typing import Iterable
 
 from .model import Token
 
-def search_tokens(tokens: Iterable[Token], pattern: str, *, flags=0) -> list[Token]:
+def search_tokens(tokens: Iterable[Token], pattern: str, *, flags=0) -> list[Token] | list[tuple[Token, Token]]:
     """
     Input:
 
@@ -22,14 +22,30 @@ def search_tokens(tokens: Iterable[Token], pattern: str, *, flags=0) -> list[Tok
     
     """
     rx = re.compile(pattern, flags)
+    toks = list(tokens)
 
-    hits: list[Token] = []
-    for tok in tokens:
-        # Skip tokens that do not have a Yale form yet.
-        if tok.yale is None:
-            continue
+    # Bigram search
+    if " " in pattern:
+        hits: list[tuple[Token, Token]] = []
+        for i in range(len(toks) - 1):
+            a, b = toks[i], toks[i + 1]
 
-        if rx.search(tok.yale):
-            hits.append(tok)
+            joined = f"{a.yale} {b.yale}"
 
-    return hits
+            # Exclude the matching result if the two tokens differ in their is_note value.
+            if a.is_note != b.is_note:
+                continue
+
+            if rx.search(joined):
+                hits.append((a,b))
+
+        return hits
+    else:
+        # Monogram search
+        hits: list[Token] = []
+        for tok in toks:
+
+            if rx.search(tok.yale):
+                hits.append(tok)
+
+        return hits

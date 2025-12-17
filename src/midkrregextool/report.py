@@ -7,8 +7,14 @@ from pathlib import Path
 # Formatting how to report the result either on the command line or in a separate file.
 
 def format_hit(tok: Token) -> str:
-    note_flag = "NOTE" if tok.is_note else "MAIN"
-    return f"{tok.source_id} {tok.token_index} {note_flag} {tok.pua} {tok.unicode_form} {tok.yale}"
+    return f"{tok.source_id} {tok.token_index} {tok.is_note} {tok.unicode_form} {tok.yale}"
+    # Comment the following out if you need PUA forms.
+    # return f"{tok.source_id} {tok.token_index} {tok.is_note} {tok.pua} {tok.unicode_form} {tok.yale}"
+
+def format_bigram(a: Token, b: Token) -> str:
+    return f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} {a.unicode_form} {b.unicode_form} {a.yale} {b.yale}"
+    # Comment the following out if you need PUA forms.
+    # return f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} {a.pua} {b.pua} {a.unicode_form} {b.unicode_form} {a.yale} {b.yale}"
 
 # Report on the command line
 
@@ -16,6 +22,11 @@ def report_hits(hits: list[Token], *, pattern: str) -> None:
     print(f"[INFO] pattern={pattern!r} hits={len(hits)}")
     for tok in hits:
         print(format_hit(tok))
+
+def report_bigram_hits(hits: list[tuple[Token, Token]], *, pattern: str) -> None:
+    print(f"[INFO] pattern={pattern!r} hits={len(hits)}")
+    for a, b in hits:
+        print(format_bigram(a, b))
 
 # Ask a yes/no question and return True or False.
 def ask_yes_no(msg: str) -> bool:

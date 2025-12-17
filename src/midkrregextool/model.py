@@ -9,4 +9,4 @@ class Token:
     pua: str
     unicode_form: Optional[str] = None
     yale: Optional[str] = None
-    is_note: bool = False # 
+    is_note: str = "MAIN"

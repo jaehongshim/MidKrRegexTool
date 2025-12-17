@@ -109,3 +109,35 @@ The tool will always take one or more external file paths as input.
 
 - Extend the module to support processing multiple files at once. 
 - Add an optional `comment` field to the list of `Token` objects so that the researcher can keep track of what they intended to investigate with a given regex pattern.
+
+## 2025-12-17
+
+### Work summary
+
+- Extended the regex search to **bigram searches**.
+    - Bigram search is triggered when the user's regex pattern contains a **literal space character** (`" "`, as opposed to `\s`).
+- Updated `search.py` so that:
+    - monogram search returns `list[Token]`
+    - bigram search returns `list[tuple[Token, Token]]`
+- Updated `readme.md` to reflect the current search behavior and limitation.
+
+### Example
+
+- Monogram search:
+```bash
+python quick_check_parser.py --pattern "[^\s]+[ae]"
+```
+- Bigram search:
+```bash
+python quick_check_parser.py --pattern "[^\s]+[ae] is"
+```
+
+### Known limitations
+- Bigram search results are not yet saved as a UTF-8 text file.
+- The tool currently processes only a single input file at a time.
+
+### Next tasks
+- Extend the module to support processing multiple input files at once. 
+- Add an optional `comment` field to the `Token` objects so that the researcher can keep track of the intended purpose of a given regex pattern.
+- Implement `maybe_save_hits` support for bigram search results. 
+    
