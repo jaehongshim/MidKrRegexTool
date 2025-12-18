@@ -141,3 +141,15 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 - Add an optional `comment` field to the `Token` objects so that the researcher can keep track of the intended purpose of a given regex pattern.
 - Implement `maybe_save_hits` support for bigram search results. 
     
+## 2025-12-18
+
+### What I did today 
+- Implemented a batch function for regex searches 
+- Implemented UTF-8 file output support for bigram search results
+- Added UTF-16 (with UTF-8 fallback) support for input text files by modifying the file-opening logic in `parser.py`.
+
+### What to do next 
+- Needs to improve the file-saving function to support UTF-16 output. 
+- Implement a full CLI interface (beyond `quick_check_parser.py`)
+- Reorganize argument handling and search-mode selection logic.
+- Unify monogram and bigram search APIs to improve usability (schematically: monogram functions + bigram functions -> unified functions)

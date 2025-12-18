@@ -1,7 +1,7 @@
 # parser.py
 import re
 from pathlib import Path
-from typing import List
+from typing import List, TextIO
 
 from .model import Token
 
@@ -50,7 +50,13 @@ def parse_file(path: str | Path) -> List[Token]:
     inside_note = False
 
     # Open the file for reading.
-    with open(path, encoding="utf-8") as f:
+
+    try:
+        f = open(path, encoding="utf-16")
+    except UnicodeError:
+        f = open(path, encoding="utf-8")
+    
+    with f:
         for raw_line in f:
             # Remove surrounding whitespace, but keep internal spacing.
             line = raw_line.strip()

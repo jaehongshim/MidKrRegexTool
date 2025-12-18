@@ -18,13 +18,16 @@ def format_bigram(a: Token, b: Token) -> str:
 
 # Report on the command line
 
-def report_hits(hits: list[Token], *, pattern: str) -> None:
-    print(f"[INFO] pattern={pattern!r} hits={len(hits)}")
+def report_hits(hits: list[Token], *, pattern: str, comment: str) -> None:
+    print(f"[INFO] pattern={pattern!r} hits={len(hits)} comments={comment!r}")
+
     for tok in hits:
         print(format_hit(tok))
 
-def report_bigram_hits(hits: list[tuple[Token, Token]], *, pattern: str) -> None:
-    print(f"[INFO] pattern={pattern!r} hits={len(hits)}")
+def report_bigram_hits(hits: list[tuple[Token, Token]], *, pattern: str, comment: str) -> None:
+    print(f"[INFO] pattern={pattern!r} hits={len(hits)} comments={comment!r}")
+    print("-" * 70)
+
     for a, b in hits:
         print(format_bigram(a, b))
 
@@ -62,13 +65,19 @@ def confirm_overwrite(path: Path) -> bool:
     return ask_yes_no(f"[WARN] '{path}' already exists. Overwrite?")
 
 # Save the results file.
-def write_hits(path: Path, hits: list[Token], *, pattern: str) -> None:
+def write_hits(path: Path, hits: list[Token], *, pattern: str, comment: str) -> None:
     with open(path, "w", encoding="utf-8") as f:
-        f.write(f"# pattern={pattern!r} hits={len(hits)}\n")
+        f.write(f"# pattern={pattern!r} hits={len(hits)} comment={comment!r}\n")
         for tok in hits:
             f.write(format_hit(tok) + "\n")
 
-def maybe_save_hits(hits: list[Token], *, pattern: str) -> None:
+def write_bigram_hits(path: Path, hits: list[(Token, Token)], *, pattern: str, comment: str) -> None:
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(f"# pattern={pattern!r} hits={len(hits)} comment={comment!r}\n")
+        for a, b in hits:
+            f.write(format_bigram(a,b) + "\n")
+
+def maybe_save_hits(hits: list[Token], *, pattern: str, comment: str) -> None:
     if not hits:
         print("[INFO] No hits to save.")
         return
@@ -81,5 +90,21 @@ def maybe_save_hits(hits: list[Token], *, pattern: str) -> None:
         print("[INFO] Cancelled.")
         return
     
-    write_hits(path, hits, pattern=pattern)
+    write_hits(path, hits, pattern=pattern, comment=comment)
+    print(f"[INFO] Saved to: {path}")
+
+def maybe_save_bigram_hits(hits: list[(Token, Token)], *, pattern: str, comment: str) -> None:
+    if not hits:
+        print("[INFO] No hits to save.")
+        return
+    
+    if not ask_yes_no("Save these results to a file?"):
+        return
+    
+    path = ask_output_path()
+    if not confirm_overwrite(path):
+        print("[INFO] Cancelled.")
+        return
+    
+    write_bigram_hits(path, hits, pattern=pattern, comment=comment)
     print(f"[INFO] Saved to: {path}")

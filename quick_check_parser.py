@@ -28,7 +28,7 @@ from midkrregextool.parser import parse_file
 from midkrregextool.model import Token
 from midkrregextool.yale import attach_yale
 from midkrregextool.search import search_tokens
-from midkrregextool.report import report_hits, report_bigram_hits, maybe_save_hits, ask_yes_no
+from midkrregextool.report import report_hits, report_bigram_hits, maybe_save_hits, maybe_save_bigram_hits, ask_yes_no
 
 def format_token(token: Token) -> str:                      
     """
@@ -75,11 +75,33 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Regex pattern to search over token.yale. If omitted, search is skipped."
     )
 
+    # Optional comments
+    p.add_argument(
+        "--comment", 
+        type=str, 
+        default=None,
+        help="An optional comment field to help the user keep track of the intended purpose of a given regex search"
+        )
+    
     return p.parse_args(argv)    
 
 def cont() -> bool:
     """Ask the user whether to continue execution."""
     return ask_yes_no("Continue?")
+
+# Make a file list
+def collect_input_files(path: Path) -> list[Path]:
+    """
+    If `path` is a file: return [path]
+    If `path` is a directory: return all .txt files inside (non-recursive) sorted by name
+    """
+    if path.is_file():
+        return [path]
+    
+    if path.is_dir():
+        return sorted([p for p in path.iterdir() if p.is_file() and p.suffix ==".txt"])
+    
+    return []
 
 def main(argv: list[str] | None = None) -> None:
     """Main entry point for the quick parser inspection script."""
@@ -91,56 +113,86 @@ def main(argv: list[str] | None = None) -> None:
     path: Path = args.path
     n_tokens: int = args.n
     pattern: str | None = args.pattern
+    comment: str | None = args.comment
 
-    if not path.exists():
-        print(f"[Error] File not found: {path}")
+    files = collect_input_files(path)
+
+    if not files:
+        print(f"[Error] No input files found: {path}")
         return
     
-    # Display basic parsing information.
-    print("-" * (len(str(path))))
-    print("[INFO] Parsing:")
-    print(f"{path}")
-    
-    # Parse the file and attach Yale romanization.
-    tokens = attach_yale(parse_file(path))
+    batch_mode = (len(files) > 1)
 
-    print("[INFO] Displaying the result of `parser.parse_file`")
-    print(f"[INFO] Total tokens: {len(tokens)}")
-    print(f"[INFO] Showing first {min(n_tokens, len(tokens))} tokens:")
-    print("-" * (len(str(path))))
+    for file_path in files:
+        print("-" * 70)
+        print("[INFO] Parsing:")
+        print(f"{file_path}")
 
-    if not cont():
-        return
-    
-    print("-" * (len(str(path))))
+        tokens = attach_yale(parse_file(file_path))
 
-    # Display a token preview grouped by source_id
-    last_source_id = None
-    for token in tokens[:n_tokens]:
-        if token.source_id != last_source_id:
-            print(f"\n--- SOURCE {token.source_id} ---")
-            last_source_id = token.source_id
-        print(format_token(token))
+        # if not batch_mode:
+        #     print("[INFO] Displaying the result of `parser.parse_file`")
+        #     print(f"[INFO] Total tokens: {len(tokens)}")
+        #     print(f"[INFO] Showing first {min(n_tokens, len(tokens))} tokens:")
+        #     print("-" * 70)
 
-    print("-" * (len(str(path))))
-    print("[INFO] Go onto the regex searching tool.")
+        #     if not cont():
+        #         return
+            
+        #     print("-" * 70)
 
-    if not cont():
-        return
-    
-    print("-" * (len(str(path))))
+        #     # Display a token preview grouped by source_id
+        #     last_source_id = None
+        #     for token in tokens[:n_tokens]:
+        #         if token.source_id != last_source_id:
+        #             print(f"\n--- SOURCE {token.source_id} ---")
+        #             last_source_id = token.source_id
+        #         print(format_token(token))
 
-    if pattern is not None:
-        hits = search_tokens(tokens, pattern)
+        #     print("-" * 70)
+        #     print("[INFO] Go onto the regex searching tool.")
 
-        # Display search results
-        if " " in pattern:
-            report_bigram_hits(hits, pattern=pattern)
-        else:
-            report_hits(hits, pattern=pattern)
+        #     if not cont():
+        #         return
+            
+        #     print("-" * 70)
+        
+        # else:
+        #     print("[INFO] Displaying the result of `parser.parse_file`")
+        #     print(f"[INFO] Total tokens: {len(tokens)}")
+        #     print(f"[INFO] Showing first {min(n_tokens, len(tokens))} tokens:")
+        #     print("-" * 70)
 
-        # Optionally save the search results to a file.
-        maybe_save_hits(hits, pattern=pattern)
+        #     # Display a token preview grouped by source_id
+        #     last_source_id = None
+        #     for token in tokens[:n_tokens]:
+        #         if token.source_id != last_source_id:
+        #             print(f"\n--- SOURCE {token.source_id} ---")
+        #             last_source_id = token.source_id
+        #         print(format_token(token))
+
+        #     print("-" * 70)
+        #     print("[INFO] Go onto the regex searching tool.")
+            
+        #     print("-" * 70)
+
+        if pattern is not None:
+            hits = search_tokens(tokens, pattern)
+
+            # Display search results
+            if " " in pattern:
+                report_bigram_hits(hits, pattern=pattern, comment=comment)
+                # Optionally save the search results to a file.
+                if not batch_mode:
+                    maybe_save_bigram_hits(hits, pattern=pattern, comment=comment)
+            else:
+                report_hits(hits, pattern=pattern, comment=comment)
+                # Optionally save the search results to a file.
+                if not batch_mode:
+                    maybe_save_hits(hits, pattern=pattern, comment=comment)
+
+
+
 
 if __name__== "__main__":
     main()
