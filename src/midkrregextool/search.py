@@ -10,11 +10,13 @@ Primary entry point:
 from __future__ import annotations
 
 import re
-from typing import Iterable
+from typing import Iterable, TypeAlias
 
 from .model import Token
 
-def search_tokens(tokens: Iterable[Token], pattern: str, *, flags=0) -> list[Token] | list[tuple[Token, Token]]:
+Hits: TypeAlias = list[tuple[Token, ...]]
+
+def search_tokens(tokens: list[Token], pattern: str, flags=0) -> Hits:
     """
     Input:
 
@@ -26,7 +28,7 @@ def search_tokens(tokens: Iterable[Token], pattern: str, *, flags=0) -> list[Tok
 
     # Bigram search
     if " " in pattern:
-        hits: list[tuple[Token, Token]] = []
+        hits: Hits = []
         for i in range(len(toks) - 1):
             a, b = toks[i], toks[i + 1]
 
@@ -42,10 +44,10 @@ def search_tokens(tokens: Iterable[Token], pattern: str, *, flags=0) -> list[Tok
         return hits
     else:
         # Monogram search
-        hits: list[Token] = []
+        hits: Hits = []
         for tok in toks:
 
             if rx.search(tok.yale):
-                hits.append(tok)
+                hits.append((tok,))
 
         return hits

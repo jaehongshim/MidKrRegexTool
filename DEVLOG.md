@@ -153,3 +153,16 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 - Implement a full CLI interface (beyond `quick_check_parser.py`)
 - Reorganize argument handling and search-mode selection logic.
 - Unify monogram and bigram search APIs to improve usability (schematically: monogram functions + bigram functions -> unified functions)
+
+## 2025-12-19
+
+### What I did today
+- Started migrating `quick_check_parser.py` into the package as `cli.py`.
+- Added a minimal CLI scaffold using `argparse` (`build_parser`) and a typed argument container (`CLIArgs`).
+- Kept the existing search + report pipeline (batch accumulation and save-at-end behavior)
+- Added a contemporary Korean charcters normalization function to combine Hangul characters properly.
+
+### What to do next
+- Finish wiring `build_parser()` into `main()` and remove the legacy `parse_args()` path.
+- Clean up migration leftovers (typos, missing imports, unused preview/interactive code).
+- Add a package entry point (`__main__.py`) for `python -m midkrregextool`.
