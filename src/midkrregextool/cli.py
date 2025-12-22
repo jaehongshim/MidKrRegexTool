@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import argparse                 # To avoid positional arguments
+import sys
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path                    # is_file(), is_dir()
 
 from midkrregextool.parser import parse_file    
 from midkrregextool.model import Token
@@ -15,7 +16,7 @@ from midkrregextool.report import report_hits, maybe_save_hits, ask_yes_no
 @dataclass(frozen=True)
 class CLIArgs:
     path: Path
-    pattern: str | None
+    pattern: str
     comment: str | None
 
 def build_parser() -> argparse.ArgumentParser:
@@ -26,99 +27,51 @@ def build_parser() -> argparse.ArgumentParser:
 
     p.add_argument("--path", type=Path, help="Input file or directory.")
     p.add_argument("--pattern", type=str, default=None, help="Regex pattern to search over Yale-romanized Korean texts")
-    p.add_argumnet("--comment", type=str, default=None, help="User's comments for the performed regex search")
+    p.add_argument("--comment", type=str, default=None, help="User's comments for the performed regex search")
 
     return p
 
-def format_token(token: Token) -> str:                      
-    """
-    Return a one-line string representation of a token for quick inspection.
-    
-    Example output:
-        釋詳3:1a |   1 | MAIN | 淨飯王이 | 淨飯王이 | 淨飯王i
-    """
-    note_flag = "NOTE" if token.is_note else "MAIN"
-    return (
-        f"{token.source_id:>10} | {token.token_index:>3} | {note_flag:4} | {token.pua} | {token.unicode_form} | {token.yale}"
-        )
+def parse_cli_args(args: list[str] | None) -> CLIArgs:
 
-def parse_args(argv: list[str]) -> argparse.Namespace:
-    """Parse command-line arguments for the quick inspection script."""
-    default_path = Root / "tests" / "fixtures" / "sample_sekpo_excerpt.txt"
-    
-    p = argparse.ArgumentParser(
-        prog="quick_check_parser.py",
-        description="Inspect parsed tokens and optionally run a regex search over token.yale."
+    if args is None:
+        args = sys.argv[1:]
+
+    parser = build_parser()
+    ns = parser.parse_args(args)
+
+    # If --path argument is not provided, set the current working directory as path
+    path = ns.path if ns.path is not None else Path.cwd()
+
+    if ns.path is None:
+        print(f"[INFO] No --path provided. Running on the working directory: {path}")
+
+    if ns.pattern is None: raise SystemExit("[Error] --pattern is required.")
+
+    return CLIArgs(
+        path,
+        pattern=ns.pattern,
+        comment=ns.comment
     )
 
-    # Optional path (no positional dependency)
-    p.add_argument(
-        "--path",
-        type=Path,
-        default=default_path,
-        help="Input text file path (default: sample excerpt in tests/fixtures)."
-    )
+# Input-file-collecting function
 
-    # Optional n for preview
-    p.add_argument(
-        "--n",
-        type=int,
-        default=30,
-        help="Number of tokens to show in the preview (default: 30)"
-    )
-
-    # Optional regex pattern
-    p.add_argument(
-        "--pattern",
-        type=str,
-        default=None,
-        help="Regex pattern to search over token.yale. If omitted, search is skipped."
-    )
-
-    # Optional comments
-    p.add_argument(
-        "--comment", 
-        type=str, 
-        default=None,
-        help="An optional comment field to help the user keep track of the intended purpose of a given regex search"
-        )
-    
-    return p.parse_args(argv)    
-
-def cont() -> bool:
-    """Ask the user whether to continue execution."""
-    return ask_yes_no("Continue?")
-
-# Make a file list
 def collect_input_files(path: Path) -> list[Path]:
-    """
-    If `path` is a file: return [path]
-    If `path` is a directory: return all .txt files inside (non-recursive) sorted by name
-    """
     if path.is_file():
         return [path]
     
     if path.is_dir():
-        return sorted([p for p in path.iterdir() if p.is_file() and p.suffix ==".txt"])
+        return sorted(p for p in path.iterdir() if p.is_file() and p.suffix == ".txt")
     
     return []
 
-def main(argv: list[str] | None = None) -> None:
-    """Main entry point for the quick parser inspection script."""
-    if argv is None:
-        argv = sys.argv[1:]
+
+def run(args: CLIArgs) -> None:
     
-    args = parse_args(argv)
-
-    path: Path = args.path
-    n_tokens: int = args.n
-    pattern: str | None = args.pattern
-    comment: str | None = args.comment
-
-    files = collect_input_files(path)
-
+    # Assigning objects to arguments
+    pattern = args.pattern
+    comment = args.comment
+    files = collect_input_files(args.path)
     if not files:
-        print(f"[Error] No input files found: {path}")
         return
     
     batch_mode = (len(files) > 1)
@@ -126,81 +79,16 @@ def main(argv: list[str] | None = None) -> None:
     all_hits = []
 
     for file_path in files:
-        print("-" * 70)
-        print("[INFO] Parsing:")
-        print(f"{file_path}")
-
         tokens = attach_yale(parse_file(file_path))
 
-        # if not batch_mode:
-        #     print("[INFO] Displaying the result of `parser.parse_file`")
-        #     print(f"[INFO] Total tokens: {len(tokens)}")
-        #     print(f"[INFO] Showing first {min(n_tokens, len(tokens))} tokens:")
-        #     print("-" * 70)
+        hits = search_tokens(tokens, pattern)
 
-        #     if not cont():
-        #         return
-            
-        #     print("-" * 70)
+        report_hits(hits,pattern=pattern,comment=comment)
 
-        #     # Display a token preview grouped by source_id
-        #     last_source_id = None
-        #     for token in tokens[:n_tokens]:
-        #         if token.source_id != last_source_id:
-        #             print(f"\n--- SOURCE {token.source_id} ---")
-        #             last_source_id = token.source_id
-        #         print(format_token(token))
+        all_hits.extend(hits)
 
-        #     print("-" * 70)
-        #     print("[INFO] Go onto the regex searching tool.")
+    maybe_save_hits(all_hits, pattern=pattern, comment=comment)
 
-        #     if not cont():
-        #         return
-            
-        #     print("-" * 70)
-        
-        # else:
-        #     print("[INFO] Displaying the result of `parser.parse_file`")
-        #     print(f"[INFO] Total tokens: {len(tokens)}")
-        #     print(f"[INFO] Showing first {min(n_tokens, len(tokens))} tokens:")
-        #     print("-" * 70)
-
-        #     # Display a token preview grouped by source_id
-        #     last_source_id = None
-        #     for token in tokens[:n_tokens]:
-        #         if token.source_id != last_source_id:
-        #             print(f"\n--- SOURCE {token.source_id} ---")
-        #             last_source_id = token.source_id
-        #         print(format_token(token))
-
-        #     print("-" * 70)
-        #     print("[INFO] Go onto the regex searching tool.")
-            
-        #     print("-" * 70)
-
-        if pattern is not None:
-            hits = search_tokens(tokens, pattern)
-
-            all_hits.extend(hits)
-
-            report_hits(hits, pattern=pattern, comment=comment)
-            # Optionally save the search results to a file.
-            if not batch_mode:
-                maybe_save_hits(hits, pattern=pattern, comment=comment)
-
-    if pattern is not None and batch_mode:
-        maybe_save_hits(all_hits, pattern=pattern, comment=comment)
-
-            # # Display search results
-            # if " " in pattern:
-            #     report_bigram_hits(hits, pattern=pattern, comment=comment)
-            #     # Optionally save the search results to a file.
-            #     if not batch_mode:
-            #         maybe_save_bigram_hits(hits, pattern=pattern, comment=comment)
-            # else:
-            #     report_hits(hits, pattern=pattern, comment=comment)
-            #     # Optionally save the search results to a file.
-            #     if not batch_mode:
-            #         maybe_save_hits(hits, pattern=pattern, comment=comment)
-
-
+def main(argv: list[str] | None = None) -> None:
+    args = parse_cli_args(argv)
+    run(args)

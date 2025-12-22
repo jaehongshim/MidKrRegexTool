@@ -166,3 +166,33 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 - Finish wiring `build_parser()` into `main()` and remove the legacy `parse_args()` path.
 - Clean up migration leftovers (typos, missing imports, unused preview/interactive code).
 - Add a package entry point (`__main__.py`) for `python -m midkrregextool`.
+
+## 2025-12-22
+
+### What I did today
+- Completed the migration from the helper script (`quick_check_parser.py`) to a full package-level CLI (`cli.py`).
+- Finalized the CLI execution pipeline.
+    - argument parsing via `argparse`
+    - validation and normalization in `parse_cli_args`
+    - batch-capable execution logic in `run`
+- Added support for running the tool on the **working directory** when no `--path` argument is provided. 
+- Enforced `--pattern` as a required argument with a clear error message.
+- Verified that the tool runs correctly via the package entry point (`python -m midkrregextool`)
+- Confirmed stable behavior for:
+    - directory-based batch searches,
+    - monogram and bigram regex patterns,
+    - interactive saving of aggregated search results.
+
+### Decisions made
+- Argument validation (e.g., missing `--pattern`, default path resolution) is handled exclusively in `parse_cli_args`, keeping `run` free of input validation logic.
+- When a directory is provided (explicitly or via working directory fallback), search results are accumulated and saved once at the end.
+- the CLI now assumes that a valid regex pattern is always provided; graceful handling of missing patterns is treated as a CLI-level error, not a runtime condition.
+
+### Next tasks
+- Prepare the package for public installation via `pip`:
+    - finalize `pyproject.toml`,
+    - add console entry points if needed.
+- Revise and expand `README.md` with:
+    - installation instructions,
+    - CLI usage examples,
+    - sample outputs.
