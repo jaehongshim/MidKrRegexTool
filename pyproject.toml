@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "midkrregextool"
+version = "0.1.0"
+description = "Regex-based search tool for middle Korean texts (Hanyang PUA -> Unicode/Yale -> regex search)"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Jaehong Shim", email = "jaehongshim@uchicago.edu" }]
+
+[project.urls]
+Homepage = "https://jaehongshim.github.io"
+Repository = "https://github.com/jaehongshim/MidKrRegexTool"
+Issues = "https://github.com/jaehongshim/MidKrRegexTool/issues"
+
+[project.scripts]
+midkrregextool = "midkrregextool.cli:main"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]

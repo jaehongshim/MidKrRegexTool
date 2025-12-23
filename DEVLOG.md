@@ -196,3 +196,16 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
     - installation instructions,
     - CLI usage examples,
     - sample outputs.
+
+## 2025-12-23
+
+### What I did today
+- Added a minimal `pyproject.toml` to support standard Python packaging.
+- Enabled editable installation (`pip install -e .`) for `MidKrRegexTool`.
+- Confirmed that `python -m midkrregextool` works independently of CWD.
+- Registered a console script entry point (`midkrregextool`).
+- Finalized the `src/`-layout-compatible packaging configuration.
+
+### Notes
+- This change removes the previous reliance on `PYTHONPATH` / CWD-dependent execution.
+- The project is now ready for pip-based usage and future PyPI distribution.
