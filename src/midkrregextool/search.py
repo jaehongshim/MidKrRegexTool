@@ -47,7 +47,7 @@ def search_tokens(tokens: list[Token], pattern: str, flags=0) -> Hits:
         hits: Hits = []
         for tok in toks:
 
-            if rx.search(tok.yale):
+            if rx.search(tok.tagged_form):
                 hits.append((tok,))
 
         return hits

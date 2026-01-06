@@ -209,3 +209,49 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 ### Notes
 - This change removes the previous reliance on `PYTHONPATH` / CWD-dependent execution.
 - The project is now ready for pip-based usage and future PyPI distribution.
+
+## 2026-01-05  
+*(work carried out roughly between 2025-12-24 and 2026-01-05, committed on 2026-01-05)*
+
+### Work summary
+
+- Introduced an initial **morphological tagging layer** (`tagger.py`) on top of the existing
+  parser → Yale conversion pipeline.
+- Extended the `Token` model with a `tagged_form` field to store morphologically annotated output.
+- Implemented a **suffix-based lemma/inflection split** over Yale-romanized forms, designed as a
+  preprocessing step prior to regex-based search.
+- Added support for **externalized suffix management**:
+  - inflectional suffixes are now loaded from a separate text file (`infl_suffixes.txt`),
+    rather than being hard-coded.
+- Implemented a **corpus-driven suffix discovery mechanism**:
+  - suffix candidates are collected from tokens where inflectional parsing fails,
+  - candidate suffixes are aggregated across all input files using a global `Counter`,
+  - final proposals are generated once at the end of batch processing.
+- Integrated the suffix discovery pipeline into the CLI execution flow,
+  while keeping it clearly separated from the core search functionality.
+
+### Design notes
+
+- The suffix discovery logic is intentionally **non-destructive**:
+  automatically proposed suffixes are *not* added to the active suffix list,
+  but are instead intended for manual review and incremental refinement.
+- Inflectional parsing currently relies on suffix matching heuristics;
+  this is recognized as an intentionally incomplete baseline to be improved
+  with lemma-aware and score-based decision rules in later iterations.
+
+### Timeline / status
+
+- This work spans several incremental development sessions following the
+  stabilization of the package-level CLI (post-2025-12-23).
+- All changes related to the tagging layer and suffix proposal mechanism
+  are committed together in this update on **2026-01-05**.
+
+### Next tasks
+
+- Refine the inflectional parser to reduce false positives:
+  - move from greedy suffix matching to candidate-based scoring,
+  - incorporate lemma-level heuristics and/or lemma whitelists.
+- Improve filtering of automatically proposed suffixes
+  (e.g., minimum lemma quality, script boundaries, noise reduction).
+- Decide how tagged forms should interact with downstream regex search
+  (search over raw Yale vs. tagged representations).

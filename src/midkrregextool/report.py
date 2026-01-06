@@ -13,13 +13,13 @@ def normalize_modern_only(s: str) -> str:
 
 def format_hit(tok: Token) -> str:
     normalized_unicode = normalize_modern_only(tok.unicode_form)
-    return f"{tok.source_id} {tok.token_index} {tok.is_note} {normalized_unicode} {tok.yale}"
+    return f"{tok.source_id} {tok.token_index} {tok.is_note} {normalized_unicode} {tok.yale} {tok.tagged_form}"
     # Comment the following out if you need PUA forms.
     # return f"{tok.source_id} {tok.token_index} {tok.is_note} {tok.pua} {tok.unicode_form} {tok.yale}"
 
 def format_bigram(a: Token, b: Token) -> str:
     normalized_unicode = normalize_modern_only(a.unicode_form) + " " + normalize_modern_only(b.unicode_form)
-    return f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} {normalized_unicode} {a.yale} {b.yale}"
+    return f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} {normalized_unicode} {a.yale} {b.yale} {a.tagged_form} {b.tagged_form}"
     # Comment the following out if you need PUA forms.
     # return f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} {a.pua} {b.pua} {a.unicode_form} {b.unicode_form} {a.yale} {b.yale}"
 
