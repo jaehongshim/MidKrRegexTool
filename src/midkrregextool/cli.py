@@ -12,14 +12,20 @@ from midkrregextool.parser import parse_file
 from midkrregextool.model import Token
 from midkrregextool.yale import attach_yale
 from midkrregextool.search import search_tokens
-from midkrregextool.report import report_hits, maybe_save_hits, ask_yes_no
-from midkrregextool.tagger import tag_tokens, load_infl_suffixes, update_suffix_counter, finalize_suffix_proposals
+from midkrregextool.report import report_hits, maybe_save_hits
+from midkrregextool.tagger import tag_tokens, load_infl_suffixes, update_suffix_counter, finalize_suffix_proposals, dump_known_lemmas, display_lemma_candidates, display_suffix_candidates, load_lemma_whitelist
 
 @dataclass(frozen=True)
 class CLIArgs:
     path: Path
     pattern: str
     comment: str | None
+
+@dataclass(frozen=True)
+class DebugOptions:
+    suffix_proposals: bool = False
+    suffix_must_endwith: str | None = None
+    dump_lemma_seed: bool = False
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
@@ -77,25 +83,31 @@ def run(args: CLIArgs) -> None:
         print(f"[INFO] No .txt files found under: {args.path}")
         return
     
+    # Debug mode?
+    debug = DebugOptions(
+        suffix_proposals = False,
+        suffix_must_endwith="nila",
+        dump_lemma_seed=True
+    )
+    debug_mode = True
+
     batch_mode = (len(files) > 1)
 
     all_hits = []
+
     c = Counter()
 
-    infl_suffixes = load_infl_suffixes()
+    if debug.dump_lemma_seed:
+        lemma_counter: Counter[str] = Counter()
 
-    # if debug_suffixes:
-    #     proposals = propose_infl_suffixes(tokens, infl_suffixes)
-    #     print("[DEBUG] Proposed INFL suffixes (candidate, count):")
-    #     for suf, cnt in proposals:
-    #         print(f"    {suf}\t{cnt}")
+    infl_suffixes = load_infl_suffixes()
+    lemmas = load_lemma_whitelist()
 
     for file_path in files:
         tokens = attach_yale(parse_file(file_path))
 
-        tokens = tag_tokens(tokens, infl_suffixes, debug_suffixes = True)
+        tokens = tag_tokens(tokens, infl_suffixes, lemmas, debug_suffixes = debug.suffix_proposals)
 
-        update_suffix_counter(c, tokens, infl_suffixes, max_len = 8)
 
         hits = search_tokens(tokens, pattern)
 
@@ -103,11 +115,26 @@ def run(args: CLIArgs) -> None:
 
         all_hits.extend(hits)
 
-    all_proposals = finalize_suffix_proposals(c, infl_suffixes, min_count=10, top_k=50)
+        # Codes for debugging
 
-    print("[DEBUG] Comprehensive list of the proposed INFL suffixes (candidate, count):")
-    for suf, cnt in all_proposals:
-        print(f"\t{suf}\t{cnt}")
+        if debug_mode == True:
+
+            if debug.suffix_proposals:
+                update_suffix_counter(c, tokens, infl_suffixes, max_len = 8, suffix_must_endwith=debug.suffix_must_endwith)
+
+            if debug.dump_lemma_seed:
+                for lem, cnt in dump_known_lemmas(tokens, infl_suffixes, lemmas):
+                    lemma_counter[lem] += cnt
+
+    if debug_mode == True:
+
+        all_proposals = finalize_suffix_proposals(c, infl_suffixes, top_k=50, min_count = 1)
+
+        if debug.suffix_proposals:
+            display_suffix_candidates(all_proposals)
+
+        if debug.dump_lemma_seed:
+            display_lemma_candidates(lemma_counter)
 
     maybe_save_hits(all_hits, pattern=pattern, comment=comment)
 

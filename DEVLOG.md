@@ -255,3 +255,25 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
   (e.g., minimum lemma quality, script boundaries, noise reduction).
 - Decide how tagged forms should interact with downstream regex search
   (search over raw Yale vs. tagged representations).
+
+  ## 2026-01-06
+
+### What I did today
+- Introduced a lemma whitelist mechanism to guide morphological analysis.
+- Added `lemma_whitelist.txt` and implemented loading known lemmas as a `set`.
+- Added support for consulting a lemma whitelist during tagging.
+- Extended the analyzer to support han-aware lemma–inflection splits
+  (e.g. Chinese character + verbalizer patterns).
+- Refined lemma candidate collection by separating exploratory tools
+  (lemma/suffix proposal) from the main tagging logic.
+- Integrated lemma seed collection into the CLI as a debug-only workflow.
+
+### Design decisions
+- Lemma whitelist is introduced as an explicit external resource
+  but its matching strategy is still under active development.
+- Lemma/suffix proposal mechanisms are kept inspectable and non-automatic.
+- Core tagging logic and exploratory diagnostics are explicitly separated.
+
+### Notes
+- Some whitelist-based matching strategies were explored and temporarily
+  commented out during development; only the stable structure is recorded here.

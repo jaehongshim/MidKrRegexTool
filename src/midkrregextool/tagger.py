@@ -4,6 +4,7 @@ from __future__ import annotations
 from .model import Token
 from pathlib import Path
 from collections import Counter
+import unicodedata, re
 
 def load_infl_suffixes() -> list[str]:
     path = Path(__file__).with_name("infl_suffixes.txt")
@@ -21,18 +22,73 @@ def load_infl_suffixes() -> list[str]:
 
     return sorted(suffixes, key=len, reverse=True)
 
-def analyze_yale(yale: str, infl_suffixes: list[str]) -> str:
+def load_lemma_whitelist() -> set[str]:
+    path = Path(__file__).with_name("lemma_whitelist.txt")
+    lemmas: set[str] = set()
+
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            lemmas.add(line)
+
+    return lemmas
+
+def contains_han(s: str) -> bool:
+    for ch in s:
+        if "CJK UNIFIED IDEOGRAPH" in unicodedata.name(ch, ""):
+            return True
+    return False
+
+def analyze_yale(
+        yale: str, 
+        infl_suffixes: list[str],
+        lemmas: set[str]) -> str:
     
     if not yale:
         return ""   # guard against missing yale
     
-    # Inspect longer suffixes first
-    for suf in infl_suffixes:
-        if yale.endswith(suf):
-            lem = yale[:-len(suf)]
-            if not lem:
-                return f"{yale}/LEM"
-            return f"{lem}/LEM-{suf}/INFL"
+    has_han = contains_han(yale)
+
+    
+    
+    for lem in lemmas:
+        # Check if yale starts with existing lemma.
+        
+        # yale starts with an item in the lemma whitelist
+        if yale.startswith(lem):
+            suffix = yale[len(lem):]
+            return f"{lem}/LEM-{suffix}/INFL"
+        
+        # yale does not start with an item in the lemma whitelist
+
+            # If yale contains a Chinese character,
+        if has_han:
+            m1 = re.match(r"^(.*?ho)(.+)$",yale)
+            m2 = re.match(r"^([\u4E00-\u9FFF]+)([^\u4E00-\u9FFF]+)$",yale)
+            # If yale contains a verbalizer, CH/LEM-ho.../INFL
+            if m1:
+                lem = m1.group(1)
+                suf = m1.group(2)
+                return f"{lem}/LEM-{suf}/INFL"
+            # If yale contains any non-Chinese characters
+            if m2:
+                lem = m2.group(1)
+                suf = m2.group(2)
+                return f"{lem}/LEM-{suf}/INFL"
+
+        else:
+            # Inspect longer suffixes first
+            for suf in infl_suffixes:
+                if yale.endswith(suf):
+                    lem = yale[:-len(suf)]
+                    if not lem:
+                        return f"{yale}/LEM"
+                    if not re.search(r"[aeiou]", lem):
+                        continue
+                    else:
+                        return f"{lem}/LEM-{suf}/INFL"
 
     # If no suffix is detected, the whole yale is tagged as a lemma 
     return f"{yale}/LEM"
@@ -46,9 +102,114 @@ def split_lem_infl(yale: str, infl_suffixes: list[str]) -> tuple[str, str] | Non
         return None # guard against missing yale
     for suf in infl_suffixes:
         if yale.endswith(suf) and len(yale) > len(suf):
-            lem = yale[:-len(suf)]
-            return (lem, suf)
+            # If lem does not contain any vowels, it is not lem.
+            if not re.search(r"[aeiou]", yale[:-len(suf)]):
+                continue
+            else:
+                lem = yale[:-len(suf)]
+                return (lem, suf)
     return None
+
+def dump_known_lemmas(
+        tokens: list[Token],
+        infl_suffixes: list[str],
+        lemmas: set[str],
+        *,
+        min_count: int = 5
+) -> list[tuple[str, int]]:
+    c = Counter()
+    for t in tokens:
+        yale = t.yale
+
+        if not yale: # guard clause
+            continue
+
+        if any(yale.startswith(L) for L in lemmas):
+            continue
+
+        else:
+            
+            r = split_lem_infl(yale, infl_suffixes)
+            
+            # If any inflectional suffix is not detected, suggest yale as a potential lemma.
+            if r is None:
+                if not contains_han(yale):
+                    c[yale] += 1
+
+            else:
+            
+                # Assign the part prior to the suffix as potential lemma
+                lem, _ = r
+
+                # if any(lem.startswith(L) for L in lemmas):
+                #     continue
+
+                # Check if lem has Chinese character
+                has_han = contains_han(lem)
+
+                # If lem has any Chinese character, no need to suggest.
+                if has_han:
+                    continue
+
+                else:
+
+                    # Filter if the candidate does not have any vowel
+                    if re.search(r"[aeiou]", lem) is None:
+                        continue
+                    else:
+
+                        # If the lemma starts with a consonantal cluster, lemma must be longer than two characters. 
+                        if lem.startswith("."):
+                            if len(lem) > 2:
+                                c[lem] += 1
+
+                        elif len(lem) > 1:
+                            c[lem] += 1
+
+        
+    
+    items = [(lem, cnt) for lem, cnt in c.items() if cnt >= min_count]
+    items.sort(key=lambda x: (-x[1], x[0]))
+    return items
+
+def display_lemma_candidates(
+        counter: Counter
+) -> None:
+    lemmas = [(lem, cnt) for lem, cnt in counter.items()]
+    lemmas.sort(key=lambda x: (-x[1],x[0]))
+    print("[DEBUG] Comprehensive list of the potential lemma list (candidate, count):")
+    for (lem, cnt) in lemmas:
+        print(f"\t{lem}\t{cnt}")
+    
+    save_lemma_candidates(lemmas)
+
+def save_lemma_candidates(
+        items: list[tuple[str,int]],
+        *,
+        header: str | None = None,
+) -> None:
+    if ask_yes_no("Save lemma candidates?"):
+        out_path = Path(__file__).parent / "lemma_candidates.txt"
+        with open(out_path, "w", encoding="utf-8", newline="\n") as f:
+            for (lem, cnt) in items:
+                f.write(f"{lem}\n")
+
+        print(f"[DEBUG] Saved lemma candidates to {out_path}")
+
+def ask_yes_no(msg: str) -> bool:
+    while True:
+        ans = input(f"{msg} (y/n) ").strip().lower()                
+        # Clean up user input:
+        #   - remove extra spaces
+        #   - ignore upper/lower case differences
+
+        if ans in ("y", "yes"):
+            return True
+        if ans in ("n", "no"):
+            return False
+        
+        print("Please type 'y' or 'n'.")
+
 
 def propose_infl_suffixes(
         tokens: list[Token],
@@ -92,6 +253,7 @@ def update_suffix_counter(
         infl_suffixes: list[str],
         *,
         max_len: int = 6,
+        suffix_must_endwith: str | None = None
 ) -> None:
     for t in tokens:
         yale = t.yale
@@ -99,9 +261,18 @@ def update_suffix_counter(
             continue
         if split_lem_infl(yale, infl_suffixes) is not None:
             continue
+
         for L in range(1, min(len(yale), max_len) + 1):
             if L < len(yale):
-                counter[yale[-L:]] += 1
+                if suffix_must_endwith is not None:
+                    if len(suffix_must_endwith) >= len(yale):
+                        continue
+
+                    if yale.endswith(suffix_must_endwith) == False:
+                        continue
+                    counter[yale[-L:]] += 1
+                else:
+                    counter[yale[-L:]] += 1
 
 def finalize_suffix_proposals(
         counter: Counter,
@@ -132,7 +303,12 @@ def finalize_suffix_proposals(
     items.sort(key=lambda x: (-len(x[0]), -x[1], x[0]))
     return items[:top_k]
 
-def tag_tokens(tokens: list[Token], infl_suffixes: list[str], *, debug_suffixes: bool = False) -> list[Token]:
+def display_suffix_candidates(proposed_suffixes: list[tuple[str,int]]) -> None:
+    print("[DEBUG] Comprehensive list of the proposed INFL suffixes including (candidate, count):")
+    for (suf, cnt) in proposed_suffixes:
+        print(f"\t{suf}\t{cnt}")
+
+def tag_tokens(tokens: list[Token], infl_suffixes: list[str], lemmas: set[str], *, debug_suffixes: bool = False) -> list[Token]:
     """Enrich tokens with morphological tagging for downstream processing."""
 
     if debug_suffixes:
@@ -142,5 +318,5 @@ def tag_tokens(tokens: list[Token], infl_suffixes: list[str], *, debug_suffixes:
             print(f"    {suf}\t{cnt}")
 
     for token in tokens:
-        token.tagged_form = analyze_yale(token.yale, infl_suffixes)
+        token.tagged_form = analyze_yale(token.yale, infl_suffixes, lemmas)
     return tokens
