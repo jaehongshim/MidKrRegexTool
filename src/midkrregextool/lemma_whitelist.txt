@@ -4,6 +4,13 @@ salom
 kwot
 mozom
 hanol
+kwiskes
+kasi
+ssi
+kes
+hon
+honkaci
+wonkaci
 
 # Verbs
 ho
@@ -25,6 +32,18 @@ solW
 kyesi
 wo
 cwoc
+kolochi
+neki
+wolmaka
+cwochaka
+wolaka
+
+
+# Adjectives
+culkep
+culkew
+eculep
+eculew
 
 # Chinese characters
 衆生

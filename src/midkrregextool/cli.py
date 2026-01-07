@@ -87,7 +87,7 @@ def run(args: CLIArgs) -> None:
     debug = DebugOptions(
         suffix_proposals = False,
         suffix_must_endwith="nila",
-        dump_lemma_seed=True
+        dump_lemma_seed=False
     )
     debug_mode = True
 
@@ -102,11 +102,12 @@ def run(args: CLIArgs) -> None:
 
     infl_suffixes = load_infl_suffixes()
     lemmas = load_lemma_whitelist()
+    lemma_list = sorted(lemmas, key=len, reverse=True)
 
     for file_path in files:
         tokens = attach_yale(parse_file(file_path))
 
-        tokens = tag_tokens(tokens, infl_suffixes, lemmas, debug_suffixes = debug.suffix_proposals)
+        tokens = tag_tokens(tokens, infl_suffixes, lemma_list, debug_suffixes = debug.suffix_proposals)
 
 
         hits = search_tokens(tokens, pattern)
@@ -123,7 +124,7 @@ def run(args: CLIArgs) -> None:
                 update_suffix_counter(c, tokens, infl_suffixes, max_len = 8, suffix_must_endwith=debug.suffix_must_endwith)
 
             if debug.dump_lemma_seed:
-                for lem, cnt in dump_known_lemmas(tokens, infl_suffixes, lemmas):
+                for lem, cnt in dump_known_lemmas(tokens, infl_suffixes, lemma_list):
                     lemma_counter[lem] += cnt
 
     if debug_mode == True:

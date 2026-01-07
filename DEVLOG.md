@@ -277,3 +277,14 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 ### Notes
 - Some whitelist-based matching strategies were explored and temporarily
   commented out during development; only the stable structure is recorded here.
+
+## 2026-01-07
+
+### What I did today
+- Refactored `analyze_yale()` to make the decision order explicit (whitelist → han-aware rules → inflection suffix rules → fallback).
+- Removed unintended `/INFL` tagging when the lemma exactly matches the input.
+- Replaced unordered set-based lemma iteration with a length-sorted list to ensure deterministic and stable whitelist matching.
+- As a result, improved both correctness and runtime stability of the tagging process.
+
+### Notes
+- Set the corpus directory path as an environment variable using `setx`, allowing access via `%midkr15c%` in `cmd`.

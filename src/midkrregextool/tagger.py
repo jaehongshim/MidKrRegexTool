@@ -44,54 +44,69 @@ def contains_han(s: str) -> bool:
 def analyze_yale(
         yale: str, 
         infl_suffixes: list[str],
-        lemmas: set[str]) -> str:
+        lemmas: list[str]) -> str:
     
     if not yale:
         return ""   # guard against missing yale
     
-    has_han = contains_han(yale)
+    # Check if yale starts with an item in the whitelist.
 
-    
-    
     for lem in lemmas:
-        # Check if yale starts with existing lemma.
-        
-        # yale starts with an item in the lemma whitelist
         if yale.startswith(lem):
             suffix = yale[len(lem):]
-            return f"{lem}/LEM-{suffix}/INFL"
-        
-        # yale does not start with an item in the lemma whitelist
+            if not suffix:
+                return f"{lem}/LEM"
+            else:
+                return f"{lem}/LEM-{suffix}/INFL"
 
-            # If yale contains a Chinese character,
-        if has_han:
-            m1 = re.match(r"^(.*?ho)(.+)$",yale)
-            m2 = re.match(r"^([\u4E00-\u9FFF]+)([^\u4E00-\u9FFF]+)$",yale)
-            # If yale contains a verbalizer, CH/LEM-ho.../INFL
-            if m1:
-                lem = m1.group(1)
-                suf = m1.group(2)
-                return f"{lem}/LEM-{suf}/INFL"
-            # If yale contains any non-Chinese characters
-            if m2:
-                lem = m2.group(1)
-                suf = m2.group(2)
-                return f"{lem}/LEM-{suf}/INFL"
+    # If not, 
 
+    has_han = contains_han(yale)
+
+    # 1. check if yale contains Chinese character
+    if has_han:
+
+        # compiling regex pattern for Chinse characters
+        m1 = re.match(r"^([\u4E00-\u9FFF]+ho)(.+)$",yale)    # verb with a Sino-Korean root
+        m2 = re.match(r"^([\u4E00-\u9FFF]+)([^\u4E00-\u9FFF]+)$",yale)  # yale containing a non-Chinese character
+
+        # 1-1. If yale contains a verbalizer, CH+ho/LEM.../INFL
+        if m1:
+            lem = m1.group(1)
+            suf = m1.group(2)
+            return f"{lem}/LEM-{suf}/INFL"
+
+        # 1-2. If yale contains any non-Chinese characters, parse a boundary between CH/LEM-...
+        elif m2:
+            lem = m2.group(1)
+            suf = m2.group(2)
+            return f"{lem}/LEM-{suf}/INFL"
+
+        # 1-3. else, yale is lemma.
         else:
-            # Inspect longer suffixes first
-            for suf in infl_suffixes:
-                if yale.endswith(suf):
-                    lem = yale[:-len(suf)]
-                    if not lem:
-                        return f"{yale}/LEM"
-                    if not re.search(r"[aeiou]", lem):
-                        continue
-                    else:
-                        return f"{lem}/LEM-{suf}/INFL"
+            return f"{yale}/LEM"
 
-    # If no suffix is detected, the whole yale is tagged as a lemma 
+    
+    for suf in infl_suffixes:
+    # 2. Check if yale ends with an item in the inflection list
+
+        # Inspect longer suffixes first
+
+        if yale.endswith(suf):
+            lem = yale[:-len(suf)]
+            if not lem:
+                return f"{yale}/LEM"
+            if not re.search(r"[aeiou]", lem):
+                continue
+            else:
+                return f"{lem}/LEM-{suf}/INFL"
+        else:
+            continue
+        
+    # 3. the whole yale is lemma.
+
     return f"{yale}/LEM"
+
 
 def split_lem_infl(yale: str, infl_suffixes: list[str]) -> tuple[str, str] | None:
     """
@@ -308,7 +323,7 @@ def display_suffix_candidates(proposed_suffixes: list[tuple[str,int]]) -> None:
     for (suf, cnt) in proposed_suffixes:
         print(f"\t{suf}\t{cnt}")
 
-def tag_tokens(tokens: list[Token], infl_suffixes: list[str], lemmas: set[str], *, debug_suffixes: bool = False) -> list[Token]:
+def tag_tokens(tokens: list[Token], infl_suffixes: list[str], lemma_list: list[str], *, debug_suffixes: bool = False) -> list[Token]:
     """Enrich tokens with morphological tagging for downstream processing."""
 
     if debug_suffixes:
@@ -318,5 +333,5 @@ def tag_tokens(tokens: list[Token], infl_suffixes: list[str], lemmas: set[str], 
             print(f"    {suf}\t{cnt}")
 
     for token in tokens:
-        token.tagged_form = analyze_yale(token.yale, infl_suffixes, lemmas)
+        token.tagged_form = analyze_yale(token.yale, infl_suffixes, lemma_list)
     return tokens
