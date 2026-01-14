@@ -288,3 +288,34 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 
 ### Notes
 - Set the corpus directory path as an environment variable using `setx`, allowing access via `%midkr15c%` in `cmd`.
+
+## 2026-01-08
+
+### What I did today
+- Tested the program with practical purposes.
+- Came up with some additional features (described below)
+
+## 2026-01-13
+
+### What I did today
+- Enabled multiple searches without restarting the program, using a `while True` loop with an Enter / `q` control flow.
+- Implemented searching within existing search results by filtering the hit list from the previous search, supporting both monogram and bigram hits. 
+
+### Next step
+- Improve monogram search to correctly respect word-final boundaries.
+- Add a context display option (`--displaycontext`) to show surrounding tokens of matched items. 
+- Rename the `--comment` argument to `--purpose`, and allow adding an optional free-form comment when saving results.
+
+### Additional features to develop
+- ~~Support multiple searches without reopening the program~~
+- ~~Support searching within existing search results~~
+- Improve user experience by typing bigram regex patterns in a more intuitive way
+- Support morpheme tagging for bigrams.
+- ~~Rename the `--comment` argument to `--purpose`, and allow adding an optional comment when saving results.~~ 
+- Improve handling of tokens where a Chinese character is followed by its phonetic realization.
+- 모노그램 검색 시 단어 끝 경계가 검색에 반영되지 않는 문제 해결
+- --displycontext 인수 지원하여 단어의 주변 환경 확인 가능하게 하기
+- ~~path 인수 안 주면 current working directory에서 찾도록~~
+
+### Things to do
+- Update `README.md` and additional documents

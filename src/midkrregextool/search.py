@@ -32,7 +32,8 @@ def search_tokens(tokens: list[Token], pattern: str, flags=0) -> Hits:
         for i in range(len(toks) - 1):
             a, b = toks[i], toks[i + 1]
 
-            joined = f"{a.yale} {b.yale}"
+            joined = f"{a.tagged_form} {b.tagged_form}"
+            # print(joined)
 
             # Exclude the matching result if the two tokens differ in their is_note value.
             if a.is_note != b.is_note:

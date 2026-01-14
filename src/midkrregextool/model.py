@@ -12,7 +12,3 @@ class Token:
     is_note: str = "MAIN"
     tagged_form: Optional[str] = None
 
-class DebugOptions:
-    suffix_proposals: bool = False
-    suffix_must_endwith: str | None = None
-    dump_lemma_seed: bool = False

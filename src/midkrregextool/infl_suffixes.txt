@@ -175,3 +175,5 @@ noni.ngisko
 ni.ngiska
 te.ngita
 keniwa
+ysteni
+so.ngita

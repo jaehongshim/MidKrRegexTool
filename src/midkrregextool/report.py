@@ -25,11 +25,12 @@ def format_bigram(a: Token, b: Token) -> str:
 
 # Report on the command line
 
-def report_hits(hits: list[tuple[Token, ...]], *, pattern: str, comment: str | None = None) -> None:
+def report_hits(hits: list[tuple[Token, ...]], bigram_flag: bool = False, *, pattern: str, comment: str | None = None) -> None:
     print(f"[INFO] pattern={pattern!r} hits={len(hits)} comments={comment!r}")
     print("-" * 70)
 
-    if " " in pattern:
+    # For bigram searches
+    if bigram_flag:
         for (a,b) in hits:
             print(format_bigram(a, b))
     else:
@@ -108,19 +109,3 @@ def maybe_save_hits(hits: list[tuple[Token, ...]], *, pattern: str, comment: str
     
     write_hits(path, hits, pattern=pattern, comment=comment)
     print(f"[INFO] Saved to: {path}")
-
-# def maybe_save_bigram_hits(hits: list[tuple[Token, ...]], *, pattern: str, comment: str | None = None) -> None:
-#     if not hits:
-#         print("[INFO] No hits to save.")
-#         return
-    
-#     if not ask_yes_no("Save these results to a file?"):
-#         return
-    
-#     path = ask_output_path()
-#     if not confirm_overwrite(path):
-#         print("[INFO] Cancelled.")
-#         return
-    
-#     write_bigram_hits(path, hits, pattern=pattern, comment=comment)
-#     print(f"[INFO] Saved to: {path}")
