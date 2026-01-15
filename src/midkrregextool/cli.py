@@ -21,6 +21,7 @@ class CLIArgs:
     path: Path
     pattern: str
     comment: str | None
+    encoding: str = "utf-16"
 
 @dataclass(frozen=True)
 class DebugOptions:
@@ -37,6 +38,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--path", type=Path, help="Input file or directory.")
     p.add_argument("--pattern", type=str, default=None, help="Regex pattern to search over Yale-romanized Korean texts")
     p.add_argument("--comment", type=str, default=None, help="User's comments for the performed regex search")
+    p.add_argument("--encoding", type=str, default="utf-16", help="File encoding (default: utf-16)")
 
     return p
 
@@ -59,7 +61,8 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
     return CLIArgs(
         path,
         pattern=ns.pattern,
-        comment=ns.comment
+        comment=ns.comment,
+        encoding=ns.encoding
     )
 
 # Input-file-collecting function
@@ -79,6 +82,7 @@ def run(args: CLIArgs) -> None:
     # Assigning objects to arguments
     pattern = args.pattern
     comment = args.comment
+    encoding = args.encoding
     bigram_flag = " " in pattern
     files = collect_input_files(args.path)
     if not files:
@@ -111,7 +115,7 @@ def run(args: CLIArgs) -> None:
 
         for file_path in files:
 
-            tokens = attach_yale(parse_file(file_path))
+            tokens = attach_yale(parse_file(file_path,encoding=encoding))
 
             tokens = tag_tokens(tokens, infl_suffixes, lemma_list, debug_suffixes = debug.suffix_proposals)
 
@@ -144,7 +148,7 @@ def run(args: CLIArgs) -> None:
             all_hits = []
 
             for file_path in files:
-                tokens = attach_yale(parse_file(file_path))
+                tokens = attach_yale(parse_file(file_path,encoding=encoding))
 
                 tokens = tag_tokens(tokens, infl_suffixes, lemma_list, debug_suffixes = debug.suffix_proposals)
 

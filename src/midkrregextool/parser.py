@@ -20,7 +20,7 @@ HEAD_CLOSE_RE = re.compile(r"\[/head\]")
 ADD_OPEN_RE = re.compile(r"\[add\]")
 ADD_CLOSE_RE = re.compile(r"\[/add\]")
 
-def parse_file(path: str | Path) -> List[Token]:
+def parse_file(path: str | Path, *, encoding: str = "utf-16") -> List[Token]:
     """
     Parse a Middle Korean text file encoded in Hanyang PUA and return a list of tokens.
     
@@ -51,10 +51,14 @@ def parse_file(path: str | Path) -> List[Token]:
 
     # Open the file for reading.
 
-    try:
-        f = open(path, encoding="utf-16")
-    except UnicodeError:
-        f = open(path, encoding="utf-8")
+    f = open(path, encoding=encoding)
+
+    # Try UTF-16 first, then fall back to UTF-8
+
+    # try:
+    #     f = open(path, encoding="utf-16")
+    # except UnicodeError:
+    #     f = open(path, encoding="utf-8")
     
     with f:
         for raw_line in f:

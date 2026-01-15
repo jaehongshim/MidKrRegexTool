@@ -306,6 +306,20 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 - Add a context display option (`--displaycontext`) to show surrounding tokens of matched items. 
 - Rename the `--comment` argument to `--purpose`, and allow adding an optional free-form comment when saving results.
 
+
+## 2026-01-14
+
+### What I did today
+- Implement `--encoding` argument to support files with non-UTF-16 encodings.
+
+## 2026-01-15
+
+### What I will do today
+- Improve monogram search to correctly respect word-final boundaries.
+- Add a context display option (`--displaycontext`) to show surrounding tokens of matched items. 
+- Rename the `--comment` argument to `--purpose`, and allow adding an optional free-form comment when saving results.
+- (Important) Extend the program to process files with the `*.xml` extension.
+
 ### Additional features to develop
 - ~~Support multiple searches without reopening the program~~
 - ~~Support searching within existing search results~~
@@ -316,6 +330,8 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 - 모노그램 검색 시 단어 끝 경계가 검색에 반영되지 않는 문제 해결
 - --displycontext 인수 지원하여 단어의 주변 환경 확인 가능하게 하기
 - ~~path 인수 안 주면 current working directory에서 찾도록~~
+- 입력이 unicode일 경우 pua를 제공하도록 프로그램 확장
+- 아주 큰 문장에 태깅할 때 진행 상황 시각화 해서 보이기
 
 ### Things to do
 - Update `README.md` and additional documents

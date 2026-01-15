@@ -62,6 +62,7 @@ def pua_to_yale(text: str) -> tuple[str, str]:
     yale = unicode_to_yale_mid(uni)
     return uni, yale
 
+
 def convert_token(token: Token) -> Token:
     """
     Fill `unicode_form` and `yale` fields of a single Token in-place.
