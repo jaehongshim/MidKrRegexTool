@@ -2,6 +2,7 @@
 import re
 from pathlib import Path
 from typing import List, TextIO
+import xml.etree.ElementTree as ET
 
 from .model import Token
 
@@ -21,6 +22,9 @@ ADD_OPEN_RE = re.compile(r"\[add\]")
 ADD_CLOSE_RE = re.compile(r"\[/add\]")
 
 def parse_file(path: str | Path, *, encoding: str = "utf-16") -> List[Token]:
+    # Guard: XML inputs are collected by the CLI, but XML parsing/extraction is not implemented yet.
+    if path.suffix.lower() == ".xml":
+        return parse_xml_file(path,encoding=encoding)
     """
     Parse a Middle Korean text file encoded in Hanyang PUA and return a list of tokens.
     
@@ -168,3 +172,48 @@ def parse_file(path: str | Path, *, encoding: str = "utf-16") -> List[Token]:
                     )
 
     return tokens
+
+def parse_xml_file(path: str | Path, *, encoding: str = "utf-8") -> List[Token]:
+    """
+    Parse NIKL-style XML file where sentences are stored as <sent ...>TEXT</sent>.
+
+    We create a fresh source_id per <sent>, so token_index resets for each sentence.    
+    """
+    path = Path(path)
+    root = ET.parse(path).getroot()
+
+    tokens: list[Token] = []
+
+    # Iterate over all <sent> elements anywhere in the document.
+
+    doc_name = (root.findtext(".//title") or "").strip()
+
+    for sent in root.iterfind(".//sent"):
+        text = (sent.text or "").strip()
+        if not text:
+            continue
+
+        # Build a stable source_id from attributes if available.
+        page = sent.get("page")
+        n = sent.get("n")
+        lang = sent.get("lang")
+        stype = sent.get("type")
+
+        source_id = f"{doc_name}:{page}:{n}:{lang}"
+
+        token_index = 0
+
+        for word in text.split():
+            token_index += 1
+            tokens.append(
+                Token(
+                    source_id = source_id,
+                    token_index = token_index,
+                    pua = word,
+                    is_note = stype,
+                )
+            )
+
+    return tokens
+
+

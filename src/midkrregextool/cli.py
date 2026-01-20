@@ -72,7 +72,7 @@ def collect_input_files(path: Path) -> list[Path]:
         return [path]
     
     if path.is_dir():
-        return sorted(path.rglob("*.txt"))
+        return sorted([*path.rglob("*.txt"),*path.rglob("*.xml")])
     
     return []
 
@@ -85,8 +85,11 @@ def run(args: CLIArgs) -> None:
     encoding = args.encoding
     bigram_flag = " " in pattern
     files = collect_input_files(args.path)
+
+    # No input files found
     if not files:
-        print(f"[INFO] No .txt files found under: {args.path}")
+        print(f"[INFO] No .txt files found under: {args.path}\n")
+        print(f"[INFO] No supported files found under: {args.path} (expected: .txt, .xml)") 
         return
     
     # Debug mode?

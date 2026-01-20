@@ -312,13 +312,15 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 ### What I did today
 - Implement `--encoding` argument to support files with non-UTF-16 encodings.
 
-## 2026-01-15
+## 2026-01-19
 
-### What I will do today
+### What I did today
+- Implemented XML parsing support and integrated it into the existing parsing pipeline.
+
+### Next task
 - Improve monogram search to correctly respect word-final boundaries.
 - Add a context display option (`--displaycontext`) to show surrounding tokens of matched items. 
 - Rename the `--comment` argument to `--purpose`, and allow adding an optional free-form comment when saving results.
-- (Important) Extend the program to process files with the `*.xml` extension.
 
 ### Additional features to develop
 - ~~Support multiple searches without reopening the program~~
@@ -332,6 +334,8 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 - ~~path 인수 안 주면 current working directory에서 찾도록~~
 - 입력이 unicode일 경우 pua를 제공하도록 프로그램 확장
 - 아주 큰 문장에 태깅할 때 진행 상황 시각화 해서 보이기
+- 새로 얻은 코퍼스 구조를 고려하여 큰 변개가 필요함
+  - 구조화된 토큰: 문장 -> 문장 내 토큰
 
 ### Things to do
 - Update `README.md` and additional documents
