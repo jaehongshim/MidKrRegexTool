@@ -15,13 +15,16 @@ from midkrregextool.search import search_tokens
 from midkrregextool.report import report_hits, maybe_save_hits
 from midkrregextool.tagger import tag_tokens, load_infl_suffixes, update_suffix_counter, finalize_suffix_proposals, dump_known_lemmas, display_lemma_candidates, display_suffix_candidates, load_lemma_whitelist
 import re
+import xml.etree.ElementTree as ET
 
 @dataclass(frozen=True)
 class CLIArgs:
     path: Path
     pattern: str
-    comment: str | None
+    purpose: str | None
+    period: str | None
     encoding: str = "utf-16"
+    displaycontext: str = "n"
 
 @dataclass(frozen=True)
 class DebugOptions:
@@ -37,8 +40,10 @@ def build_parser() -> argparse.ArgumentParser:
 
     p.add_argument("--path", type=Path, help="Input file or directory.")
     p.add_argument("--pattern", type=str, default=None, help="Regex pattern to search over Yale-romanized Korean texts")
-    p.add_argument("--comment", type=str, default=None, help="User's comments for the performed regex search")
+    p.add_argument("--purpose", type=str, default=None, help="User's purposes for the performed regex search")
     p.add_argument("--encoding", type=str, default="utf-16", help="File encoding (default: utf-16)")
+    p.add_argument("--displaycontext", type=str, default = "n", help="Display context around matches (y/n), (default n)")
+    p.add_argument("--period", type=str, default=None, help="Filter by historical period")
 
     return p
 
@@ -61,30 +66,62 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
     return CLIArgs(
         path,
         pattern=ns.pattern,
-        comment=ns.comment,
-        encoding=ns.encoding
+        purpose=ns.purpose,
+        encoding=ns.encoding,
+        displaycontext=ns.displaycontext,
+        period=ns.period
     )
 
 # Input-file-collecting function
 
-def collect_input_files(path: Path) -> list[Path]:
+def collect_input_files(path: Path, period: str | None) -> list[Path]:
+
     if path.is_file():
         return [path]
     
     if path.is_dir():
-        return sorted([*path.rglob("*.txt"),*path.rglob("*.xml")])
+        # When filtering periods
+        if period is not None:
+            matched_files: list[Path] = []
+            for file in path.iterdir():
+                if file.suffix.lower() != ".txt" and file.suffix.lower() != ".xml":
+                    continue
+                if file.suffix.lower() == ".xml":
+                    root = ET.parse(file).getroot()
+                    year = (root.findtext(".//date")).strip()
+                    century = convert_to_century(year)
+                    if century == int(period):
+                        matched_files.append(file)
+                    else:
+                        continue
+            return sorted(matched_files)
+        else:
+            return sorted([*path.rglob("*.txt"),*path.rglob("*.xml")])
     
     return []
 
+def convert_to_century(year: str) -> int | None:
+    year = (year or "").strip()
+    if not year:
+        return None
+
+    digits = "".join(ch for ch in year if ch.isdigit())
+    if not digits:
+        return None
+
+    y = int(digits)
+    return (y - 1) // 100 + 1
 
 def run(args: CLIArgs) -> None:
     
     # Assigning objects to arguments
     pattern = args.pattern
-    comment = args.comment
+    purpose = args.purpose
     encoding = args.encoding
+    displaycontext = args.displaycontext
+    period = args.period
     bigram_flag = " " in pattern
-    files = collect_input_files(args.path)
+    files = collect_input_files(args.path,period)
 
     # No input files found
     if not files:
@@ -118,7 +155,7 @@ def run(args: CLIArgs) -> None:
 
         for file_path in files:
 
-            tokens = attach_yale(parse_file(file_path,encoding=encoding))
+            tokens = attach_yale(parse_file(file_path,encoding=encoding,displaycontext=displaycontext))
 
             tokens = tag_tokens(tokens, infl_suffixes, lemma_list, debug_suffixes = debug.suffix_proposals)
 
@@ -151,14 +188,18 @@ def run(args: CLIArgs) -> None:
             all_hits = []
 
             for file_path in files:
-                tokens = attach_yale(parse_file(file_path,encoding=encoding))
+                tokens = attach_yale(parse_file(file_path,encoding=encoding,displaycontext=displaycontext))
 
                 tokens = tag_tokens(tokens, infl_suffixes, lemma_list, debug_suffixes = debug.suffix_proposals)
 
 
                 hits = search_tokens(tokens, pattern)
 
-                report_hits(hits, bigram_flag, pattern=pattern,comment=comment)
+                print(f"[INFO] Searching in file: {file_path}")
+                print(f"[INFO] pattern={pattern!r} hits={len(hits)} purposes={purpose!r}")
+                print("-" * 70)
+
+                report_hits(hits, bigram_flag)
 
                 all_hits.extend(hits)
         
@@ -172,7 +213,9 @@ def run(args: CLIArgs) -> None:
                 joined = " ".join(tok.tagged_form for tok in hit)
                 if rx.search(joined):
                     all_hits.append(hit)
-            report_hits(all_hits,bigram_flag,pattern=pattern,comment=comment)
+            print(f"[INFO] Searching within previous results")
+            print(f"[INFO] pattern={pattern!r} hits={len(all_hits)} purposes={purpose!r}")
+            report_hits(all_hits,bigram_flag)
 
         # Ask if another search is to be performed
         another_search = input("Do you want to run another search? Type Enter to continue, \"q\" to exit: ").strip().lower()
@@ -197,7 +240,7 @@ def run(args: CLIArgs) -> None:
             pattern = input("Enter new regex pattern: ")
 
     # After all searches are done, ask to save the results
-    maybe_save_hits(all_hits, pattern=pattern, comment=comment)
+    maybe_save_hits(all_hits, pattern=pattern, purpose=purpose)
 
 
 

@@ -322,20 +322,35 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 - Add a context display option (`--displaycontext`) to show surrounding tokens of matched items. 
 - Rename the `--comment` argument to `--purpose`, and allow adding an optional free-form comment when saving results.
 
+## 2026-01-22
+
+### What I did today
+- Added a context display option (`--displaycontext`) to show the sentence-level context containing matched items.
+  - When `--displaycontext` is enabled, the context is displayed with the matched token highlighted using brackets (`<<...>>`).
+  - Context highlighting is implemented based on token indices, so that only the actual hit token is highlighted even when the same string appears multiple times.
+- Added a period selection option (`--period`) as a date filter for corpus files.
+  - XML files are filtered by extracting year information from `<date>` tags and converting it to centuries. 
+  - Currently, searching over more than one century is not implemented.
+- Rename the `--comment` argument to `--purpose`, allowing an optional free-form description to be attached when saving results.
+
 ### Additional features to develop
 - ~~Support multiple searches without reopening the program~~
 - ~~Support searching within existing search results~~
 - Improve user experience by typing bigram regex patterns in a more intuitive way
 - Support morpheme tagging for bigrams.
 - ~~Rename the `--comment` argument to `--purpose`, and allow adding an optional comment when saving results.~~ 
+- ~~--displycontext 인수 지원하여 단어의 주변 환경 확인 가능하게 하기~~
+- ~~path 인수 안 주면 current working directory에서 찾도록~~
 - Improve handling of tokens where a Chinese character is followed by its phonetic realization.
 - 모노그램 검색 시 단어 끝 경계가 검색에 반영되지 않는 문제 해결
-- --displycontext 인수 지원하여 단어의 주변 환경 확인 가능하게 하기
-- ~~path 인수 안 주면 current working directory에서 찾도록~~
 - 입력이 unicode일 경우 pua를 제공하도록 프로그램 확장
 - 아주 큰 문장에 태깅할 때 진행 상황 시각화 해서 보이기
-- 새로 얻은 코퍼스 구조를 고려하여 큰 변개가 필요함
+- ~~새로 얻은 코퍼스 구조를 고려하여 큰 변개가 필요함~~
   - 구조화된 토큰: 문장 -> 문장 내 토큰
+- Develop argument system for the NIKL corpora
+  - ~~--period~~
+  - --document-type
+- The bigram-searching function has to be modified to ignore the hit if the first target is the last word of the context.
 
 ### Things to do
 - Update `README.md` and additional documents

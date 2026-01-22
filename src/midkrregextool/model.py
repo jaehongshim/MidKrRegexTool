@@ -4,6 +4,7 @@ from typing import Optional
 
 @dataclass
 class Token:
+    path: str
     source_id: str
     token_index: int
     pua: str
@@ -11,4 +12,5 @@ class Token:
     yale: Optional[str] = None
     is_note: str = "MAIN"
     tagged_form: Optional[str] = None
+    context: Optional[str] = None
 

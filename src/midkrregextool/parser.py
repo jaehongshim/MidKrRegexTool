@@ -1,4 +1,5 @@
 # parser.py
+from multiprocessing import context
 import re
 from pathlib import Path
 from typing import List, TextIO
@@ -12,7 +13,7 @@ from .model import Token
 SOURCE_TAG_RE = re.compile(r"<([^>]+)>\s*") # e.g. <釋詳3:1a>
 
 # We treat [note] ... [/note] specially because we want to keep track of is_note.
-NOTE_TAG_SPLIT_RE = re.compile(r"(\[note\]|\[/note\])")
+NOTE_TAG_SPLIT_RE = re.compile(r"(\[note\]|\[/note\]|【|】)")
 
 # [head] / [add] markers: we keep their contents but remove the tags themselves.
 HEAD_OPEN_RE = re.compile(r"\[head\]")
@@ -21,10 +22,10 @@ HEAD_CLOSE_RE = re.compile(r"\[/head\]")
 ADD_OPEN_RE = re.compile(r"\[add\]")
 ADD_CLOSE_RE = re.compile(r"\[/add\]")
 
-def parse_file(path: str | Path, *, encoding: str = "utf-16") -> List[Token]:
+def parse_file(path: str | Path, *, encoding: str = "utf-16", displaycontext: str = "n") -> List[Token]:
     # Guard: XML inputs are collected by the CLI, but XML parsing/extraction is not implemented yet.
     if path.suffix.lower() == ".xml":
-        return parse_xml_file(path,encoding=encoding)
+        return parse_xml_file(path,encoding=encoding,displaycontext=displaycontext)
     """
     Parse a Middle Korean text file encoded in Hanyang PUA and return a list of tokens.
     
@@ -156,6 +157,10 @@ def parse_file(path: str | Path, *, encoding: str = "utf-16") -> List[Token]:
 
                 # This is a normal text segment (either inside or outside a note).
                 # We split it into words on whitespace.
+
+                if displaycontext.lower().strip() == "y":
+                    context = part.strip()
+
                 words = part.split() # e.g., words = ["무상천으로", "가리니"]
                 if not words: 
                     continue
@@ -168,12 +173,14 @@ def parse_file(path: str | Path, *, encoding: str = "utf-16") -> List[Token]:
                             token_index=token_index,
                             pua=w,
                             is_note=inside_note,
+                            context=context if displaycontext.lower().strip() == "y" else None
                         )
                     )
+                
 
     return tokens
 
-def parse_xml_file(path: str | Path, *, encoding: str = "utf-8") -> List[Token]:
+def parse_xml_file(path: str | Path, *, encoding: str = "utf-8", displaycontext: str = "n") -> List[Token]:
     """
     Parse NIKL-style XML file where sentences are stored as <sent ...>TEXT</sent>.
 
@@ -193,6 +200,9 @@ def parse_xml_file(path: str | Path, *, encoding: str = "utf-8") -> List[Token]:
         if not text:
             continue
 
+        if displaycontext.lower().strip() == "y":
+            context = text
+            
         # Build a stable source_id from attributes if available.
         page = sent.get("page")
         n = sent.get("n")
@@ -207,10 +217,12 @@ def parse_xml_file(path: str | Path, *, encoding: str = "utf-8") -> List[Token]:
             token_index += 1
             tokens.append(
                 Token(
+                    path = path,
                     source_id = source_id,
                     token_index = token_index,
                     pua = word,
                     is_note = stype,
+                    context = context if displaycontext.lower().strip() == "y" else None
                 )
             )
 

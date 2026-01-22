@@ -75,6 +75,8 @@ def convert_token(token: Token) -> Token:
     unicode_form, yale_form = pua_to_yale(token.pua)
     token.unicode_form = unicode_form
     token.yale = yale_form
+    if token.context is not None:
+        token.context = pua_to_unicode(token.context)
     return token
 
 def attach_yale(tokens: Iterable[Token]) -> list[Token]:
