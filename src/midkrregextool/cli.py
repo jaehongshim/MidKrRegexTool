@@ -25,6 +25,8 @@ class CLIArgs:
     period: str | None
     encoding: str = "utf-16"
     displaycontext: str = "n"
+    training_mode: bool = False
+    training_data: Path | None = None
 
 @dataclass(frozen=True)
 class DebugOptions:
@@ -44,6 +46,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--encoding", type=str, default="utf-16", help="File encoding (default: utf-16)")
     p.add_argument("--displaycontext", type=str, default = "n", help="Display context around matches (y/n), (default n)")
     p.add_argument("--period", type=str, default=None, help="Filter by historical period")
+    p.add_argument ("--training-mode", type=bool, default=False, help="Enable training mode for suffix proposal generation")
+    p.add_argument ("--training-data", type=Path, default=None, help="Path to training data for suffix proposal generation")
 
     return p
 
@@ -69,7 +73,9 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
         purpose=ns.purpose,
         encoding=ns.encoding,
         displaycontext=ns.displaycontext,
-        period=ns.period
+        period=ns.period,
+        training_mode=ns.training_mode,
+        training_data=ns.training_data
     )
 
 # Input-file-collecting function
@@ -130,6 +136,12 @@ def run(args: CLIArgs) -> None:
     period = args.period
     bigram_flag = " " in pattern
     files = collect_input_files(args.path,period)
+    training_mode = args.training_mode
+    training_data = args.training_data
+
+    # Training mode is on
+    if training_mode:
+        print(f"[INFO] Training mode is ON.")
 
     # No input files found
     if not files:
@@ -141,9 +153,9 @@ def run(args: CLIArgs) -> None:
     debug = DebugOptions(
         suffix_proposals = False,
         suffix_must_endwith="nila",
-        dump_lemma_seed=True
+        dump_lemma_seed=False
     )
-    debug_mode = True
+    debug_mode = False
 
     batch_mode = (len(files) > 1)
 
