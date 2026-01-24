@@ -7,12 +7,14 @@ import xml.etree.ElementTree as ET
 
 from .model import Token
 
+
 # Source marker at the *beginning* of a line, e.g.: 
 # <釋詳3:1a> [head] ...
 # We capture the content inside angle brackets and allow optional whitespace after it:
 SOURCE_TAG_RE = re.compile(r"<([^>]+)>\s*") # e.g. <釋詳3:1a>
 
 # We treat [note] ... [/note] specially because we want to keep track of is_note.
+NOTE_TAGS = {"[note]", "[/note]"}
 NOTE_TAG_SPLIT_RE = re.compile(r"(\[note\]|\[/note\]|【|】)")
 
 # [head] / [add] markers: we keep their contents but remove the tags themselves.
@@ -26,6 +28,9 @@ def parse_file(path: str | Path, *, encoding: str = "utf-16", displaycontext: st
     # Guard: XML inputs are collected by the CLI, but XML parsing/extraction is not implemented yet.
     if path.suffix.lower() == ".xml":
         return parse_xml_file(path,encoding=encoding,displaycontext=displaycontext)
+    
+    # Flag for displaying context
+    want_ctx = (displaycontext.strip().lower() == "y")
     """
     Parse a Middle Korean text file encoded in Hanyang PUA and return a list of tokens.
     
@@ -82,8 +87,7 @@ def parse_file(path: str | Path, *, encoding: str = "utf-16", displaycontext: st
                 # Update the current source context
                 current_source_id = m.group(1) # the strings wrapped with ()
 
-                # Reset token numbering within this source section.
-                token_index = 0
+                
 
                 # Remove the source tag prefix from the line and continue
                 # processing the remainder as normal text.
@@ -137,13 +141,22 @@ def parse_file(path: str | Path, *, encoding: str = "utf-16", displaycontext: st
                 " 몯 미처"
                 ]
             '''
+
+            context = None
+
+            if want_ctx:
+                context = " ".join(p for p in parts if p and p not in NOTE_TAGS)
             
             inside_note = "MAIN"    # The beginning is always the main body text, so set the flag as "MAIN" 
 
             for part in parts:
+                
+                # Reset token numbering within this part section.
+
                 if not part: 
                     continue # Skip the remaining processes and go on to the next cycle.
 
+                token_index = 0
 
                 if part == "[note]":
                     # Enter note mode: subsequent tokens will have is_note=True.
@@ -158,8 +171,7 @@ def parse_file(path: str | Path, *, encoding: str = "utf-16", displaycontext: st
                 # This is a normal text segment (either inside or outside a note).
                 # We split it into words on whitespace.
 
-                if displaycontext.lower().strip() == "y":
-                    context = part.strip()
+            
 
                 words = part.split() # e.g., words = ["무상천으로", "가리니"]
                 if not words: 
@@ -169,11 +181,12 @@ def parse_file(path: str | Path, *, encoding: str = "utf-16", displaycontext: st
                     token_index += 1
                     tokens.append(
                         Token(
+                            path=path,
                             source_id=current_source_id,
                             token_index=token_index,
                             pua=w,
                             is_note=inside_note,
-                            context=context if displaycontext.lower().strip() == "y" else None
+                            context=context
                         )
                     )
                 

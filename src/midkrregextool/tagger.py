@@ -130,7 +130,8 @@ def dump_known_lemmas(
         infl_suffixes: list[str],
         lemmas: set[str],
         *,
-        min_count: int = 5
+        min_count: int = 5,
+        top_k: int | None = None
 ) -> list[tuple[str, int]]:
     c = Counter()
     for t in tokens:
@@ -185,6 +186,8 @@ def dump_known_lemmas(
     
     items = [(lem, cnt) for lem, cnt in c.items() if cnt >= min_count]
     items.sort(key=lambda x: (-x[1], x[0]))
+    if top_k is not None:
+        items = items[:top_k]
     return items
 
 def display_lemma_candidates(

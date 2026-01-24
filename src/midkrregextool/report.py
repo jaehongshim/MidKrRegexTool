@@ -93,9 +93,9 @@ def confirm_overwrite(path: Path) -> bool:
     return ask_yes_no(f"[WARN] '{path}' already exists. Overwrite?")
 
 # Save the results file.
-def write_hits(path: Path, hits: list[tuple[Token, ...]], *, pattern: str, comment: str | None = None) -> None:
+def write_hits(path: Path, hits: list[tuple[Token, ...]], *, pattern: str, purpose: str | None = None, note: str | None = None) -> None:
     with open(path, "w", encoding=DEFAULT_OUTPUT_ENCODING, newline="\n") as f:
-        f.write(f"# pattern={pattern!r} hits={len(hits)} comment={comment!r}\n")
+        f.write(f"# pattern={pattern!r} hits={len(hits)} purpose={purpose!r} note={note!r}\n")
         if " " in pattern:
             for a, b in hits:
                 f.write(format_bigram(a,b) + "\n")
@@ -109,7 +109,7 @@ def write_hits(path: Path, hits: list[tuple[Token, ...]], *, pattern: str, comme
 #         for a, b in hits:
 #             f.write(format_bigram(a,b) + "\n")
 
-def maybe_save_hits(hits: list[tuple[Token, ...]], *, pattern: str, comment: str | None = None) -> None:
+def maybe_save_hits(hits: list[tuple[Token, ...]], *, pattern: str, purpose: str | None = None) -> None:
     if not hits:
         print("[INFO] No hits to save.")
         return
@@ -122,5 +122,7 @@ def maybe_save_hits(hits: list[tuple[Token, ...]], *, pattern: str, comment: str
         print("[INFO] Cancelled.")
         return
     
-    write_hits(path, hits, pattern=pattern, comment=comment)
+    note = input("Enter note for the current search (or press Enter to skip): ").strip()
+    
+    write_hits(path, hits, pattern=pattern, purpose=purpose, note=note)
     print(f"[INFO] Saved to: {path}")

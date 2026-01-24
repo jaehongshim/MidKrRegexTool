@@ -333,18 +333,26 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
   - Currently, searching over more than one century is not implemented.
 - Rename the `--comment` argument to `--purpose`, allowing an optional free-form description to be attached when saving results.
 
+## 2026-01-23
+
+### What I did today
+- Reassigned the `token_index` to be scoped to the part-level loop rather than the line-level loop in `parse_file` (`parser.py`) to ensure correct context display for matched items in TXT files.
+- Updated the saving workflow so that results can be saved without terminating the search session.
+- Added support for optional notes/comments for each search round.
+
+
 ### Additional features to develop
-- ~~Support multiple searches without reopening the program~~
-- ~~Support searching within existing search results~~
 - Improve user experience by typing bigram regex patterns in a more intuitive way
 - Support morpheme tagging for bigrams.
-- ~~Rename the `--comment` argument to `--purpose`, and allow adding an optional comment when saving results.~~ 
-- ~~--displycontext 인수 지원하여 단어의 주변 환경 확인 가능하게 하기~~
-- ~~path 인수 안 주면 current working directory에서 찾도록~~
 - Improve handling of tokens where a Chinese character is followed by its phonetic realization.
 - 모노그램 검색 시 단어 끝 경계가 검색에 반영되지 않는 문제 해결
 - 입력이 unicode일 경우 pua를 제공하도록 프로그램 확장
 - 아주 큰 문장에 태깅할 때 진행 상황 시각화 해서 보이기
+- ~~Support multiple searches without reopening the program~~
+- ~~Support searching within existing search results~~
+- ~~Rename the `--comment` argument to `--purpose`, and allow adding an optional comment when saving results.~~ 
+- ~~--displycontext 인수 지원하여 단어의 주변 환경 확인 가능하게 하기~~
+- ~~path 인수 안 주면 current working directory에서 찾도록~~
 - ~~새로 얻은 코퍼스 구조를 고려하여 큰 변개가 필요함~~
   - 구조화된 토큰: 문장 -> 문장 내 토큰
 - Develop argument system for the NIKL corpora

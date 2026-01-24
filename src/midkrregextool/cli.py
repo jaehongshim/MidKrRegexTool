@@ -80,17 +80,18 @@ def collect_input_files(path: Path, period: str | None) -> list[Path]:
         return [path]
     
     if path.is_dir():
-        # When filtering periods
+        # When filtering by periods
         if period is not None:
+            period_in_century = convert_to_century(period) # Guard clause
             matched_files: list[Path] = []
             for file in path.iterdir():
                 if file.suffix.lower() != ".txt" and file.suffix.lower() != ".xml":
                     continue
                 if file.suffix.lower() == ".xml":
                     root = ET.parse(file).getroot()
-                    year = (root.findtext(".//date")).strip()
-                    century = convert_to_century(year)
-                    if century == int(period):
+                    published_year = (root.findtext(".//date")).strip()
+                    published_century = convert_to_century(published_year)
+                    if published_century == period_in_century:
                         matched_files.append(file)
                     else:
                         continue
@@ -110,7 +111,14 @@ def convert_to_century(year: str) -> int | None:
         return None
 
     y = int(digits)
-    return (y - 1) // 100 + 1
+
+    # If the input is in the century format already
+    if y < 20:
+        return y
+    
+    # If the input is in the year format
+    else:
+        return (y - 1) // 100 + 1
 
 def run(args: CLIArgs) -> None:
     
@@ -133,9 +141,9 @@ def run(args: CLIArgs) -> None:
     debug = DebugOptions(
         suffix_proposals = False,
         suffix_must_endwith="nila",
-        dump_lemma_seed=False
+        dump_lemma_seed=True
     )
-    debug_mode = False
+    debug_mode = True
 
     batch_mode = (len(files) > 1)
 
@@ -163,7 +171,7 @@ def run(args: CLIArgs) -> None:
                 update_suffix_counter(c, tokens, infl_suffixes, max_len = 8, suffix_must_endwith=debug.suffix_must_endwith)
 
             if debug.dump_lemma_seed:
-                for lem, cnt in dump_known_lemmas(tokens, infl_suffixes, lemma_list):
+                for lem, cnt in dump_known_lemmas(tokens, infl_suffixes, lemma_list, top_k=50):
                     lemma_counter[lem] += cnt
 
         all_proposals = finalize_suffix_proposals(c, infl_suffixes, top_k=50, min_count = 1)
@@ -231,15 +239,24 @@ def run(args: CLIArgs) -> None:
         # Continue condition
         elif another_search == "":
 
+            # Save before proceeding to the next search?
+            save_before_next = input("Do you want to save the current results before the next search? Type \"y\" if you want, otherwise press any keys: ").strip().lower()
+
+            if save_before_next == "y":
+                maybe_save_hits(all_hits, pattern=pattern, purpose=purpose)
+
             # Ask if within-previous-results search is desired
             within_result_search = input("Do you want to search within the previous results? Type \"y\" or \"n\": ").strip().lower()
 
             # Guard for valid input
             if within_result_search not in ("y","n"):
                 within_result_search = input("Please type 'y' or 'n': ").strip().lower()
-            pattern = input("Enter new regex pattern: ")
+            pattern = input("Enter new regex pattern: ").strip("\"")
+            purpose = input("Enter purpose for the new search (or press Enter if you wish to maintain the purpose of the previous search): ").strip()
+
 
     # After all searches are done, ask to save the results
+
     maybe_save_hits(all_hits, pattern=pattern, purpose=purpose)
 
 

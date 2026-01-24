@@ -11,6 +11,26 @@ kes
 hon
 honkaci
 wonkaci
+pwuthye
+cyencho
+.ptut
+pwulhwi
+cap
+wuh
+nala
+swulwi
+acapanim
+kuwi
+.pskuy
+nahi
+nilkwup
+syelhuntwul
+hoy
+susung
+
+
+
+
 
 # Verbs
 ho
@@ -45,6 +65,16 @@ piky
 piki
 kyesy
 kyencwu
+syangnyey
+mek
+casi
+phye
+culki
+moyhwo
+salWw
+salp
+
+
 
 
 
@@ -53,6 +83,16 @@ culkep
 culkew
 eculep
 eculew
+khu
+mwoton
+
+
+# Adverbs
+mwot
+pilwok
+meli
+
+
 
 # Chinese characters
 衆生
