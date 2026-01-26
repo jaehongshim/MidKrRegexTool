@@ -338,3 +338,69 @@ def tag_tokens(tokens: list[Token], infl_suffixes: list[str], lemma_list: list[s
     for token in tokens:
         token.tagged_form = analyze_yale(token.yale, infl_suffixes, lemma_list)
     return tokens
+
+def candidate_generator(token: Token, rules: list[str]) -> list[str]:
+    # Placeholder for candidate generation logic based on rules.
+    candidates = ["a", "b", "c"]  # Dummy candidates
+    return candidates
+
+def format_candidate(token: Token, candidates: list[str]) -> None:
+    print(f"[Training] {token.source_id} [{token.path}]\n\t[Token]\t\t{token.unicode_form}\n\t[CONTEXT]\t{token.context}")
+    # Display candidates
+    for i, cand in enumerate(candidates, start=1):
+        if i == 1:
+            print(f"\t[CANDIDATES]\t{i}. {cand}")
+        else:
+            print(f"\t\t\t{i}. {cand}")
+
+
+def train(tokens: list[Token], rules: list[str], period: int, training_data: Path | None) -> None:
+
+    period_tag = f"{period}c"
+
+    print(f"[INFO] Training mode is ON.")
+
+    if not period:
+        raise ValueError("Period must be specified in training mode.")
+
+    # Locate or create training data file
+
+    if training_data is not None:
+        out_dir = training_data
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_path = out_dir / f"training_{period_tag}.jsonl"
+    else:
+        out_path = Path.cwd() / f"training_{period_tag}.jsonl"
+
+    with open(out_path, "a", encoding="utf-8") as f:
+
+        for token in tokens:
+            
+            candidates = candidate_generator(token, rules)
+
+            if not candidates:
+                continue
+
+            format_candidate(token, candidates)
+
+            ans = input(
+                f"[Training] What is the optimal candidate for {token.unicode_form}?\n"
+                f"(1-{len(candidates)} to select / s=skip / q=quit) > "
+            ).strip().lower()
+
+            if ans == "q":
+                print(f"[INFO] Quit. Saved to {out_path}")
+                break
+
+            elif ans == "s":
+                continue
+
+            if ans.isdigit():
+                idx = int(ans) - 1
+                if 0 <= idx < len(candidates):
+                    gold = candidates[idx]
+                    f.write(
+                        f'{{"period":"{period_tag}","token":"{token.unicode_form}","gold":"{gold}"}}\n'
+                    )
+                    f.flush()
+    print(f"[INFO] Training data saved to {out_path}")

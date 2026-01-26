@@ -5,5 +5,8 @@ __pycache__/
 # Packaging artifacts
 *.egg-info/
 
+# Training data (manual annotation)
+training_*.jsonl
+
 # Local result files
 results.txt

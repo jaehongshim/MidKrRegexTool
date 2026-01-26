@@ -15,6 +15,7 @@ from __future__ import annotations  # Prevent type errors
 from typing import Iterable
 
 from .model import Token
+import unicodedata
 
 try:
     import YaleKorean   # type: ignore[import]
@@ -23,6 +24,10 @@ except ImportError:     # pragma: no cover
 
 class YaleKoreanNotInstalledError(ImportError):
     """Raised when the YaleKorean package is required but not installed."""
+
+# Formatting how to report the result either on the command line or in a separate file.
+def normalize_modern_only(s: str) -> str:
+    return unicodedata.normalize("NFC", s)
 
 def _require_yalekorean() -> None:
     """Ensure that the external YaleKorean package is available."""
@@ -73,10 +78,10 @@ def convert_token(token: Token) -> Token:
         token.yale: Yale Romanization of the Unicode form
     """
     unicode_form, yale_form = pua_to_yale(token.pua)
-    token.unicode_form = unicode_form
+    token.unicode_form = normalize_modern_only(unicode_form)
     token.yale = yale_form
     if token.context is not None:
-        token.context = pua_to_unicode(token.context)
+        token.context = normalize_modern_only(pua_to_unicode(token.context))
     return token
 
 def attach_yale(tokens: Iterable[Token]) -> list[Token]:

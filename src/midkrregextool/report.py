@@ -3,40 +3,32 @@
 from __future__ import annotations      # Interpret type hints later
 from .model import Token
 from pathlib import Path
-import unicodedata
+
 
 DEFAULT_OUTPUT_ENCODING = "utf-16"
 
-# Formatting how to report the result either on the command line or in a separate file.
-def normalize_modern_only(s: str) -> str:
-    return unicodedata.normalize("NFC", s)
+
 
 def format_hit(tok: Token) -> str:
-    normalized_unicode = normalize_modern_only(tok.unicode_form)
-    # Comment the following out if you need PUA forms.
-    # return f"{tok.source_id} {tok.token_index} {tok.is_note} {tok.pua} {tok.unicode_form} {tok.yale}"
     if tok.context is not None:
-        context = normalize_modern_only(tok.context)
         # Highlighting the matched part in the context by enclosing it in <<...>>
-        contextwords = context.split()
+        contextwords = tok.context.split()
         contextwords[tok.token_index-1] = f"<<{contextwords[tok.token_index-1]}>>"
         context = " ".join(contextwords)
-        return f"{tok.source_id} {tok.token_index} {tok.is_note} [{tok.path}]\n\t[TOKEN]\t\t{normalized_unicode}\n\t[TAGGED-FORM]\t{tok.tagged_form} \n\t[CONTEXT]\t{context}"
+        return f"{tok.source_id} {tok.token_index} {tok.is_note} [{tok.path}]\n\t[TOKEN]\t\t{tok.unicode_form}\n\t[TAGGED-FORM]\t{tok.tagged_form} \n\t[CONTEXT]\t{context}"
     else:
-        return f"{tok.source_id} {tok.token_index} {tok.is_note} [{tok.path}]\n\t[TOKEN]\t\t{normalized_unicode}\n\t[TAGGED-FORM]\t{tok.tagged_form}"
+        return f"{tok.source_id} {tok.token_index} {tok.is_note} [{tok.path}]\n\t[TOKEN]\t\t{tok.unicode_form}\n\t[TAGGED-FORM]\t{tok.tagged_form}"
 
 def format_bigram(a: Token, b: Token) -> str:
-    normalized_unicode = normalize_modern_only(a.unicode_form) + " " + normalize_modern_only(b.unicode_form)
     if a.context is not None:
-        context = normalize_modern_only(a.context)
         # Highlighting the matched part in the context by enclosing it in <<...>>
-        contextwords = context.split()
+        contextwords = a.context.split()
         contextwords[a.token_index-1] = f"<<{contextwords[a.token_index-1]}"
         contextwords[b.token_index-1] = f"{contextwords[b.token_index-1]}>>"
         context = " ".join(contextwords)
-        return f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} [{a.path}] \n\t[TOKEN]\t\t{normalized_unicode}\n\t[TAGGED-FORM]\t{a.tagged_form} {b.tagged_form} \n\t[CONTEXT]\t{context}"
+        return f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} [{a.path}] \n\t[TOKEN]\t\t{a.unicode_form} {b.unicode_form}\n\t[TAGGED-FORM]\t{a.tagged_form} {b.tagged_form} \n\t[CONTEXT]\t{context}"
     else:
-        return f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} [{a.path}]\n\t[TOKEN]\t\t{normalized_unicode}\n\t[TAGGED-FORM]\t{a.tagged_form} {b.tagged_form}"
+        return f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} [{a.path}]\n\t[TOKEN]\t\t{a.unicode_form} {b.unicode_form}\n\t[TAGGED-FORM]\t{a.tagged_form} {b.tagged_form}"
     # Comment the following out if you need PUA forms.
     # return f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} {a.pua} {b.pua} {a.unicode_form} {b.unicode_form} {a.yale} {b.yale}"
 

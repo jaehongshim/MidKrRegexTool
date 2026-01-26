@@ -13,7 +13,7 @@ from midkrregextool.model import Token
 from midkrregextool.yale import attach_yale
 from midkrregextool.search import search_tokens
 from midkrregextool.report import report_hits, maybe_save_hits
-from midkrregextool.tagger import tag_tokens, load_infl_suffixes, update_suffix_counter, finalize_suffix_proposals, dump_known_lemmas, display_lemma_candidates, display_suffix_candidates, load_lemma_whitelist
+from midkrregextool.tagger import tag_tokens, load_infl_suffixes, update_suffix_counter, finalize_suffix_proposals, dump_known_lemmas, display_lemma_candidates, display_suffix_candidates, load_lemma_whitelist, train
 import re
 import xml.etree.ElementTree as ET
 
@@ -80,7 +80,7 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
 
 # Input-file-collecting function
 
-def collect_input_files(path: Path, period: str | None) -> list[Path]:
+def collect_input_files(path: Path, period: int | None) -> list[Path]:
 
     if path.is_file():
         return [path]
@@ -88,7 +88,6 @@ def collect_input_files(path: Path, period: str | None) -> list[Path]:
     if path.is_dir():
         # When filtering by periods
         if period is not None:
-            period_in_century = convert_to_century(period) # Guard clause
             matched_files: list[Path] = []
             for file in path.iterdir():
                 if file.suffix.lower() != ".txt" and file.suffix.lower() != ".xml":
@@ -97,7 +96,7 @@ def collect_input_files(path: Path, period: str | None) -> list[Path]:
                     root = ET.parse(file).getroot()
                     published_year = (root.findtext(".//date")).strip()
                     published_century = convert_to_century(published_year)
-                    if published_century == period_in_century:
+                    if published_century == period:
                         matched_files.append(file)
                     else:
                         continue
@@ -126,6 +125,7 @@ def convert_to_century(year: str) -> int | None:
     else:
         return (y - 1) // 100 + 1
 
+
 def run(args: CLIArgs) -> None:
     
     # Assigning objects to arguments
@@ -133,15 +133,12 @@ def run(args: CLIArgs) -> None:
     purpose = args.purpose
     encoding = args.encoding
     displaycontext = args.displaycontext
-    period = args.period
+    period = convert_to_century(args.period)
     bigram_flag = " " in pattern
     files = collect_input_files(args.path,period)
     training_mode = args.training_mode
     training_data = args.training_data
 
-    # Training mode is on
-    if training_mode:
-        print(f"[INFO] Training mode is ON.")
 
     # No input files found
     if not files:
@@ -196,9 +193,39 @@ def run(args: CLIArgs) -> None:
     
     # Search loop
 
-    within_result_search = "n"
+    VALID = [15, 16, 17, 18, 19, 20] # Valid centuries for period filtering
 
+    within_result_search = "n"
+        
     while True:
+
+        if training_mode:
+            # Ensure period filtering is set
+            if period is not None:
+                change = input(f"[INFO] Current period = {period}. Change period? (y/n) > ").strip().lower()
+                if change == "y":
+                    period = None
+
+            # Reask period if not set
+            if period is None:
+                raw = input("[INFO] Training mode requires period filtering. Enter 15-20: ").strip()
+                period = convert_to_century(raw)
+
+                while period not in VALID:
+                    raw = input("[ERROR] Please enter a valid period (e.g., 15 for 15th century): ").strip()
+                    period = convert_to_century(raw)
+
+
+            # Collect input files again in case period filter is changed
+
+            
+            rules = ["dummy_rule_1","dummy_rule_2"]  # Placeholder for actual rules
+
+        # Recollect input files in case period filter is changed
+        files = collect_input_files(args.path, period)
+
+        if not files:
+            print(f"[INFO] No supported files found for period={period}.")
 
         # Initial search or non-within-previous-results search
         if within_result_search == "n":
@@ -206,12 +233,13 @@ def run(args: CLIArgs) -> None:
             bigram_flag = " " in pattern
 
             all_hits = []
+            if training_mode:
+                all_tokens = []
 
             for file_path in files:
                 tokens = attach_yale(parse_file(file_path,encoding=encoding,displaycontext=displaycontext))
 
                 tokens = tag_tokens(tokens, infl_suffixes, lemma_list, debug_suffixes = debug.suffix_proposals)
-
 
                 hits = search_tokens(tokens, pattern)
 
@@ -222,11 +250,19 @@ def run(args: CLIArgs) -> None:
                 report_hits(hits, bigram_flag)
 
                 all_hits.extend(hits)
+                
+                if training_mode:
+                    all_tokens.extend(tokens)
         
+            # Training mode is on
+            if training_mode:
+                train(all_tokens, rules, period, training_data)
+
         # Search within previous results
         elif within_result_search == "y":
             original_hits = all_hits
             all_hits = []
+
             rx = re.compile(pattern)
 
             for hit in original_hits:
@@ -236,6 +272,7 @@ def run(args: CLIArgs) -> None:
             print(f"[INFO] Searching within previous results")
             print(f"[INFO] pattern={pattern!r} hits={len(all_hits)} purposes={purpose!r}")
             report_hits(all_hits,bigram_flag)
+
 
         # Ask if another search is to be performed
         another_search = input("Do you want to run another search? Type Enter to continue, \"q\" to exit: ").strip().lower()
@@ -264,7 +301,9 @@ def run(args: CLIArgs) -> None:
             if within_result_search not in ("y","n"):
                 within_result_search = input("Please type 'y' or 'n': ").strip().lower()
             pattern = input("Enter new regex pattern: ").strip("\"")
-            purpose = input("Enter purpose for the new search (or press Enter if you wish to maintain the purpose of the previous search): ").strip()
+            new_purpose = input("Enter purpose for the new search (or press Enter if you wish to maintain the purpose of the previous search): ").strip()
+            if new_purpose:
+                purpose = new_purpose
 
 
     # After all searches are done, ask to save the results

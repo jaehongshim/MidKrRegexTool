@@ -340,6 +340,29 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 - Updated the saving workflow so that results can be saved without terminating the search session.
 - Added support for optional notes/comments for each search round.
 
+## 2026-01-24
+
+### What I did today
+- **Started developing an automatic tagging function**
+  - Initiated `feature/label-mode` branch
+
+## 2026-01-25
+
+### What I did today
+- Introduced an interactive training pipeline for manual morphological annotation.
+  - Implemented a `train()` function that presents candidate analyses per token and records gold selections in a JSONL file.
+  - Training data are now saved separately by period (e.g., `training_15c.jsonl`) to prevent cross-period contamination.
+- Refactored CLI logic to support training-mode interaction across multiple search rounds.
+  - Period filtering is enforced in training mode and can be updated between rounds.
+  - Tokens from all target files are aggregated before training to support batch annotation.
+- Standardized period handling by normalizing user input to integer centuries internally and tagging outputs with a canonical `{period}c` format.
+- Added scaffolding for a rule-based candidate generation framework.
+  - `candidate_generator()` is currently a placeholder and will be extended to generate LEM/INFL split candidates based on suffix rules.
+
+### Notes
+- At this stage, lemma lists are intentionally not used in candidate generation to prioritize recall.
+- Lemma-based filtering or weighting will be introduced in a later iteration once INFL segmentation is stabilized.
+
 
 ### Additional features to develop
 - Improve user experience by typing bigram regex patterns in a more intuitive way
