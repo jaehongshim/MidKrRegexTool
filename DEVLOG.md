@@ -363,6 +363,25 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 - At this stage, lemma lists are intentionally not used in candidate generation to prioritize recall.
 - Lemma-based filtering or weighting will be introduced in a later iteration once INFL segmentation is stabilized.
 
+## 2026-01-26
+
+### What I did today
+- Improved `parse_xml_file` to detect the volume information in a given file and incorporate it into `doc_name`.
+
+## 2026-01-27
+
+### What I did today
+- Included the published year of a given source to `source_id` for XML files.
+- Implemented an interactive training pipeline for morphological tagging.
+  - Added a `train()` routine that presents candidate analyses and records gold labels.
+  - Introduced period-specific training data files (e.g. `training_15c.jsonl`).
+- Initiated `candidate_generator()` and connected it to the training loop.
+- Added support for reusing previously trained data:
+  - Loaded gold analyses from existing training files.
+  - Extended candidate rules with learned INFL suffixes.
+- Created a dedicated `data/training` under the root repo to manage training corpora.
+- Randomized the order of tokens during training to avoid biased data accumulation.
+
 
 ### Additional features to develop
 - Improve user experience by typing bigram regex patterns in a more intuitive way

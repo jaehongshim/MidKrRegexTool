@@ -85,26 +85,34 @@ def collect_input_files(path: Path, period: int | None) -> list[Path]:
     if path.is_file():
         return [path]
     
-    if path.is_dir():
-        # When filtering by periods
-        if period is not None:
-            matched_files: list[Path] = []
-            for file in path.iterdir():
-                if file.suffix.lower() != ".txt" and file.suffix.lower() != ".xml":
-                    continue
-                if file.suffix.lower() == ".xml":
-                    root = ET.parse(file).getroot()
-                    published_year = (root.findtext(".//date")).strip()
-                    published_century = convert_to_century(published_year)
-                    if published_century == period:
-                        matched_files.append(file)
-                    else:
-                        continue
-            return sorted(matched_files)
-        else:
-            return sorted([*path.rglob("*.txt"),*path.rglob("*.xml")])
+    matched_files: list[Path] = []
+
+    if period is None:
+        return sorted([*path.rglob("*.txt"), *path.rglob("*.xml")])
     
-    return []
+    # period filtering: XML metadata(date) needed
+    for file in path.rglob("*.xml"):
+        try:
+            root = ET.parse(file).getroot()
+        except ET.ParseError as e:
+            print(f"[ERROR] Malformed XML file skipped:")
+            print(f"        file = {file}")
+            print(f"        error = {e}")
+            continue
+
+        published_year = (root.findtext(".//teiHeader//titleStmt//date") or root.findtext(".//date")).strip()
+        published_year = (published_year or "").strip()
+
+        if not published_year:
+            print("[WARN] No <date> found; skipped:")
+            print(f"       file = {file}")
+            continue
+
+        published_century = convert_to_century(published_year)
+        if published_century == period:
+            matched_files.append(file)
+
+    return sorted(matched_files)
 
 def convert_to_century(year: str) -> int | None:
     year = (year or "").strip()
@@ -243,6 +251,12 @@ def run(args: CLIArgs) -> None:
 
                 hits = search_tokens(tokens, pattern)
 
+                # If there is no hit in the current file, skip it.
+
+                if len(hits) == 0:
+                    all_tokens.extend(tokens) if training_mode else None
+                    continue
+
                 print(f"[INFO] Searching in file: {file_path}")
                 print(f"[INFO] pattern={pattern!r} hits={len(hits)} purposes={purpose!r}")
                 print("-" * 70)
@@ -255,7 +269,9 @@ def run(args: CLIArgs) -> None:
                     all_tokens.extend(tokens)
         
             # Training mode is on
+
             if training_mode:
+                rules = load_infl_suffixes()
                 train(all_tokens, rules, period, training_data)
 
         # Search within previous results

@@ -208,6 +208,24 @@ def parse_xml_file(path: str | Path, *, encoding: str = "utf-8", displaycontext:
 
     doc_name = (root.findtext(".//title") or "").strip()
 
+    published_year = (root.findtext(".//teiHeader//titleStmt//date") or root.findtext(".//date")).strip()
+    published_year = (published_year or "").strip()
+
+    # Extract volume information if available.
+    volume_el = root.find(".//teiHeader//titleStmt//volume")
+    volume = volume_el.get("n") if volume_el is not None else None
+    if published_year:
+        if volume:
+            doc_name = f"{published_year}_{doc_name}{volume}"
+        else:
+            doc_name = f"{published_year}_{doc_name}"
+
+    if not published_year:
+        if volume:
+            doc_name = f"unknown_{doc_name}{volume}"
+        else:
+            doc_name = f"unknown_{doc_name}"
+
     for sent in root.iterfind(".//sent"):
         text = (sent.text or "").strip()
         if not text:
@@ -228,6 +246,10 @@ def parse_xml_file(path: str | Path, *, encoding: str = "utf-8", displaycontext:
 
         for word in text.split():
             token_index += 1
+            if displaycontext.lower().strip() == "y":
+                contextwords = context.split()
+                contextwords[token_index-1] = f"<<{contextwords[token_index-1]}>>"
+                current_context = " ".join(contextwords)
             tokens.append(
                 Token(
                     path = path,
@@ -235,7 +257,7 @@ def parse_xml_file(path: str | Path, *, encoding: str = "utf-8", displaycontext:
                     token_index = token_index,
                     pua = word,
                     is_note = stype,
-                    context = context if displaycontext.lower().strip() == "y" else None
+                    context = current_context if displaycontext.lower().strip() == "y" else None
                 )
             )
 

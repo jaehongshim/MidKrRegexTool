@@ -5,6 +5,7 @@ from .model import Token
 from pathlib import Path
 from collections import Counter
 import unicodedata, re
+import json, random
 
 def load_infl_suffixes() -> list[str]:
     path = Path(__file__).with_name("infl_suffixes.txt")
@@ -340,8 +341,24 @@ def tag_tokens(tokens: list[Token], infl_suffixes: list[str], lemma_list: list[s
     return tokens
 
 def candidate_generator(token: Token, rules: list[str]) -> list[str]:
-    # Placeholder for candidate generation logic based on rules.
-    candidates = ["a", "b", "c"]  # Dummy candidates
+    yale = (token.yale or "").strip()
+    if not yale:
+        return []
+    
+    infl_suffixes = sorted(rules, key=len, reverse=True)
+
+    candidates: list[str] = []
+
+    for suf in infl_suffixes:
+        if yale.endswith(suf):
+            stem = yale[:-len(suf)]
+            stem = stem.rstrip("-")
+
+            if not stem:
+                continue
+
+            candidates.append(f"{stem}/LEM-{suf}/INFL")
+
     return candidates
 
 def format_candidate(token: Token, candidates: list[str]) -> None:
@@ -353,6 +370,61 @@ def format_candidate(token: Token, candidates: list[str]) -> None:
         else:
             print(f"\t\t\t{i}. {cand}")
 
+def default_training_dir() -> Path:
+    repo_root = Path(__file__).resolve().parents[2]
+    return repo_root / "data" / "training"
+
+def load_token_gold(training_path: Path) -> dict[str, str]:
+    token_gold: dict[str, str] = {}
+
+    if not training_path.exists():
+        return token_gold
+    
+    with open(training_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            token = obj.get("token")
+            gold = obj.get("gold")
+            if token and gold:
+                token_gold[token] = gold
+
+    return token_gold
+
+def extract_infl_from_gold(gold: str) -> str | None:
+    if "/LEM-" not in gold or "/INFL" not in gold:
+        return None
+    return gold.split("/LEM-", 1)[1].split("/INFL", 1)[0]
+
+def load_learned_infl_suffixes(training_path: Path) -> None:
+    infls = set()
+
+    with open(training_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+
+            obj = json.loads(line)
+            gold = obj.get("gold")
+
+            if not isinstance(gold, str) or gold == "None":
+                continue
+
+            infl = extract_infl_from_gold(gold)
+            if infl:
+                infls.add(infl)
+
+    result = sorted(infls, key=len, reverse=True)
+    return result
+
+# debug_collect_infls(Path("data/training/training_15c.jsonl"))
 
 def train(tokens: list[Token], rules: list[str], period: int, training_data: Path | None) -> None:
 
@@ -363,44 +435,94 @@ def train(tokens: list[Token], rules: list[str], period: int, training_data: Pat
     if not period:
         raise ValueError("Period must be specified in training mode.")
 
+
     # Locate or create training data file
 
-    if training_data is not None:
-        out_dir = training_data
-        out_dir.mkdir(parents=True, exist_ok=True)
-        out_path = out_dir / f"training_{period_tag}.jsonl"
-    else:
-        out_path = Path.cwd() / f"training_{period_tag}.jsonl"
+    out_dir = training_data if training_data is not None else default_training_dir()
+    out_dir.mkdir(parents=True, exist_ok=True)
+    out_path = out_dir / f"training_{period_tag}.jsonl"
+
+    # Load token gold list
+    token_gold = load_token_gold(out_path)
+
+    learned_infl = load_learned_infl_suffixes(out_path)
+    rules = sorted(set(rules) | set(learned_infl), key=len, reverse=True)
+    print(f"[INFO] rules extended by learned infl: {learned_infl}")
 
     with open(out_path, "a", encoding="utf-8") as f:
 
+        quit_training = False
+
+        random.shuffle(tokens)
+
         for token in tokens:
-            
+
+            if token.unicode_form in token_gold:
+                continue
+
             candidates = candidate_generator(token, rules)
 
             if not candidates:
                 continue
 
+            if token.unicode_form in token_gold:
+                gold = token_gold[token.unicode_form]
+                if gold in candidates:
+                    candidates = [gold] + [c for c in candidates if c != gold]
+
+
             format_candidate(token, candidates)
 
-            ans = input(
-                f"[Training] What is the optimal candidate for {token.unicode_form}?\n"
-                f"(1-{len(candidates)} to select / s=skip / q=quit) > "
-            ).strip().lower()
+            while True:
 
-            if ans == "q":
-                print(f"[INFO] Quit. Saved to {out_path}")
+                raw_ans = input(
+                    f"[Training] What is the optimal candidate for {token.unicode_form}?\n"
+                    f"(1-{len(candidates)} to select / s=skip / m=manual input / q=quit) > "
+                ).strip()
+                ans = raw_ans.lower()
+
+                if ans == "q":
+                    quit_training = True
+                    return
+
+                if ans == "s":
+                    break
+
+                gold = None
+
+                if ans == "m":
+                    gold = input("Please type your desired tagged form: ").strip()
+                    if not gold:
+                        print("[Training] Empty manual input. Skipping.")
+                        continue
+
+                elif ans.isdigit():
+                    idx = int(ans) - 1
+                    if 0 <= idx < len(candidates):
+                        gold = candidates[idx]
+                    else:
+                        print("[Training] Out of range. Skipping.")
+                        continue
+
+                elif ("/lem" in ans) or ("/infl" in ans):
+                    gold = raw_ans
+
+                else:
+                    print("[ERROR] Invalid input.")
+                    continue
+
+
+                f.write(
+                    f'{{"period":"{period_tag}","token":"{token.unicode_form}","gold":"{gold}"}}\n'
+                )
+                f.flush()
+
+                token_gold[token.unicode_form] = gold
+                
+                break
+            
+            if quit_training:
                 break
 
-            elif ans == "s":
-                continue
-
-            if ans.isdigit():
-                idx = int(ans) - 1
-                if 0 <= idx < len(candidates):
-                    gold = candidates[idx]
-                    f.write(
-                        f'{{"period":"{period_tag}","token":"{token.unicode_form}","gold":"{gold}"}}\n'
-                    )
-                    f.flush()
     print(f"[INFO] Training data saved to {out_path}")
+

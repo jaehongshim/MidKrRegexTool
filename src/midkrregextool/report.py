@@ -12,21 +12,21 @@ DEFAULT_OUTPUT_ENCODING = "utf-16"
 def format_hit(tok: Token) -> str:
     if tok.context is not None:
         # Highlighting the matched part in the context by enclosing it in <<...>>
-        contextwords = tok.context.split()
-        contextwords[tok.token_index-1] = f"<<{contextwords[tok.token_index-1]}>>"
-        context = " ".join(contextwords)
-        return f"{tok.source_id} {tok.token_index} {tok.is_note} [{tok.path}]\n\t[TOKEN]\t\t{tok.unicode_form}\n\t[TAGGED-FORM]\t{tok.tagged_form} \n\t[CONTEXT]\t{context}"
+        # contextwords = tok.context.split()
+        # contextwords[tok.token_index-1] = f"<<{contextwords[tok.token_index-1]}>>"
+        # context = " ".join(contextwords)
+        return f"{tok.source_id} {tok.token_index} {tok.is_note} [{tok.path}]\n\t[TOKEN]\t\t{tok.unicode_form}\n\t[TAGGED-FORM]\t{tok.tagged_form} \n\t[CONTEXT]\t{tok.context}"
     else:
         return f"{tok.source_id} {tok.token_index} {tok.is_note} [{tok.path}]\n\t[TOKEN]\t\t{tok.unicode_form}\n\t[TAGGED-FORM]\t{tok.tagged_form}"
 
 def format_bigram(a: Token, b: Token) -> str:
     if a.context is not None:
         # Highlighting the matched part in the context by enclosing it in <<...>>
-        contextwords = a.context.split()
-        contextwords[a.token_index-1] = f"<<{contextwords[a.token_index-1]}"
-        contextwords[b.token_index-1] = f"{contextwords[b.token_index-1]}>>"
-        context = " ".join(contextwords)
-        return f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} [{a.path}] \n\t[TOKEN]\t\t{a.unicode_form} {b.unicode_form}\n\t[TAGGED-FORM]\t{a.tagged_form} {b.tagged_form} \n\t[CONTEXT]\t{context}"
+        # contextwords = a.context.split()
+        # contextwords[a.token_index-1] = f"<<{contextwords[a.token_index-1]}"
+        # contextwords[b.token_index-1] = f"{contextwords[b.token_index-1]}>>"
+        # context = " ".join(contextwords)
+        return f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} [{a.path}] \n\t[TOKEN]\t\t{a.unicode_form} {b.unicode_form}\n\t[TAGGED-FORM]\t{a.tagged_form} {b.tagged_form} \n\t[CONTEXT]\t{a.context}"
     else:
         return f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} [{a.path}]\n\t[TOKEN]\t\t{a.unicode_form} {b.unicode_form}\n\t[TAGGED-FORM]\t{a.tagged_form} {b.tagged_form}"
     # Comment the following out if you need PUA forms.
