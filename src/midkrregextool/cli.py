@@ -13,14 +13,14 @@ from midkrregextool.model import Token
 from midkrregextool.yale import attach_yale
 from midkrregextool.search import search_tokens
 from midkrregextool.report import report_hits, maybe_save_hits
-from midkrregextool.tagger import tag_tokens, load_infl_suffixes, update_suffix_counter, finalize_suffix_proposals, dump_known_lemmas, display_lemma_candidates, display_suffix_candidates, load_lemma_whitelist, train
+from midkrregextool.tagger import tag_tokens, load_infl_suffixes, update_suffix_counter, finalize_suffix_proposals, dump_known_lemmas, display_lemma_candidates, display_suffix_candidates, load_lemma_whitelist, train, load_learned_infl_suffixes
 import re
 import xml.etree.ElementTree as ET
 
 @dataclass(frozen=True)
 class CLIArgs:
     path: Path
-    pattern: str
+    pattern: str | None
     purpose: str | None
     period: str | None
     encoding: str = "utf-16"
@@ -46,7 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--encoding", type=str, default="utf-16", help="File encoding (default: utf-16)")
     p.add_argument("--displaycontext", type=str, default = "n", help="Display context around matches (y/n), (default n)")
     p.add_argument("--period", type=str, default=None, help="Filter by historical period")
-    p.add_argument ("--training-mode", type=bool, default=False, help="Enable training mode for suffix proposal generation")
+    p.add_argument ("--training-mode", action="store_true", help="Enable training mode (interactive labeling)")
     p.add_argument ("--training-data", type=Path, default=None, help="Path to training data for suffix proposal generation")
 
     return p
@@ -65,7 +65,14 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
     if ns.path is None:
         print(f"[INFO] No --path provided. Running on the working directory: {path}")
 
-    if ns.pattern is None: raise SystemExit("[Error] --pattern is required.")
+    # if ns.training-mode is None:
+    # if ns.pattern is None: raise SystemExit("[Error] --pattern is required.")
+
+    training_mode = ns.training_mode
+    pattern = ns.pattern
+
+    if (not training_mode) and (pattern is None):
+        raise SystemExit("[Error] --pattern is required unless -training-mode is set.")
 
     return CLIArgs(
         path,
@@ -132,25 +139,88 @@ def convert_to_century(year: str) -> int | None:
     # If the input is in the year format
     else:
         return (y - 1) // 100 + 1
-
-
-def run(args: CLIArgs) -> None:
     
+def build_rules(*, training_data: Path | None, period: int | None) -> list[str]:
+    rules = load_infl_suffixes() # base rules
+
+    if training_data is not None and period is not None:
+        learned = load_learned_infl_suffixes(training_data, period)
+        rules = sorted(set(rules) | set(learned), key=len, reverse=True)
+
+    return rules
+    
+def run_train(args: CLIArgs) -> None:
+
+    # Training-only mode
+
+    # Assigning objects to the arguments
+    encoding = args.encoding
+    period = convert_to_century(args.period)
+    displaycontext = "y"
+    training_data = args.training_data
+
+    VALID = [15, 16, 17, 18, 19, 20] # Valid centuries for period filtering
+    
+    # Guard clause: training mode requires an explicit period argument
+
+    while period is None:
+        raw = input("[INFO] Training mode requires period filtering. Enter 15-20: ").strip()
+        period = convert_to_century(raw)
+
+        while period not in VALID:
+            raw = input("[ERROR] Please enter a valid period (e.g., 15 for 15th century): ").strip()
+            period = convert_to_century(raw)
+
+    files = collect_input_files(args.path, period)
+
+    # Period argument has been provided and validated. 
+    
+    # Guard clause: no files to train on -> exit early
+    if not files:
+        print(f"[INFO] No supported files found for period={period}c")
+        print(f"[INFO] Training aborted.")
+        return
+    
+    # Import the existing rules
+    rules = build_rules(training_data=training_data, period=period)
+    lemma_list = load_lemma_whitelist()
+
+    # Collect tokens.
+    all_tokens = []
+
+    # Load 
+
+    for file_path in files:
+
+        tokens = attach_yale(parse_file(file_path, encoding=encoding, displaycontext=displaycontext))
+
+        tokens = tag_tokens(tokens, rules, lemma_list)
+
+        all_tokens.extend(tokens)
+
+    train(all_tokens, rules, period=period, training_data=training_data)
+
+    return
+
+def run_search(args: CLIArgs) -> None:
+
+    # search mode
+
     # Assigning objects to arguments
     pattern = args.pattern
     purpose = args.purpose
     encoding = args.encoding
     displaycontext = args.displaycontext
     period = convert_to_century(args.period)
-    bigram_flag = " " in pattern
+    bigram_flag = (pattern is not None) and (" " in pattern)
     files = collect_input_files(args.path,period)
     training_mode = args.training_mode
     training_data = args.training_data
 
+    VALID = [15, 16, 17, 18, 19, 20]
 
     # No input files found
     if not files:
-        print(f"[INFO] No .txt files found under: {args.path}\n")
         print(f"[INFO] No supported files found under: {args.path} (expected: .txt, .xml)") 
         return
     
@@ -161,8 +231,6 @@ def run(args: CLIArgs) -> None:
         dump_lemma_seed=False
     )
     debug_mode = False
-
-    batch_mode = (len(files) > 1)
 
 
     c = Counter()
@@ -198,12 +266,15 @@ def run(args: CLIArgs) -> None:
 
         if debug.dump_lemma_seed:
             display_lemma_candidates(lemma_counter)
-    
+
     # Search loop
 
-    VALID = [15, 16, 17, 18, 19, 20] # Valid centuries for period filtering
-
     within_result_search = "n"
+
+    # Guard clause: pattern is required for search mode.
+
+    if pattern is None:
+        raise SystemExit("[ERROR] --pattern is required for search mode.")
         
     while True:
 
@@ -226,14 +297,12 @@ def run(args: CLIArgs) -> None:
 
             # Collect input files again in case period filter is changed
 
-            
-            rules = ["dummy_rule_1","dummy_rule_2"]  # Placeholder for actual rules
-
         # Recollect input files in case period filter is changed
         files = collect_input_files(args.path, period)
 
         if not files:
             print(f"[INFO] No supported files found for period={period}.")
+            continue
 
         # Initial search or non-within-previous-results search
         if within_result_search == "n":
@@ -326,8 +395,19 @@ def run(args: CLIArgs) -> None:
 
     maybe_save_hits(all_hits, pattern=pattern, purpose=purpose)
 
+def run(args: CLIArgs) -> None:
 
+    # Training mode
 
+    if args.training_mode and args.pattern is None:
+        run_train(args)
+        return
+    
+    # Search mode
+    if args.pattern is None:
+        raise SystemExit("[ERROR] --pattern is required for search mode.")
+    run_search(args)
+    
 def main(argv: list[str] | None = None) -> None:
     args = parse_cli_args(argv)
     run(args)

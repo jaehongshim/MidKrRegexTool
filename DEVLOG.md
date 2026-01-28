@@ -381,26 +381,11 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
   - Extended candidate rules with learned INFL suffixes.
 - Created a dedicated `data/training` under the root repo to manage training corpora.
 - Randomized the order of tokens during training to avoid biased data accumulation.
-
-
-### Additional features to develop
-- Improve user experience by typing bigram regex patterns in a more intuitive way
-- Support morpheme tagging for bigrams.
-- Improve handling of tokens where a Chinese character is followed by its phonetic realization.
-- 모노그램 검색 시 단어 끝 경계가 검색에 반영되지 않는 문제 해결
-- 입력이 unicode일 경우 pua를 제공하도록 프로그램 확장
-- 아주 큰 문장에 태깅할 때 진행 상황 시각화 해서 보이기
-- ~~Support multiple searches without reopening the program~~
-- ~~Support searching within existing search results~~
-- ~~Rename the `--comment` argument to `--purpose`, and allow adding an optional comment when saving results.~~ 
-- ~~--displycontext 인수 지원하여 단어의 주변 환경 확인 가능하게 하기~~
-- ~~path 인수 안 주면 current working directory에서 찾도록~~
-- ~~새로 얻은 코퍼스 구조를 고려하여 큰 변개가 필요함~~
-  - 구조화된 토큰: 문장 -> 문장 내 토큰
-- Develop argument system for the NIKL corpora
-  - ~~--period~~
-  - --document-type
-- The bigram-searching function has to be modified to ignore the hit if the first target is the last word of the context.
-
-### Things to do
-- Update `README.md` and additional documents
+- Implemented a training-only mode when a `--pattern` argument is not provided. 
+- Refactored the CLI control flow to separate search logic from the main dispatcher.
+  - Added `run_search()` and moved the interactive search loop into it.
+  - Simplified `run()` to act as a lightweight mode dispatcher (`run_train` vs. `run_search`).
+- Fixed boolean flag parsing for training mode by switching `--training-mode` to `action="store_true"`.
+- Added a `build_rules()` helper to construct tagging rules by merging base INFL suffixes with learned suffixes from training data (when `--training-data` and `--period` are provided).
+- Tightened CLI validation so that `--pattern` is required unless `--training-mode` is enabled.
+- Expanded `collect_input_files()` to include `.txt` files even when no period filter is given, while keeping XML-only period filtering based on `<date>` metadata.

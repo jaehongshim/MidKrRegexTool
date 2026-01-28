@@ -445,10 +445,6 @@ def train(tokens: list[Token], rules: list[str], period: int, training_data: Pat
     # Load token gold list
     token_gold = load_token_gold(out_path)
 
-    learned_infl = load_learned_infl_suffixes(out_path)
-    rules = sorted(set(rules) | set(learned_infl), key=len, reverse=True)
-    print(f"[INFO] rules extended by learned infl: {learned_infl}")
-
     with open(out_path, "a", encoding="utf-8") as f:
 
         quit_training = False
