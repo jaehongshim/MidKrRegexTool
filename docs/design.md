@@ -3,6 +3,8 @@
 This document summarizes the core architecture of the tool.  
 Low-level implementation details are documented inside the code and in `DEVLOG.md`.
 
+The design of this tool prioritizes explicit execution modes and minimal control logic. Guard clauses and validations are introduced only when required by concrete usage, rather than as speculative defensive measures.
+
 ---
 
 ## 1. Processing Pipeline
@@ -12,7 +14,7 @@ Low-level implementation details are documented inside the code and in `DEVLOG.m
 - The repository does **not** contain corpus files.
 - The command-line interface will accept:
   - a single text file, or  
-  - a folder containing multiple `.txt` files.
+  - a folder containing multiple `.txt` or `.xml` files.
 
 ---
 

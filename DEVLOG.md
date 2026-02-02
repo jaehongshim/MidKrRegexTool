@@ -389,3 +389,25 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 - Added a `build_rules()` helper to construct tagging rules by merging base INFL suffixes with learned suffixes from training data (when `--training-data` and `--period` are provided).
 - Tightened CLI validation so that `--pattern` is required unless `--training-mode` is enabled.
 - Expanded `collect_input_files()` to include `.txt` files even when no period filter is given, while keeping XML-only period filtering based on `<date>` metadata.
+
+## 2026-01-31
+
+### What I did today
+- Implemented `--sort` argument to control the ordering of input files.
+- Added support for period-based sorting (`--sort published_year`) for XML files using metadata dates.
+
+## 2026-02-01
+
+### What I did today
+- Added a dedicated candidate-mining mode to the CLI
+  - Introduced `--candidate-mining {lemma, suffix}` as a first-class execution mode.
+  - Implemented `run_candidate_mining()` as a top-level CLI workflow, replacing the former debug-only logic.
+  - Candidate-mining now runs independently from search and training.
+- Reorganized CLI execution logic around three explicit modes
+  - Search mode: requires `--pattern`
+  - Training mode: allows running without `--pattern`
+  - Candidate-mining mode: allows running without `--pattern` (with `pattern` optionally reused as a suffix anchor).
+  - Updated `parse_cli_args()` accordingly so that `--pattern` is required *only* in search mode.
+- Removed legacy debug scaffolding and consolidated it into a reusable workflow
+- Stabilized the candidate-mining execution path
+- Extablished a clear roadmap for further refactoring

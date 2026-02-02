@@ -84,16 +84,30 @@ def confirm_overwrite(path: Path) -> bool:
         return True
     return ask_yes_no(f"[WARN] '{path}' already exists. Overwrite?")
 
+def format_monogram_results(tok: Token) -> str:
+    if tok.context is not None:
+        return f"{tok.path}\t{tok.source_id} {tok.token_index} {tok.is_note}\t{tok.unicode_form}\t{tok.tagged_form}\t{tok.context}"
+    else:
+        return f"{tok.path}\t{tok.source_id} {tok.token_index} {tok.is_note}\t{tok.unicode_form}\t{tok.tagged_form}\t\t"
+
+def format_bigram_results(a: Token, b: Token) -> str:
+    if a.context is not None:
+        return f"{a.path}\t{a.source_id} {a.token_index}-{b.token_index} {a.is_note}\t{a.unicode_form} {b.unicode_form}\t{a.tagged_form} {b.tagged_form}\t{a.context}"
+    else:
+        return f"{a.path}\t{a.source_id} {a.token_index}-{b.token_index} {a.is_note}\t{a.unicode_form} {b.unicode_form}\t{a.tagged_form} {b.tagged_form}\t\t"
+    # Comment the following out if you need PUA forms.
+    # return f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} {a.pua} {b.pua} {a.unicode_form} {b.unicode_form} {a.yale} {b.yale}"
+
 # Save the results file.
 def write_hits(path: Path, hits: list[tuple[Token, ...]], *, pattern: str, purpose: str | None = None, note: str | None = None) -> None:
     with open(path, "w", encoding=DEFAULT_OUTPUT_ENCODING, newline="\n") as f:
-        f.write(f"# pattern={pattern!r} hits={len(hits)} purpose={purpose!r} note={note!r}\n")
+        f.write(f"FILE_PATH\tSOURCE\tTOKEN\tTAGGED-FORM\tCONTEXT\t# pattern={pattern!r} hits={len(hits)} purpose={purpose!r} note={note!r}\n")
         if " " in pattern:
             for a, b in hits:
-                f.write(format_bigram(a,b) + "\n")
+                f.write(format_bigram_results(a,b) + "\n")
         else:
             for (tok,) in hits:
-                f.write(format_hit(tok) + "\n")
+                f.write(format_monogram_results(tok) + "\n")
 
 # def write_bigram_hits(path: Path, hits: list[tuple[Token, ...]], *, pattern: str, comment: str | None = None) -> None:
 #     with open(path, "w", encoding=DEFAULT_OUTPUT_ENCODING, newline="\n") as f:

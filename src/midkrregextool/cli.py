@@ -6,15 +6,14 @@ import argparse                 # To avoid positional arguments
 import sys
 from dataclasses import dataclass
 from pathlib import Path                    # is_file(), is_dir()
-from collections import Counter
 
 from midkrregextool.parser import parse_file    
-from midkrregextool.model import Token
 from midkrregextool.yale import attach_yale
 from midkrregextool.search import search_tokens
 from midkrregextool.report import report_hits, maybe_save_hits
-from midkrregextool.tagger import tag_tokens, load_infl_suffixes, update_suffix_counter, finalize_suffix_proposals, dump_known_lemmas, display_lemma_candidates, display_suffix_candidates, load_lemma_whitelist, train, load_learned_infl_suffixes
+from midkrregextool.tagger import tag_tokens, load_infl_suffixes, load_lemma_whitelist, train, load_learned_infl_suffixes, update_suffix_counter, dump_known_lemmas, finalize_suffix_proposals, display_lemma_candidates, display_suffix_candidates
 import re
+from collections import Counter
 import xml.etree.ElementTree as ET
 
 @dataclass(frozen=True)
@@ -23,16 +22,12 @@ class CLIArgs:
     pattern: str | None
     purpose: str | None
     period: str | None
+    sort: str | None
     encoding: str = "utf-16"
     displaycontext: str = "n"
     training_mode: bool = False
+    candidate_mining: str | None = None
     training_data: Path | None = None
-
-@dataclass(frozen=True)
-class DebugOptions:
-    suffix_proposals: bool = False
-    suffix_must_endwith: str | None = None
-    dump_lemma_seed: bool = False
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
@@ -47,7 +42,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--displaycontext", type=str, default = "n", help="Display context around matches (y/n), (default n)")
     p.add_argument("--period", type=str, default=None, help="Filter by historical period")
     p.add_argument ("--training-mode", action="store_true", help="Enable training mode (interactive labeling)")
-    p.add_argument ("--training-data", type=Path, default=None, help="Path to training data for suffix proposal generation")
+    p.add_argument("--training-data", type=Path, default=None, help="Path to training data for suffix proposal generation")
+    p.add_argument("--candidate-mining", type=str, default = None, choices=["lemma", "suffix"], help="Enable candidate mining mode")
+    p.add_argument("--sort", type=str, default=None, choices=["published_year"], help="XML files only; sort by published year string")
 
     return p
 
@@ -69,11 +66,36 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
     # if ns.pattern is None: raise SystemExit("[Error] --pattern is required.")
 
     training_mode = ns.training_mode
+    candidate_mining = ns.candidate_mining
     pattern = ns.pattern
 
-    if (not training_mode) and (pattern is None):
-        raise SystemExit("[Error] --pattern is required unless -training-mode is set.")
+    # Search mode requires --pattern
+    if (not training_mode) and (not candidate_mining):
+        if pattern is None:
+            raise SystemExit("[Error] --pattern is required unless --training-mode or --candidate-mining is set.")
+    
+    # Guard clause for missing --training-data
 
+    training_data: Path | None = None
+    
+    if ns.training_data is not None:
+        training_data = Path(ns.training_data)
+
+        if not training_data.is_absolute():
+            repo_root = Path(__file__).resolve().parents[2]
+            training_data = (repo_root / training_data).resolve()
+        else:
+            training_data = training_data.resolve()
+
+    # Guard: training data requires explicit period
+    if ns.training_data is not None and ns.period is None:
+        raise SystemExit("[Error] --training-data requires --period.")
+    
+    # Guard clause for invalid options for --candidate-mining
+
+    if ns.candidate_mining is not None and ns.candidate_mining not in ("lemma", "suffix"):
+        raise SystemExit("[ERROR] Invalid options for --candidate-mining. Please use \"lemma\" or \"suffix\"")
+    
     return CLIArgs(
         path,
         pattern=ns.pattern,
@@ -81,23 +103,28 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
         encoding=ns.encoding,
         displaycontext=ns.displaycontext,
         period=ns.period,
+        sort=ns.sort,
         training_mode=ns.training_mode,
-        training_data=ns.training_data
+        training_data=training_data,
+        candidate_mining = ns.candidate_mining
     )
 
 # Input-file-collecting function
 
-def collect_input_files(path: Path, period: int | None) -> list[Path]:
+def collect_input_files(path: Path, period: int | None, *, sort: str | None = None) -> list[Path]:
 
     if path.is_file():
         return [path]
     
-    matched_files: list[Path] = []
-
     if period is None:
         return sorted([*path.rglob("*.txt"), *path.rglob("*.xml")])
+
+    matched_files: list[Path] = []
     
+    sorting_key: dict[Path, str] = {}
+
     # period filtering: XML metadata(date) needed
+
     for file in path.rglob("*.xml"):
         try:
             root = ET.parse(file).getroot()
@@ -107,8 +134,7 @@ def collect_input_files(path: Path, period: int | None) -> list[Path]:
             print(f"        error = {e}")
             continue
 
-        published_year = (root.findtext(".//teiHeader//titleStmt//date") or root.findtext(".//date")).strip()
-        published_year = (published_year or "").strip()
+        published_year = (root.findtext(".//teiHeader//titleStmt//date") or root.findtext(".//date") or "").strip()
 
         if not published_year:
             print("[WARN] No <date> found; skipped:")
@@ -118,6 +144,12 @@ def collect_input_files(path: Path, period: int | None) -> list[Path]:
         published_century = convert_to_century(published_year)
         if published_century == period:
             matched_files.append(file)
+
+        if sort is not None:
+            sorting_key[file] = published_year
+
+    if sort is not None:
+        return sorted(matched_files, key=lambda f: sorting_key[f])
 
     return sorted(matched_files)
 
@@ -144,7 +176,11 @@ def build_rules(*, training_data: Path | None, period: int | None) -> list[str]:
     rules = load_infl_suffixes() # base rules
 
     if training_data is not None and period is not None:
-        learned = load_learned_infl_suffixes(training_data, period)
+        learned = load_learned_infl_suffixes(training_data, period=period)
+        if learned:
+            print(f"[INFO] Loaded {len(learned)} learned INFL suffixes (period={period}c).")
+        else:
+            print(f"[INFO] No existing training data found (period={period}c). Using base rules only.")
         rules = sorted(set(rules) | set(learned), key=len, reverse=True)
 
     return rules
@@ -158,6 +194,7 @@ def run_train(args: CLIArgs) -> None:
     period = convert_to_century(args.period)
     displaycontext = "y"
     training_data = args.training_data
+    sort = args.sort
 
     VALID = [15, 16, 17, 18, 19, 20] # Valid centuries for period filtering
     
@@ -171,7 +208,7 @@ def run_train(args: CLIArgs) -> None:
             raw = input("[ERROR] Please enter a valid period (e.g., 15 for 15th century): ").strip()
             period = convert_to_century(raw)
 
-    files = collect_input_files(args.path, period)
+    files = collect_input_files(args.path, period, sort=sort)
 
     # Period argument has been provided and validated. 
     
@@ -212,97 +249,37 @@ def run_search(args: CLIArgs) -> None:
     encoding = args.encoding
     displaycontext = args.displaycontext
     period = convert_to_century(args.period)
-    bigram_flag = (pattern is not None) and (" " in pattern)
-    files = collect_input_files(args.path,period)
-    training_mode = args.training_mode
     training_data = args.training_data
+    sort = args.sort
+    files = collect_input_files(args.path, period, sort=sort)
 
-    VALID = [15, 16, 17, 18, 19, 20]
+    last_period = period # Cache the current period to avoid re-collecting input files unless the period changes.
 
     # No input files found
     if not files:
         print(f"[INFO] No supported files found under: {args.path} (expected: .txt, .xml)") 
         return
-    
-    # Debug mode?
-    debug = DebugOptions(
-        suffix_proposals = False,
-        suffix_must_endwith="nila",
-        dump_lemma_seed=False
-    )
-    debug_mode = False
-
-
-    c = Counter()
-
-    if debug.dump_lemma_seed:
-        lemma_counter: Counter[str] = Counter()
-
-    infl_suffixes = load_infl_suffixes()
-    lemmas = load_lemma_whitelist()
-    lemma_list = sorted(lemmas, key=len, reverse=True)
-
-    # debug loop
-
-    if debug_mode == True:
-
-        for file_path in files:
-
-            tokens = attach_yale(parse_file(file_path,encoding=encoding,displaycontext=displaycontext))
-
-            tokens = tag_tokens(tokens, infl_suffixes, lemma_list, debug_suffixes = debug.suffix_proposals)
-
-            if debug.suffix_proposals:
-                update_suffix_counter(c, tokens, infl_suffixes, max_len = 8, suffix_must_endwith=debug.suffix_must_endwith)
-
-            if debug.dump_lemma_seed:
-                for lem, cnt in dump_known_lemmas(tokens, infl_suffixes, lemma_list, top_k=50):
-                    lemma_counter[lem] += cnt
-
-        all_proposals = finalize_suffix_proposals(c, infl_suffixes, top_k=50, min_count = 1)
-
-        if debug.suffix_proposals:
-            display_suffix_candidates(all_proposals)
-
-        if debug.dump_lemma_seed:
-            display_lemma_candidates(lemma_counter)
 
     # Search loop
 
+    rules = build_rules(training_data=training_data, period=period)
+    lemmas = load_lemma_whitelist()
+    lemma_list = sorted(lemmas, key=len, reverse=True)
+
     within_result_search = "n"
-
-    # Guard clause: pattern is required for search mode.
-
-    if pattern is None:
-        raise SystemExit("[ERROR] --pattern is required for search mode.")
         
     while True:
 
-        if training_mode:
-            # Ensure period filtering is set
-            if period is not None:
-                change = input(f"[INFO] Current period = {period}. Change period? (y/n) > ").strip().lower()
-                if change == "y":
-                    period = None
+        # Recollect input files when period filter is changed
 
-            # Reask period if not set
-            if period is None:
-                raw = input("[INFO] Training mode requires period filtering. Enter 15-20: ").strip()
-                period = convert_to_century(raw)
+        if period != last_period:
 
-                while period not in VALID:
-                    raw = input("[ERROR] Please enter a valid period (e.g., 15 for 15th century): ").strip()
-                    period = convert_to_century(raw)
+            files = collect_input_files(args.path, period, sort=sort)
+            last_period = period
 
-
-            # Collect input files again in case period filter is changed
-
-        # Recollect input files in case period filter is changed
-        files = collect_input_files(args.path, period)
-
-        if not files:
-            print(f"[INFO] No supported files found for period={period}.")
-            continue
+            if not files:
+                print(f"[INFO] No supported files found for period={period}.")
+                continue
 
         # Initial search or non-within-previous-results search
         if within_result_search == "n":
@@ -310,20 +287,17 @@ def run_search(args: CLIArgs) -> None:
             bigram_flag = " " in pattern
 
             all_hits = []
-            if training_mode:
-                all_tokens = []
 
             for file_path in files:
                 tokens = attach_yale(parse_file(file_path,encoding=encoding,displaycontext=displaycontext))
 
-                tokens = tag_tokens(tokens, infl_suffixes, lemma_list, debug_suffixes = debug.suffix_proposals)
+                tokens = tag_tokens(tokens, rules, lemma_list)
 
                 hits = search_tokens(tokens, pattern)
 
                 # If there is no hit in the current file, skip it.
 
                 if len(hits) == 0:
-                    all_tokens.extend(tokens) if training_mode else None
                     continue
 
                 print(f"[INFO] Searching in file: {file_path}")
@@ -333,15 +307,6 @@ def run_search(args: CLIArgs) -> None:
                 report_hits(hits, bigram_flag)
 
                 all_hits.extend(hits)
-                
-                if training_mode:
-                    all_tokens.extend(tokens)
-        
-            # Training mode is on
-
-            if training_mode:
-                rules = load_infl_suffixes()
-                train(all_tokens, rules, period, training_data)
 
         # Search within previous results
         elif within_result_search == "y":
@@ -373,29 +338,117 @@ def run_search(args: CLIArgs) -> None:
         # Continue condition
         elif another_search == "":
 
-            # Save before proceeding to the next search?
-            save_before_next = input("Do you want to save the current results before the next search? Type \"y\" if you want, otherwise press any keys: ").strip().lower()
+            # Guard clause: if there is no hits, no within-results search and no result save
+            if len(all_hits) == 0:
+                print("[INFO] No previous hits. Running a fresh search.")
+                within_result_search = "n"
+                save_before_next = "n"
 
-            if save_before_next == "y":
-                maybe_save_hits(all_hits, pattern=pattern, purpose=purpose)
+            # If results exist, ask if the user wants to perform a within-results earch and save results before moving on
+            else:
+                # Save before proceeding to the next search?
+                save_before_next = input("Do you want to save the current results before the next search? Type \"y\" if you want, otherwise press any keys: ").strip().lower()
 
-            # Ask if within-previous-results search is desired
-            within_result_search = input("Do you want to search within the previous results? Type \"y\" or \"n\": ").strip().lower()
+                if save_before_next == "y":
+                    maybe_save_hits(all_hits, pattern=pattern, purpose=purpose)
 
-            # Guard for valid input
-            if within_result_search not in ("y","n"):
-                within_result_search = input("Please type 'y' or 'n': ").strip().lower()
-            pattern = input("Enter new regex pattern: ").strip("\"")
+                # Ask if within-previous-results search is desired
+                within_result_search = input("Do you want to search within the previous results? Type \"y\" or \"n\": ").strip().lower()
+
+                # Guard for valid input
+                if within_result_search not in ("y","n"):
+                    within_result_search = input("Please type 'y' or 'n': ").strip().lower()
+
+            # Ask if period changes if not within-result search
+            if within_result_search == "n":
+                new_period = input("Provide a new period filter if you want to change (e.g., 15c). Otherwise, type enter:").strip()
+
+                if new_period:
+                    new_period_c = convert_to_century(new_period)
+                    if new_period_c is None:
+                        print("[ERROR] Invalid period. Keeping the previous period.")
+                    else:
+                        period = new_period_c
+
+            while True:
+                pattern = input("Enter new regex pattern: ").strip("\"")
+                try:
+                    re.compile(pattern)
+                    break
+                except re.error as e:
+                    print(f"[ERROR] Invalid regex pattern: {e}")
+                    print(f"[INFO] Please enter a valid regex.")
+            
+            bigram_flag = " " in pattern
             new_purpose = input("Enter purpose for the new search (or press Enter if you wish to maintain the purpose of the previous search): ").strip()
             if new_purpose:
                 purpose = new_purpose
 
 
     # After all searches are done, ask to save the results
+    if all_hits:
+        maybe_save_hits(all_hits, pattern=pattern, purpose=purpose)
 
-    maybe_save_hits(all_hits, pattern=pattern, purpose=purpose)
+def run_candidate_mining(args: CLIArgs) -> None:
+
+    # Assign objects
+    training_data = args.training_data
+    period = convert_to_century(args.period)
+    displaycontext = args.displaycontext
+    encoding = args.encoding
+    sort = args.sort
+    files = collect_input_files(args.path, period, sort=sort)
+    
+    if args.candidate_mining == "lemma":
+        lemma_flag = True
+        suffix_flag = False
+
+    else: 
+        lemma_flag = False
+        suffix_flag = True
+
+    # Placeholder for suffix anchor
+    suffix_anchor = args.pattern
+
+    # No input files found
+    if not files:
+        print(f"[INFO] No supported files found under: {args.path} (expected: .txt, .xml)") 
+        return
+
+    c = Counter()
+
+    rules = build_rules(training_data=training_data, period=period)
+    lemma_counter: Counter[str] = Counter()
+    lemmas = load_lemma_whitelist()
+    lemma_list = sorted(lemmas, key=len, reverse=True)
+
+    for file_path in files:
+        tokens = attach_yale(parse_file(file_path,encoding=encoding,displaycontext=displaycontext))
+        tokens = tag_tokens(tokens, rules, lemma_list, debug_suffixes = suffix_flag)
+
+        if suffix_flag:
+            update_suffix_counter(c, tokens, rules, max_len = 8, suffix_must_endwith=suffix_anchor)
+
+        elif lemma_flag:
+            for lem, cnt in dump_known_lemmas(tokens, rules, lemma_list, top_k=50):
+                lemma_counter[lem] += cnt
+
+
+    all_proposals = finalize_suffix_proposals(c, rules, top_k=50, min_count = 1)
+
+    if suffix_flag:
+        display_suffix_candidates(all_proposals)
+
+    if lemma_flag:
+        display_lemma_candidates(lemma_counter)
 
 def run(args: CLIArgs) -> None:
+
+    # Candidate-mining mode
+
+    if args.candidate_mining:
+        run_candidate_mining(args)
+        return
 
     # Training mode
 
@@ -403,9 +456,6 @@ def run(args: CLIArgs) -> None:
         run_train(args)
         return
     
-    # Search mode
-    if args.pattern is None:
-        raise SystemExit("[ERROR] --pattern is required for search mode.")
     run_search(args)
     
 def main(argv: list[str] | None = None) -> None:

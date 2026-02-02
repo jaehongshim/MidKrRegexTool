@@ -327,17 +327,17 @@ def display_suffix_candidates(proposed_suffixes: list[tuple[str,int]]) -> None:
     for (suf, cnt) in proposed_suffixes:
         print(f"\t{suf}\t{cnt}")
 
-def tag_tokens(tokens: list[Token], infl_suffixes: list[str], lemma_list: list[str], *, debug_suffixes: bool = False) -> list[Token]:
+def tag_tokens(tokens: list[Token], rules: list[str], lemma_list: list[str], *, debug_suffixes: bool = False) -> list[Token]:
     """Enrich tokens with morphological tagging for downstream processing."""
 
     if debug_suffixes:
-        proposals = propose_infl_suffixes(tokens, infl_suffixes)
+        proposals = propose_infl_suffixes(tokens, rules)
         print("[DEBUG] Proposed INFL suffixes (candidate, count):")
         for suf, cnt in proposals:
             print(f"    {suf}\t{cnt}")
 
     for token in tokens:
-        token.tagged_form = analyze_yale(token.yale, infl_suffixes, lemma_list)
+        token.tagged_form = analyze_yale(token.yale, rules, lemma_list)
     return tokens
 
 def candidate_generator(token: Token, rules: list[str]) -> list[str]:
@@ -402,29 +402,47 @@ def extract_infl_from_gold(gold: str) -> str | None:
         return None
     return gold.split("/LEM-", 1)[1].split("/INFL", 1)[0]
 
-def load_learned_infl_suffixes(training_path: Path) -> None:
+def load_learned_infl_suffixes(training_path: Path, *, period: int) -> list[str]:
     infls = set()
+    """
+    Load learned INFL suffixes from a JSONL training file.
 
-    with open(training_path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
+    - If training_path is a directory, it resolves to: training_{period}c.jsonl
+    - If training_path is a file, it is used as-is.
 
-            obj = json.loads(line)
-            gold = obj.get("gold")
+    The file is expected to be JSONL where each line contains a dict with key "gold."
+    """
 
-            if not isinstance(gold, str) or gold == "None":
-                continue
+    training_path = Path(training_path)
 
-            infl = extract_infl_from_gold(gold)
-            if infl:
-                infls.add(infl)
+    if training_path.is_dir():
+        training_path = training_path / f"training_{period}c.jsonl"
 
+    infls: set[str] = set()
+
+    try:
+        with open(training_path, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+
+                obj = json.loads(line)
+                gold = obj.get("gold")
+
+                if not isinstance(gold, str) or gold == "None":
+                    continue
+
+                infl = extract_infl_from_gold(gold)
+                if infl:
+                    infls.add(infl)
+
+    except FileNotFoundError:
+        return []
+    
     result = sorted(infls, key=len, reverse=True)
     return result
 
-# debug_collect_infls(Path("data/training/training_15c.jsonl"))
 
 def train(tokens: list[Token], rules: list[str], period: int, training_data: Path | None) -> None:
 
