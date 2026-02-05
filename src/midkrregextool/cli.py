@@ -11,7 +11,7 @@ from midkrregextool.parser import parse_file
 from midkrregextool.yale import attach_yale
 from midkrregextool.search import search_tokens
 from midkrregextool.report import report_hits, maybe_save_hits
-from midkrregextool.tagger import tag_tokens, load_infl_suffixes, load_lemma_whitelist, train, load_learned_infl_suffixes, update_suffix_counter, dump_known_lemmas, finalize_suffix_proposals, display_lemma_candidates, display_suffix_candidates
+from midkrregextool.tagger import tag_tokens, load_infl_suffixes, load_lemma_whitelist, train, load_learned_infl_suffixes, update_suffix_counter, dump_known_lemmas, finalize_suffix_proposals, display_lemma_candidates, display_suffix_candidates, load_infl_decomp_from_training
 import re
 from collections import Counter
 import xml.etree.ElementTree as ET
@@ -297,10 +297,14 @@ def run_search(args: CLIArgs) -> None:
 
             all_hits = []
 
+            infl_decomp = None
+            if training_data is not None:
+                infl_decomp = load_infl_decomp_from_training(training_data / f"training_{period}c.jsonl",period=period)
+
             for file_path in files:
                 tokens = attach_yale(parse_file(file_path,encoding=encoding,displaycontext=displaycontext))
 
-                tokens = tag_tokens(tokens, rules, lemma_list)
+                tokens = tag_tokens(tokens, rules, lemma_list, infl_decomp=infl_decomp)
 
                 hits = search_tokens(tokens, pattern)
 
@@ -326,7 +330,7 @@ def run_search(args: CLIArgs) -> None:
 
             for hit in original_hits:
                 # Reassign the matched strings attribute for each hit
-                joined = " ".join(tok.tagged_form for tok in hit)
+                joined = " ".join((tok.morph_str or tok.tagged_form) for tok in hit)
                 m = rx.search(joined)
                 if m:
                     # Store the matched span for display/save

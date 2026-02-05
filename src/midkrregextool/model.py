@@ -1,4 +1,5 @@
 # model.py
+from __future__ import annotations
 from dataclasses import dataclass
 from typing import Optional
 
@@ -14,4 +15,7 @@ class Token:
     tagged_form: Optional[str] = None
     context: Optional[str] = None
     matched_part: Optional[str] = None
+    # Morph-layer (optional; filled only when available)
+    morph_str: str | None = None
+    morphs: list[tuple[str,str]] | None = None
 

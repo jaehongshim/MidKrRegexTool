@@ -16,6 +16,9 @@ from .model import Token
 
 Hits: TypeAlias = list[tuple[Token, ...]]
 
+def _s(tok: Token) -> str:
+    return tok.morph_str or tok.tagged_form
+
 def search_tokens(tokens: list[Token], pattern: str, flags=0) -> Hits:
     """
     Input:
@@ -32,7 +35,7 @@ def search_tokens(tokens: list[Token], pattern: str, flags=0) -> Hits:
         for i in range(len(toks) - 1):
             a, b = toks[i], toks[i + 1]
 
-            joined = f"{a.tagged_form} {b.tagged_form}"
+            joined = f"{_s(a)} {_s(b)}"
             # print(joined)
 
             # Exclude the matching result if the two tokens differ in their is_note value.
@@ -50,7 +53,7 @@ def search_tokens(tokens: list[Token], pattern: str, flags=0) -> Hits:
         hits: Hits = []
         for tok in toks:
 
-            m = rx.search(tok.tagged_form or "")
+            m = rx.search(_s(tok) or "")
             if m:
                 tok.matched_part = m.group(0)
                 hits.append((tok,))

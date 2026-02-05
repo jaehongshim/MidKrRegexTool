@@ -412,13 +412,36 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 - Stabilized the candidate-mining execution path
 - Extablished a clear roadmap for further refactoring
 
-## 2026-02-04
+## 2026-02-05
 
-### What I did today
-- Improved hit reporting by storing and displaying the exact matched span:
-  - Added `matched_part` to Token.
-- Enhanced training mode to support pattern-based filtering:
-  - Reused `--pattern` as an optional filter in training mode so only tokens whose `tagged_form` matches the pattern are shown.
+### Summary
+Implemented morph-aware search infrastructure on top of the existing coarse (LEM/INFL) tagger, and improved training/search usability.
+
+### Training mode
+- Extended training data format to optionally store morph-level analyses (`gold_morph`) alongside coarse `gold`.
+- Allowed manual input of full morph strings (e.g. `si/HON-li/FUT-le/IPFV-la/DECL`) in training mode.
+- Normalized morph-level input to coarse `gold` + `gold_morph` at save time.
+- Ensured training mode can be restricted to tokens matching a regex pattern via `--pattern`.
+
+### Tagging
+- Tokens are always assigned a coarse `tagged_form`.
+- If morph analyses exist in training data, corresponding tokens are enriched with:
+  - `token.morph_str` (full morph string)
+  - `token.morphs` (parsed list of `(form, tag)` pairs)
+
+### Search
+- Search now prefers `token.morph_str` when available, falling back to `tagged_form`.
+- Added `matched_part` attribute to tokens to store the exact regex match.
+- Search results display matched substrings explicitly.
+
+### Reporting
+- Search output now includes:
+  - `[TAGGED-FORM]`
+  - `[MORPH-STR]` (when available)
+  - `[MATCHED-PART]`
+  - `[CONTEXT]`
 
 ### Notes
-- `--pattern` remains required for normal search mode, but it is optional in training mode.
+- No attempt was made to auto-generate morph candidates during training yet.
+- Current changes focus on infrastructure and correctness, not coverage.
+

@@ -104,3 +104,28 @@
 {"period":"15c","token":"如是如是ᄒᆞ시니","gold":"如是如是ho/LEM-sini/INFL"}
 {"period":"15c","token":"져근","gold":"cyek/LEM-un/INFL"}
 {"period":"15c","token":"사ᄅᆞᄆᆞᆯ","gold":"salom/LEM-ol/INFL"}
+{"period": "15c", "token": "가져시리러니라", "gold": "kacy/LEM-esililenila/INFL", "gold_morph": "kacy/LEM-e/E-si/COP-li/FUT-le/IPFV-ni/AOR-la/DECL"}
+{"period": "15c", "token": "아ᄅᆞ시리러니라", "gold": "al/LEM-osililenila/INFL", "gold_morph": "al/LEM-osi/HON-li/FUT-le/IPFV-ni/AOR-la/DECL"}
+{"period": "15c", "token": "即生嗔恨ᄒᆞ시리러니라", "gold": "即生嗔恨ho/LEM-sililenila/INFL", "gold_morph": "即生嗔恨ho/LEM-si/HON-li/FUT-le/IPFV-ni/AOR-la/DECL"}
+{"period": "15c", "token": "내시리러니라", "gold": "nay/LEM-sililenila/INFL", "gold_morph": "nay/LEM-si/HON-li/FUT-le/IPFV-ni/AOR-la/DECL"}
+{"period": "15c", "token": "得ᄒᆞ시리러라", "gold": "得ho/LEM-sililela/INFL", "gold_morph": "得ho/LEM-si/HON-li/FUT-le/IPFV-la/DECL"}
+{"period": "15c", "token": "ᄒᆞ시리라", "gold": "ho/LEM-silila/INFL", "gold_morph": "ho/LEM-si/HON-li/FUT-la/DECL"}
+{"period": "15c", "token": "오시릴ᄊᆡ", "gold": "wo/LEM-sililssoy/INFL", "gold_morph": "wo/LEM-si/HON-li/FUT-lssoy/C"}
+{"period": "15c", "token": "머므러시리오", "gold": "memul/LEM-esiliwo/INFL", "gold_morph": "memul/LEM-e/E-si/HON-li/FUT-wo/Q"}
+{"period": "15c", "token": "ᄠᅳ디시리오", "gold": ".ptut/LEM-isiliwo/Q", "gold_morph": ".ptut/LEM-i/COP-si/HON-li/FUT-wo/Q"}
+{"period": "15c", "token": "오시리오", "gold": "wo/LEM-siliwo/INFL", "gold_morph": "wo/LEM-si/HON-li/FUT-wo/Q"}
+{"period": "15c", "token": "ᄑᆞᄅᆞ시리ᅌᅵ다", "gold": "pol/LEM-osilingita/INFL", "gold_morph": "pol/LEM-osi/HON-li/FUT-ngi/HON-ta/DECL"}
+{"period": "15c", "token": "사ᄅᆞ시리ᅌᅵᆺ고", "gold": "sal/LEM-osilingiskwo/INFL", "gold_morph": "sal/LEM-osi/HON-li/FUT-ngi/HON-skwo/Q"}
+{"period": "15c", "token": "너기시리라", "gold": "neki/LEM-silila/INFL", "gold_morph": "neki/LEM-si/HON-li/FUT-la/DECL"}
+{"period": "15c", "token": "現ᄒᆞ시리라", "gold": "現ho/LEM-silila/INFL", "gold_morph": "現ho/LEM-si/HON-li/FUT-la/DECL"}
+{"period": "15c", "token": "나토시리니", "gold": "nathwo/LEM-silini/INFL", "gold_morph": "nathwo/LEM-si/HON-li/FUT-ni/C"}
+{"period": "15c", "token": "化生ᄒᆞ시릴ᄉᆡ", "gold": "化生ho/LEM-sililsoy/INFL", "gold_morph": "化生ho/LEM-si/HON-li/FUT-lsoy/C"}
+{"period": "15c", "token": "이시리라", "gold": "isi/LEM-lila/INFL", "gold_morph": "isi/LEM-li/FUT-la/DECL"}
+{"period": "15c", "token": "이시리오", "gold": "isi/LEM-liwo/INFL", "gold_morph": "isi/LEM-li/FUT-wo/Q"}
+{"period": "15c", "token": "내시리ᅌᅵᆺ고", "gold": "nay/LEM-silingiskwo/INFL", "gold_morph": "nay/LEM-si/HON-li/FUT-ngi/HON-skwo/Q"}
+{"period": "15c", "token": "몯ᄒᆞ리러라", "gold": "mwot/LEM-holilenila/INFL", "gold_morph": "mwot/NEG-ho/LEM-li/FUT-le/IPFV-ni/AOR-la/DECL"}
+{"period": "15c", "token": "혜리러니", "gold": "hyey/LEM-lileni/INFL", "gold_morph": "hyey/LEM-li/FUT-le/IPFV-ni/C"}
+{"period": "15c", "token": "ᄃᆞ외리러니", "gold": "towoy/LEM-lileni/INFL", "gold_morph": "towoy/LEM-li/FUT-le/IPFV-ni/C"}
+{"period": "15c", "token": "아니ᄒᆞ리러니라", "gold": "ani/LEM-holilenila/INFL", "gold_morph": "ani/NEG-ho/LEM-li/FUT-le/IPFV-ni/AOR-la/DECL"}
+{"period": "15c", "token": "주그리러니", "gold": "cwuk/LEM-ulileni/INFL", "gold_morph": "cwuk/LEM-uli/FUT-le/IPFV-ni/C"}
+{"period": "15c", "token": "보리러니", "gold": "pwo/LEM-lileni/INFL", "gold_morph": "pwo/LEM-li/FUT-le/IPFV-ni/C"}
