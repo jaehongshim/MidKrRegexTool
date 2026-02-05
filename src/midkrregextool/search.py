@@ -39,7 +39,9 @@ def search_tokens(tokens: list[Token], pattern: str, flags=0) -> Hits:
             if a.is_note != b.is_note:
                 continue
 
-            if rx.search(joined):
+            m = rx.search(joined)
+            if m:
+                a.matched_part = m.group(0)
                 hits.append((a,b))
 
         return hits
@@ -48,7 +50,9 @@ def search_tokens(tokens: list[Token], pattern: str, flags=0) -> Hits:
         hits: Hits = []
         for tok in toks:
 
-            if rx.search(tok.tagged_form):
+            m = rx.search(tok.tagged_form or "")
+            if m:
+                tok.matched_part = m.group(0)
                 hits.append((tok,))
 
         return hits

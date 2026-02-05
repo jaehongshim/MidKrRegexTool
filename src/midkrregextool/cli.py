@@ -36,7 +36,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
 
     p.add_argument("--path", type=Path, help="Input file or directory.")
-    p.add_argument("--pattern", type=str, default=None, help="Regex pattern to search over Yale-romanized Korean texts")
+    p.add_argument("--pattern", type=str, default=None, help="Regex pattern to search over Yale-romanized Korean texts. When used over a training mode, only matching tokens are shown.")
     p.add_argument("--purpose", type=str, default=None, help="User's purposes for the performed regex search")
     p.add_argument("--encoding", type=str, default="utf-16", help="File encoding (default: utf-16)")
     p.add_argument("--displaycontext", type=str, default = "n", help="Display context around matches (y/n), (default n)")
@@ -195,6 +195,7 @@ def run_train(args: CLIArgs) -> None:
     displaycontext = "y"
     training_data = args.training_data
     sort = args.sort
+    pattern = args.pattern
 
     VALID = [15, 16, 17, 18, 19, 20] # Valid centuries for period filtering
     
@@ -207,6 +208,7 @@ def run_train(args: CLIArgs) -> None:
         while period not in VALID:
             raw = input("[ERROR] Please enter a valid period (e.g., 15 for 15th century): ").strip()
             period = convert_to_century(raw)
+
 
     files = collect_input_files(args.path, period, sort=sort)
 
@@ -225,6 +227,7 @@ def run_train(args: CLIArgs) -> None:
     # Collect tokens.
     all_tokens = []
 
+
     # Load 
 
     for file_path in files:
@@ -234,6 +237,12 @@ def run_train(args: CLIArgs) -> None:
         tokens = tag_tokens(tokens, rules, lemma_list)
 
         all_tokens.extend(tokens)
+
+    # Optional: restrict training targets to tokens whose tagged_form matches a pattern
+    if pattern:
+        print(f"[INFO] Training-mode pattern filter enabled: {pattern!r} (matched against token.tagged_form).")
+        rx = re.compile(pattern)
+        all_tokens = [t for t in all_tokens if t.tagged_form and rx.search(t.tagged_form)]
 
     train(all_tokens, rules, period=period, training_data=training_data)
 
@@ -316,8 +325,12 @@ def run_search(args: CLIArgs) -> None:
             rx = re.compile(pattern)
 
             for hit in original_hits:
+                # Reassign the matched strings attribute for each hit
                 joined = " ".join(tok.tagged_form for tok in hit)
-                if rx.search(joined):
+                m = rx.search(joined)
+                if m:
+                    # Store the matched span for display/save
+                    hit[0].matched_part = m.group(0)
                     all_hits.append(hit)
             print(f"[INFO] Searching within previous results")
             print(f"[INFO] pattern={pattern!r} hits={len(all_hits)} purposes={purpose!r}")
@@ -452,7 +465,7 @@ def run(args: CLIArgs) -> None:
 
     # Training mode
 
-    if args.training_mode and args.pattern is None:
+    if args.training_mode:
         run_train(args)
         return
     

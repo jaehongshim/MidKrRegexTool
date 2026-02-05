@@ -11,24 +11,37 @@ DEFAULT_OUTPUT_ENCODING = "utf-16"
 
 def format_hit(tok: Token) -> str:
     if tok.context is not None:
-        # Highlighting the matched part in the context by enclosing it in <<...>>
-        # contextwords = tok.context.split()
-        # contextwords[tok.token_index-1] = f"<<{contextwords[tok.token_index-1]}>>"
-        # context = " ".join(contextwords)
-        return f"{tok.source_id} {tok.token_index} {tok.is_note} [{tok.path}]\n\t[TOKEN]\t\t{tok.unicode_form}\n\t[TAGGED-FORM]\t{tok.tagged_form} \n\t[CONTEXT]\t{tok.context}"
+        return(
+            f"{tok.source_id} {tok.token_index} {tok.is_note} [{tok.path}]\n"
+            f"\t[TOKEN]\t\t{tok.unicode_form}\n"
+            f"\t[TAGGED-FORM]\t{tok.tagged_form}\n"
+            f"\t[MATCHED-PART]\t{tok.matched_part}\n"
+            f"\t[CONTEXT]\t{tok.context}"
+        )
     else:
-        return f"{tok.source_id} {tok.token_index} {tok.is_note} [{tok.path}]\n\t[TOKEN]\t\t{tok.unicode_form}\n\t[TAGGED-FORM]\t{tok.tagged_form}"
+        return(
+            f"{tok.source_id} {tok.token_index} {tok.is_note} [{tok.path}]\n"
+            f"\t[TOKEN]\t\t{tok.unicode_form}\n"
+            f"\t[TAGGED-FORM]\t{tok.tagged_form}\n"
+            f"\t[MATCHED-PART]\t{tok.matched_part}\n"
+        )
 
 def format_bigram(a: Token, b: Token) -> str:
     if a.context is not None:
-        # Highlighting the matched part in the context by enclosing it in <<...>>
-        # contextwords = a.context.split()
-        # contextwords[a.token_index-1] = f"<<{contextwords[a.token_index-1]}"
-        # contextwords[b.token_index-1] = f"{contextwords[b.token_index-1]}>>"
-        # context = " ".join(contextwords)
-        return f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} [{a.path}] \n\t[TOKEN]\t\t{a.unicode_form} {b.unicode_form}\n\t[TAGGED-FORM]\t{a.tagged_form} {b.tagged_form} \n\t[CONTEXT]\t{a.context}"
+        return (
+            f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} [{a.path}]\n"
+            f"\t[TOKEN]\t\t{a.unicode_form} {b.unicode_form}\n"
+            f"\t[TAGGED-FORM]\t{a.tagged_form} {b.tagged_form}\n"
+            f"\t[MATCHED_PART]\t{a.matched_part}\n"
+            f"\t[CONTEXT]\t{a.context}"
+        )
     else:
-        return f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} [{a.path}]\n\t[TOKEN]\t\t{a.unicode_form} {b.unicode_form}\n\t[TAGGED-FORM]\t{a.tagged_form} {b.tagged_form}"
+        return (
+            f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} [{a.path}]\n"
+            f"\t[TOKEN]\t\t{a.unicode_form} {b.unicode_form}\n"
+            f"\t[TAGGED-FORM]\t{a.tagged_form} {b.tagged_form}\n"
+            f"\t[MATCHED_PART]\t{a.matched_part}\n"
+        )
     # Comment the following out if you need PUA forms.
     # return f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} {a.pua} {b.pua} {a.unicode_form} {b.unicode_form} {a.yale} {b.yale}"
 
@@ -86,22 +99,22 @@ def confirm_overwrite(path: Path) -> bool:
 
 def format_monogram_results(tok: Token) -> str:
     if tok.context is not None:
-        return f"{tok.path}\t{tok.source_id} {tok.token_index} {tok.is_note}\t{tok.unicode_form}\t{tok.tagged_form}\t{tok.context}"
+        return f"{tok.path}\t{tok.source_id} {tok.token_index} {tok.is_note}\t{tok.unicode_form}\t{tok.tagged_form}\t{tok.matched_part}\t{tok.context}"
     else:
-        return f"{tok.path}\t{tok.source_id} {tok.token_index} {tok.is_note}\t{tok.unicode_form}\t{tok.tagged_form}\t\t"
+        return f"{tok.path}\t{tok.source_id} {tok.token_index} {tok.is_note}\t{tok.unicode_form}\t{tok.tagged_form}\t{tok.matched_part}\t\t"
 
 def format_bigram_results(a: Token, b: Token) -> str:
     if a.context is not None:
-        return f"{a.path}\t{a.source_id} {a.token_index}-{b.token_index} {a.is_note}\t{a.unicode_form} {b.unicode_form}\t{a.tagged_form} {b.tagged_form}\t{a.context}"
+        return f"{a.path}\t{a.source_id} {a.token_index}-{b.token_index} {a.is_note}\t{a.unicode_form} {b.unicode_form}\t{a.tagged_form} {b.tagged_form}\t{a.matched_part}\t{a.context}"
     else:
-        return f"{a.path}\t{a.source_id} {a.token_index}-{b.token_index} {a.is_note}\t{a.unicode_form} {b.unicode_form}\t{a.tagged_form} {b.tagged_form}\t\t"
+        return f"{a.path}\t{a.source_id} {a.token_index}-{b.token_index} {a.is_note}\t{a.unicode_form} {b.unicode_form}\t{a.tagged_form} {b.tagged_form}\t{a.matched_part}\t\t"
     # Comment the following out if you need PUA forms.
     # return f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} {a.pua} {b.pua} {a.unicode_form} {b.unicode_form} {a.yale} {b.yale}"
 
 # Save the results file.
 def write_hits(path: Path, hits: list[tuple[Token, ...]], *, pattern: str, purpose: str | None = None, note: str | None = None) -> None:
     with open(path, "w", encoding=DEFAULT_OUTPUT_ENCODING, newline="\n") as f:
-        f.write(f"FILE_PATH\tSOURCE\tTOKEN\tTAGGED-FORM\tCONTEXT\t# pattern={pattern!r} hits={len(hits)} purpose={purpose!r} note={note!r}\n")
+        f.write(f"FILE_PATH\tSOURCE\tTOKEN\tTAGGED-FORM\tMATCHED-PART\tCONTEXT\tNOTE\t# pattern={pattern!r} hits={len(hits)} purpose={purpose!r} note={note!r}\n")
         if " " in pattern:
             for a, b in hits:
                 f.write(format_bigram_results(a,b) + "\n")

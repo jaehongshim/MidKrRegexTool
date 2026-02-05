@@ -411,3 +411,14 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 - Removed legacy debug scaffolding and consolidated it into a reusable workflow
 - Stabilized the candidate-mining execution path
 - Extablished a clear roadmap for further refactoring
+
+## 2026-02-04
+
+### What I did today
+- Improved hit reporting by storing and displaying the exact matched span:
+  - Added `matched_part` to Token.
+- Enhanced training mode to support pattern-based filtering:
+  - Reused `--pattern` as an optional filter in training mode so only tokens whose `tagged_form` matches the pattern are shown.
+
+### Notes
+- `--pattern` remains required for normal search mode, but it is optional in training mode.

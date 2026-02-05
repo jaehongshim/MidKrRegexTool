@@ -13,4 +13,5 @@ class Token:
     is_note: str = "MAIN"
     tagged_form: Optional[str] = None
     context: Optional[str] = None
+    matched_part: Optional[str] = None
 
