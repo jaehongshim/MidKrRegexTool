@@ -129,3 +129,71 @@
 {"period": "15c", "token": "아니ᄒᆞ리러니라", "gold": "ani/LEM-holilenila/INFL", "gold_morph": "ani/NEG-ho/LEM-li/FUT-le/IPFV-ni/AOR-la/DECL"}
 {"period": "15c", "token": "주그리러니", "gold": "cwuk/LEM-ulileni/INFL", "gold_morph": "cwuk/LEM-uli/FUT-le/IPFV-ni/C"}
 {"period": "15c", "token": "보리러니", "gold": "pwo/LEM-lileni/INFL", "gold_morph": "pwo/LEM-li/FUT-le/IPFV-ni/C"}
+{"period": "15c", "token": "自在ᄒᆞ리라", "gold": "自在ho/LEM-li/FUT-la/DECL", "gold_morph": "自在ho/LEM-li/FUT-la/DECL"}
+{"period": "15c", "token": "알리라", "gold": "al/LEM-li/FUT-la/DECL", "gold_morph": "al/LEM-li/FUT-la/DECL"}
+{"period": "15c", "token": "몯ᄒᆞ리라", "gold": "mwotho/LEM-li/FUT-la/DECL", "gold_morph": "mwotho/LEM-li/FUT-la/DECL"}
+{"period": "15c", "token": "當入無餘涅槃호리라", "gold": "當入無餘涅槃h/LEM-wolila/INFL", "gold_morph": "當入無餘涅槃h/LEM-wo/MOD-li/FUT-la/DECL"}
+{"period": "15c", "token": "始知善惡業難忘ᄒᆞ리라", "gold": "始知善惡業難忘ho/LEM-li/FUT-la/DECL", "gold_morph": "始知善惡業難忘ho/LEM-li/FUT-la/DECL"}
+{"period": "15c", "token": "ᄇᆞ리라", "gold": "poli/LEM-la/INFL", "gold_morph": "poli/LEM-la/IMP"}
+{"period": "15c", "token": "덜리라", "gold": "tel/LEM-li/FUT-la/DECL", "gold_morph": "tel/LEM-li/FUT-la/DECL"}
+{"period": "15c", "token": "ᄒᆞ다ᅌᅵ다", "gold": "ho/LEM-ta.ngita/INFL", "gold_morph": "ho/LEM-t/IPFV-a/MOD-.ngi/HON-ta/DECL"}
+{"period": "15c", "token": "生起ᅌᅵᆺ가", "gold": "生起/LEM-.ngiska/INFL", "gold_morph": "生起/LEM-.ngi/HON-ska/Q"}
+{"period": "15c", "token": "이시리ᅌᅵᆺ고", "gold": "isi/LEM-li.ngiskwo/INFL", "gold_morph": "isi/LEM-li/FUT-.ngi/HON-skwo/Q"}
+{"period": "15c", "token": "是名三十二相이시니ᅌᅵ다", "gold": "是名三十二相/LEM-isini.ngita/INFL", "gold_morph": "是名三十二相/LEM-i/COP-si/HON-ni/AOR-.ngi/HON-ta/DECL"}
+{"period": "15c", "token": "나시리ᅌᅵᆺ고", "gold": "na/LEM-sili.ngiskwo/INFL", "gold_morph": "na/LEM-si/HON-li/FUT-.ngi/HON-skwo/Q"}
+{"period": "15c", "token": "주규리ᅌᅵ다", "gold": "cwuk/LEM-ywuli.ngita/INFL", "gold_morph": "cwuk/LEM-y/CAUS-wu/MOD-li/FUT-.ngi/HON-ta/DECL"}
+{"period": "15c", "token": "ᄒᆞ노ᅌᅵ다", "gold": "ho/LEM-nwo.ngita/INFL", "gold_morph": "ho/LEM-n/PRS-wo/MOD-.ngi/HON-ta/DECL"}
+{"period": "15c", "token": "디니리ᅌᅵᆺ고", "gold": "tini/LEM-li/FUT-.ngi/HON-skwo/Q", "gold_morph": "tini/LEM-li/FUT-.ngi/HON-skwo/Q"}
+{"period": "15c", "token": "憑何出離리ᅌᅵᆺ고", "gold": "憑何出離/LEM-li/FUT-.ngi/HON-skwo/Q", "gold_morph": "憑何出離/LEM-li/FUT-.ngi/HON-skwo/Q"}
+{"period": "15c", "token": "가리ᅌᅵ다", "gold": "ka/LEM-li.ngita/INFL", "gold_morph": "ka/LEM-li/FUT-.ngi/HON-ta/DECL"}
+{"period": "15c", "token": "업도소ᅌᅵ다", "gold": "ep/LEM-twoswo.ngita/INFL"}
+{"period": "15c", "token": "歸命ᄒᆞᅀᆞᆸ노ᅌᅵ다", "gold": "歸命ho/LEM-zopnwo.ngita/INFL", "gold_morph": "歸命ho/LEM-zop/HON-n/PRS-wo/MOD-.ngi/HON-ta/DECL"}
+{"period": "15c", "token": "오리ᅌᅵ다", "gold": "wo/LEM-li.ngita/INFL", "gold_morph": "wo/LEM-li/FUT-.ngi/HON-ta/DECL"}
+{"period": "15c", "token": "願樂ᄒᆞᅀᆞᆸ노ᅌᅵ다", "gold": "願樂ho/LEM-zop/HON-n/PRS-wo/MOD-.ngi/HON-ta/DECL", "gold_morph": "願樂ho/LEM-zop/HON-n/PRS-wo/MOD-.ngi/HON-ta/DECL"}
+{"period": "15c", "token": "得ᄒᆞ리ᅌᅵᆺ고", "gold": "得ho/LEM-li/FUT-.ngi/HON-skwo/Q", "gold_morph": "得ho/LEM-li/FUT-.ngi/HON-skwo/Q"}
+{"period": "15c", "token": "ᄃᆞ외니ᅌᅵᆺ가", "gold": "towoy/LEM-ni.ngiska/INFL", "gold_morph": "towoy/LEM-ni/AOR-.ngi/HON-ska/Q"}
+{"period": "15c", "token": "而有差別이시니ᅌᅵ다", "gold": "而有差別/LEM-i/COP-si/HON-ni/AOR-.ngi/HON-ta/DECL", "gold_morph": "而有差別/LEM-i/COP-si/HON-ni/AOR-.ngi/HON-ta/DECL"}
+{"period": "15c", "token": "잇ᄂᆞ니ᅌᅵᆺ가", "gold": "is/LEM-noni.ngiska/INFL", "gold_morph": "is/LEM-no/PRS-ni/AOR-.ngi/HON-ska/Q"}
+{"period": "15c", "token": "나니ᅌᅵ다", "gold": "na/LEM-ni.ngita/INFL", "gold_morph": "na/LEM-ni/AOR-.ngi/HON-ta/DECL"}
+{"period": "15c", "token": "니ᄅᆞ더시니", "gold": "nilo/LEM-tesini/INFL", "gold_morph": "nilo/LEM-te/IPFV-si/HON-ni/C"}
+{"period": "15c", "token": "나갯더시니", "gold": "naka/LEM-ystesini/INFL", "gold_morph": "naka/LEM-ys/COP-te/IPFV-si/HON-ni/C"}
+{"period": "15c", "token": "乞食ᄒᆞ더시니", "gold": "乞食ho/LEM-te/IPFV-si/HON-ni/C", "gold_morph": "乞食ho/LEM-te/IPFV-si/HON-ni/C"}
+{"period": "15c", "token": "放光ᄒᆞ더시니", "gold": "放光ho/LEM-te/IPFV-si/HON-ni/C", "gold_morph": "放光ho/LEM-te/IPFV-si/HON-ni/C"}
+{"period": "15c", "token": "절ᄒᆞ거시니", "gold": "celho/LEM-kesini/INFL", "gold_morph": "celho/LEM-ke/PFV-si/HON-ni/C"}
+{"period": "15c", "token": "부톄시거시니", "gold": "pwuthye/LEM-ysikesini/INFL", "gold_morph": "pwuthye/LEM-y/COP-si/HON-ke/PFV-si/HON-ni/C"}
+{"period": "15c", "token": "ᄀᆞᆺ거시니", "gold": "kos/LEM-ke/PFV-si/HON-ni/C", "gold_morph": "kos/LEM-ke/PFV-si/HON-ni/C"}
+{"period": "15c", "token": "다ᄅᆞ거시니", "gold": "talo/LEM-ke/PFV-si/HON-ni/C", "gold_morph": "talo/LEM-ke/PFV-si/HON-ni/C"}
+{"period": "15c", "token": "니브시고", "gold": "nip/LEM-usikwo/INFL", "gold_morph": "nip/LEM-usi/HON-kwo/C"}
+{"period": "15c", "token": "듣ᄌᆞᆸ고", "gold": "tut/LEM-copkwo/INFL", "gold_morph": "tut/LEM-cop/HON-kwo/C"}
+{"period": "15c", "token": "받ᄌᆞᆸ고", "gold": "pat/LEM-cop/HON-kwo/C", "gold_morph": "pat/LEM-cop/HON-kwo/C"}
+{"period": "15c", "token": "묻ᄌᆞᆸ고", "gold": "mwut/LEM-cop/HON-kwo/C", "gold_morph": "mwut/LEM-cop/HON-kwo/C"}
+{"period": "15c", "token": "일ᄏᆞᆮᄌᆞᆸ고", "gold": "ilkhot/LEM-cop/HON-kwo/C", "gold_morph": "ilkhot/LEM-cop/HON-kwo/C"}
+{"period": "15c", "token": "ᄃᆞ외옛더니", "gold": "towoy/LEM-yeysteni/INFL", "gold_morph": "towoy/LEM-ye/E-ys/AUX-te/IPFV-ni/C"}
+{"period": "15c", "token": "ᄒᆞ옛더니", "gold": "ho/LEM-ye/E-ys/AUX-te/IPFV-ni/C", "gold_morph": "ho/LEM-ye/E-ys/AUX-te/IPFV-ni/C"}
+{"period": "15c", "token": "너곗더니", "gold": "neki/LEM-eysteni/INFL", "gold_morph": "neki/LEM-e/E-ys/AUX-te/IPFV-ni/C"}
+{"period": "15c", "token": "질드렛더니", "gold": "ciltul/LEM-e/E-ys/AUX-te/IPFV-ni/C", "gold_morph": "ciltul/LEM-e/E-ys/AUX-te/IPFV-ni/C"}
+{"period": "15c", "token": "머겟더니", "gold": "mek/LEM-e/E-ys/AUX-te/IPFV-ni/C", "gold_morph": "mek/LEM-e/E-ys/AUX-te/IPFV-ni/C"}
+{"period": "15c", "bigram": "ᄃᆞ외야 잇다가", "gold_a": "towoy/LEM-ya/INFL", "gold_b": "is/LEM-taka/INFL", "gold_morph_a": "towoy/LEM-ya/E", "gold_morph_b": "is/LEM-taka/TAKA"}
+{"period": "15c", "bigram": "發ᄒᆞ며 잇다감", "gold_a": "發ho/LEM-mye/INFL", "gold_b": null}
+{"period": "15c", "bigram": "조차 이셔", "gold_a": "cwoch/LEM-a/INFL", "gold_b": "isi/LEM-e/INFL", "gold_morph_a": "cwoch/LEM-a/E", "gold_morph_b": "isi/LEM-e/E"}
+{"period": "15c", "bigram": "머므러 이셔", "gold_a": "memul/LEM-e/INFL", "gold_b": "isy/LEM-e/INFL", "gold_morph_a": "memul/LEM-e/E", "gold_morph_b": "isy/LEM-e/E"}
+{"period": "15c", "bigram": "서리와 이슬를", "gold_a": "seli/LEM-wa/INFL", "gold_b": "isul/LEM-lul/INFL", "gold_morph_a": "seli/LEM-wa/COM", "gold_morph_b": "isul/LEM-lul/ACC"}
+{"period": "15c", "bigram": "몯ᄒᆞ야 잇노라", "gold_a": "mwotho/LEM-ya/INFL", "gold_b": "is/LEM-nwola/INFL", "gold_morph_b": "is/AUX-n/PRS-wo/MOD-la/DECL"}
+{"period": "15c", "bigram": "다 이쇼ᄆᆞᆯ", "gold_a": "ta/LEM", "gold_b": "isy/LEM-womol/INFL", "gold_morph_b": "isy/LEM-wom/NMLZ-ol/ACC"}
+{"period": "15c", "bigram": "잣과 잇ᄂᆞᆫ", "gold_a": "cas/LEM-kwa/INFL", "gold_b": "is/LEM-non/INFL", "gold_morph_a": "cas/LEM-kwa/COM", "gold_morph_b": "is/LEM-no/PRS-n/REL"}
+{"period": "15c", "bigram": "브터 잇ᄂᆞ니", "gold_a": "puth/LEM-e/INFL", "gold_b": "is/LEM-noni/INFL", "gold_morph_a": "puth/LEM-e/E", "gold_morph_b": "is/LEM-no/PRS-ni/C"}
+{"period": "15c", "bigram": "空ᄒᆞ야 잇논", "gold_a": "空ho/LEM-ya/INFL", "gold_b": "is/LEM-nwon/INFL", "gold_morph_a": "空ho/LEM-ya/E", "gold_morph_b": "is/LEM-n/PRS-wo/MOD-n/REL"}
+{"period": "15c", "bigram": "空ᄒᆞ야 잇논", "gold_a": "空ho/LEM-ya/INFL", "gold_b": "is/LEM-nwon/INFL", "gold_morph_a": "空ho/LEM-ya/E", "gold_morph_b": "is/LEM-n/PRS-wo/MOD-n/REL"}
+{"period": "15c", "bigram": "쉬여 잇ᄂᆞ니", "gold_a": "swi/LEM-ye/INFL", "gold_b": "is/LEM-noni/INFL", "gold_morph_a": "swi/LEM-ye/E", "gold_morph_b": "is/AUX-no/PRS-ni/C"}
+{"period": "15c", "token": "쉬여", "gold": "swi/LEM-ye/INFL", "gold_morph": "swi/LEM-ye/E"}
+{"period": "15c", "bigram": "ᄒᆞ다가 잇ᄂᆞ닌댄", "gold_a": "ho/LEM-taka/INFL", "gold_b": "is/LEM-nonintayn/INFL", "gold_morph_a": "ho/LEM-taka/TAKA", "gold_morph_b": "is/LEM-no/PRS-ni/AOR-ntayn/COND"}
+{"period": "15c", "token": "잇ᄂᆞ닌댄", "gold": "is/LEM-nonintayn/INFL", "gold_morph": "is/LEM-no/PRS-ni/AOR-ntayn/COND"}
+{"period": "15c", "bigram": "가 이슈라", "gold_a": "ka/LEM-a/INFL", "gold_b": "isy/LEM-wula/INFL", "gold_morph_a": "ka/LEM-a/E", "gold_morph_b": "isy/LEM-wu/MOD-la/IMP"}
+{"period": "15c", "token": "이슈라", "gold": "isy/LEM-wula/INFL", "gold_morph": "isy/LEM-wu/MOD-la/IMP"}
+{"period": "15c", "bigram": "가 이슐", "gold_a": "ka/LEM-a/INFL", "gold_b": "isy/LEM-wul/INFL", "gold_morph_b": "isy/LEM-wu/MOD-l/REL"}
+{"period": "15c", "token": "이슐", "gold": "isy/LEM-wul/INFL", "gold_morph": "isy/LEM-wu/MOD-l/REL"}
+{"period": "15c", "bigram": "가져 이실시라", "gold_a": "kacy/LEM-e/INFL", "gold_b": "isi/LEM-lsila/INFL", "gold_morph_a": "kacy/LEM-e/E", "gold_morph_b": "isi/LEM-l/REL-s/NP-i/COP-la/DECL"}
+{"period": "15c", "token": "이실시라", "gold": "isi/LEM-lsila/INFL", "gold_morph": "isi/LEM-l/REL-s/NP-i/COP-la/DECL"}
+{"period": "15c", "bigram": "ᄯᅡ 이쇼ᄆᆞᆯ", "gold_a": ".sta/LEM", "gold_b": "isy/LEM-womol/INFL", "gold_morph_b": "isy/LEM-wom/NMLZ-ol/ACC"}
+{"period": "15c", "token": "이쇼ᄆᆞᆯ", "gold": "isy/LEM-womol/INFL", "gold_morph": "isy/LEM-wom/NMLZ-ol/ACC"}
+{"period": "15c", "token": "ᄒᆞ다라", "gold": "ho/LEM-tala/INFL", "gold_morph": "ho/LEM-t/IPFV-a/MOD-la/DECL"}

@@ -226,7 +226,15 @@ def run_train(args: CLIArgs) -> None:
 
     # Collect tokens.
     all_tokens = []
+    bigram_hits = [] # Collect per-file bigram hits only when needed.
 
+    rx = None
+    is_bigram = False
+
+    if pattern:
+        print(f"[INFO] Training-mode pattern filter enabled: {pattern!r} (matched against token.tagged_form).")
+        rx = re.compile(pattern)
+        is_bigram = (" " in pattern) #If pattern has a space, training unit becomes (Token, Token)
 
     # Load 
 
@@ -238,13 +246,20 @@ def run_train(args: CLIArgs) -> None:
 
         all_tokens.extend(tokens)
 
-    # Optional: restrict training targets to tokens whose tagged_form matches a pattern
-    if pattern:
-        print(f"[INFO] Training-mode pattern filter enabled: {pattern!r} (matched against token.tagged_form).")
-        rx = re.compile(pattern)
-        all_tokens = [t for t in all_tokens if t.tagged_form and rx.search(t.tagged_form)]
+        if pattern and is_bigram:
+            # Bigram hits must be collected per file (do NOT cross file boundaries).
+            bigram_hits.extend(search_tokens(tokens, pattern))
 
-    train(all_tokens, rules, period=period, training_data=training_data)
+    # Decide training targets after collecting everything.
+    if pattern and is_bigram:
+        train_targets = bigram_hits
+    elif pattern:
+        train_targets = [t for t in all_tokens if t.tagged_form and rx.search(t.tagged_form)]
+    else:
+        train_targets = all_tokens
+
+
+    train(train_targets, rules, period=period, training_data=training_data)
 
     return
 

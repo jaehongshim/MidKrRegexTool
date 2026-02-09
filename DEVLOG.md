@@ -445,3 +445,10 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 - No attempt was made to auto-generate morph candidates during training yet.
 - Current changes focus on infrastructure and correctness, not coverage.
 
+## 2026-02-08
+
+### What I did today
+- Implemented a bigram training function.
+
+### What to do next
+- Support an interactive "active training" entry mode for adding gold annotations from the CLI.

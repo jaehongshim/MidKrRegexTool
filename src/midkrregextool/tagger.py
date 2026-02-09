@@ -7,6 +7,8 @@ from collections import Counter
 import unicodedata, re
 import json, random
 
+_GLOSS_RX = re.compile(r"/[A-Za-z][A-Za-z0-9_-]*")
+
 def load_infl_suffixes() -> list[str]:
     path = Path(__file__).with_name("infl_suffixes.txt")
     with open(path, encoding="utf-8") as f:
@@ -431,6 +433,10 @@ def load_token_gold(training_path: Path) -> dict[str, str]:
 
 def is_coarse_gold(s: str) -> bool:
     s = (s or "").strip()
+
+    if s.endswith("/LEM") and (" " not in s):
+        return True
+    
     return ("/LEM-" in s) and ("/INFL" in s)
 
 def parse_gold_morph_to_coarse(gold_morph: str) -> tuple[str, str] | None:
@@ -499,16 +505,25 @@ def load_learned_infl_suffixes(training_path: Path, *, period: int) -> list[str]
 
                 obj = json.loads(line)
                 gold = obj.get("gold")
-                if not isinstance(gold, str) or not gold or gold == "None":
-                    gm = obj.get("gold_morph")
-                    if isinstance(gm, str) and gm:
-                        parsed = parse_gold_morph_to_coarse(gm)
-                        if parsed is not None:
-                            gold, _ = parsed
 
-                infl = extract_infl_from_gold(gold)
-                if infl:
-                    infls.add(infl)
+                # If gold is properly defined, that means we are in the monogram loop.
+
+                if isinstance(gold, str) and gold and gold != "None":
+                    infl = extract_infl_from_gold(gold)
+                    if infl:
+                        infls.add(infl)
+                    continue
+
+                # bigram loop
+
+                for key in ("gold_a", "gold_b"):
+                    gold_part = obj.get(key)
+                    if not isinstance(gold_part, str):
+                        continue
+
+                    infl = extract_infl_from_gold(gold_part)
+                    if infl:
+                        infls.add(infl)
 
     except FileNotFoundError:
         return []
@@ -554,8 +569,80 @@ def infl_from_tagged_form(tagged_form: str) -> str:
 def parse_segmented(segmented: str) -> list[tuple[str,str]]:
     return [tuple(seg.rsplit("/",1)) for seg in segmented.split("-")]
 
+def _prompt_gold(token: Token, candidates: list[str]) -> tuple[str | None, str | None, bool]:
+    # Returns (gold, gold_morph, quit_training)
 
-def train(tokens: list[Token], rules: list[str], period: int, training_data: Path | None) -> None:
+    # If we have candidates, show them once.
+    if candidates:
+        format_candidate(token, candidates)
+
+    while True:
+        if candidates:
+            raw_ans = input(
+                f"[Training] What is the optimal candidate for {token.unicode_form}?\n"
+                f"(1-{len(candidates)} to select / s=skip / m=manual input / q=quit) > ".strip()
+            )
+        else:
+            raw_ans = input(
+                f"[Training] No candidates for {token.unicode_form}. "
+                f"(m=manual / s=skip / q=quit) > "
+            ).strip()
+
+        ans = raw_ans.lower()
+
+        if ans == "q":
+            return None, None, True
+        
+        if ans == "s":
+            return None, None, False
+        
+        # Manual input
+        if ans == "m":
+            raw = input("Please type your desired tagged form: ").strip()
+
+            if is_coarse_gold(raw):
+                return raw, None, False
+            
+            parsed = parse_gold_morph_to_coarse(raw)
+            if parsed is None:
+                print("[Training] Invalid manual input format. Try again.")
+                continue
+
+            gold, gold_morph = parsed
+            return gold, gold_morph, False
+        
+        # Direct gold without typing "m"
+        if _GLOSS_RX.search(raw_ans) is not None: # ans contains a gloss.
+            raw = raw_ans.strip()
+
+            if is_coarse_gold(raw):
+                return raw, None, False
+            
+            parsed = parse_gold_morph_to_coarse(raw)
+            if parsed is None:
+                print("[Training] Invalid tagged form. Try again.")
+                continue
+
+            gold, gold_morph = parsed
+            return gold, gold_morph, False
+        
+        # Pick from candidates
+        if candidates and ans.isdigit():
+            idx = int(ans)-1
+            if 0 <= idx < len(candidates):
+                if candidates[idx].endswith("/LEM"):
+                    return candidates[idx], candidates[idx], False
+                elif candidates[idx].endswith("/INFL"):
+                    return candidates[idx], None, False
+                else:
+                    return candidates[idx], candidates[idx], False
+            else:
+                print("[Training] Out of range. Try again.")
+                continue
+        
+        print("[ERROR] Invalid input.")
+
+def train(tokens: list[Token]|list[tuple[Token,Token]], rules: list[str], period: int, training_data: Path | None) -> None:
 
     period_tag = f"{period}c"
 
@@ -563,7 +650,6 @@ def train(tokens: list[Token], rules: list[str], period: int, training_data: Pat
 
     if not period:
         raise ValueError("Period must be specified in training mode.")
-
 
     # Locate or create training data file
 
@@ -573,7 +659,12 @@ def train(tokens: list[Token], rules: list[str], period: int, training_data: Pat
     infl_decomp = load_infl_decomp_from_training(out_path,period=period)
 
     # Load token gold list
+    token_gold_file = load_token_gold(out_path) 
     token_gold = load_token_gold(out_path)
+
+    # If first item is a tuple, training unit is a bigram: (Token, Token)
+
+    is_bigram = (len(tokens) > 0 and isinstance(tokens[0], tuple))
 
     with open(out_path, "a", encoding="utf-8") as f:
 
@@ -581,85 +672,34 @@ def train(tokens: list[Token], rules: list[str], period: int, training_data: Pat
 
         random.shuffle(tokens)
 
-        for token in tokens:
-            # Guard clause
-            gold_morph: str | None = None
+        # Branch for monogram-training mode
 
-            if token.unicode_form in token_gold:
-                continue
+        if not is_bigram:
 
-            candidates = candidate_generator(token, rules, infl_decomp=infl_decomp)
+            for token in tokens:
+                # Guard clause
+                gold_morph: str | None = None
 
-            if not candidates:
-                continue
-
-            if token.unicode_form in token_gold:
-                gold = token_gold[token.unicode_form]
-                if gold in candidates:
-                    candidates = [gold] + [c for c in candidates if c != gold]
-
-
-            format_candidate(token, candidates)
-
-            while True:
-
-                raw_ans = input(
-                    f"[Training] What is the optimal candidate for {token.unicode_form}?\n"
-                    f"(1-{len(candidates)} to select / s=skip / m=manual input / q=quit) > "
-                ).strip()
-                ans = raw_ans.lower()
-
-                if ans == "q":
-                    quit_training = True
-                    return
-
-                if ans == "s":
-                    break
-
-                gold = None
-
-                if ans == "m":
-                    raw = input("Please type your desired tagged form: ").strip()
-                    if not raw:
-                        print("[Training] Empty manual input. Skipping.")
-                        continue
-                
-                    if is_coarse_gold(raw):
-                        gold = raw
-                        gold_morph = None
-                    else:
-                        parsed = parse_gold_morph_to_coarse(raw)
-                        if parsed is None:
-                            print("[Training] Invalid manual input format. Skipping.")
-                            continue
-                        gold, gold_morph = parsed
-
-                elif ans.isdigit():
-                    idx = int(ans) - 1
-                    if 0 <= idx < len(candidates):
-                        gold = candidates[idx]
-                    else:
-                        print("[Training] Out of range. Skipping.")
-                        continue
-
-                elif ("/lem" in ans) or ("/infl" in ans):
-                    raw = raw_ans.strip()
-
-                    # Allow receiving gold directly without typing "m"
-                    if is_coarse_gold(raw):
-                        gold = raw
-                        gold_morph = None
-                    else:
-                        parsed = parse_gold_morph_to_coarse(raw)
-                        if parsed is None:
-                            print("[Training] Invalid tagged form. Skipping.")
-                        gold, gold_morph = parsed
-
-                else:
-                    print("[ERROR] Invalid input.")
+                if token.unicode_form in token_gold:
                     continue
 
-                obj = {"period": period_tag, "token": token.unicode_form, "gold": gold}
+                candidates = candidate_generator(token, rules, infl_decomp=infl_decomp)
+
+                if not candidates:
+                    continue
+
+                if token.unicode_form in token_gold:
+                    gold = token_gold[token.unicode_form]
+                    if gold in candidates:
+                        candidates = [gold] + [c for c in candidates if c != gold]
+
+                gold, gold_morph, quit_training = _prompt_gold(token, candidates)
+                if quit_training:
+                    return
+                
+                # If skip, do nothing. 
+                elif gold == None and gold_morph == None and quit_training == False:
+                    continue
                 
                 # Normalize: if selected gold is morph-style, convert to coarse gold + gold_morph
                 if gold is not None and not is_coarse_gold(gold):
@@ -667,17 +707,152 @@ def train(tokens: list[Token], rules: list[str], period: int, training_data: Pat
                     if parsed is not None:
                         gold, gold_morph = parsed
 
+                obj = {"period": period_tag, "token": token.unicode_form, "gold": gold}
+
                 if gold_morph is not None:
                     obj["gold_morph"] = gold_morph
                 f.write(json.dumps(obj, ensure_ascii=False) + "\n")
                 f.flush()
 
-                token_gold[token.unicode_form] = gold
+                # IMPORTANT: do not cache None
+                if gold is not None:
+                    token_gold[token.unicode_form] = gold
                 
-                break
-            
-            if quit_training:
-                break
+
+        # Branch for bigram-training mode
+        
+        else:
+
+            for a, b in tokens:
+                skip_bigram = False
+                # Bigram training: label token A then token B
+                gold_a = None
+                gold_b = None
+                gold_morph_a: str | None = None
+                gold_morph_b: str | None = None
+
+                # Let the user know that we are entering the bigram loop
+                print(f"[BIGRAM] {a.unicode_form} {b.unicode_form}")
+                
+                for side, token in (("a", a), ("b", b)):
+                    label = "A" if side == "a" else "B"
+                    
+                    print(f"[BIGRAM]-{label} tagging token: {token.unicode_form}")
+
+                    gold_morph: str | None = None
+                    
+
+                    if token.unicode_form in token_gold:
+                        cached = token_gold[token.unicode_form]
+                        print(f"[BIGRAM-{label}] already labeled -> {cached}")
+
+                        if token.morph_str in token_gold:
+                            cached_morph = token_gold[token.morph_str]
+                            print(f"[BIGRAM-{label}] segmented -> {cached_morph}")
+
+                            if side == "a":
+                                gold_a = cached
+                                gold_morph_a = cached_morph
+                            else:
+                                gold_b = cached
+                                gold_morph_b = cached_morph
+
+                            continue
+
+                        raw = input(
+                            f"Optional: provide more detailed glosses for {token.unicode_form} "
+                            f"(coarse={cached}). Press Enter to skip: "
+                            ).strip()
+                            
+                        if side == "a":
+                            gold_a = cached
+                            if raw:
+                                gold_morph_a = raw
+                                token_gold[token.morph_str] = raw
+                        
+                        else:
+                            gold_b = cached
+                            if raw:
+                                gold_morph_b = raw
+                                token_gold[token.morph_str] = raw
+
+                        continue
+
+                    else:
+                        candidates = candidate_generator(token, rules, infl_decomp=infl_decomp)
+
+                        gold, gold_morph, quit_training = _prompt_gold(token, candidates)
+
+                        if quit_training:
+                            return
+                        elif gold == None and gold_morph == None and quit_training == False:
+                            skip_bigram = True
+                            break
+
+                        # Normalize: (same as monogram)
+                        if gold is not None and not is_coarse_gold(gold):
+                            parsed = parse_gold_morph_to_coarse(gold)
+                            if parsed is not None:
+                                gold, gold_morph = parsed
+
+                        # Cache only real labels
+                        if gold is not None:
+                            token_gold[token.unicode_form] = gold
+
+                        if side == "a":
+                            gold_a = gold
+                            gold_morph_a = gold_morph
+                        else:
+                            gold_b = gold
+                            gold_morph_b = gold_morph
+
+                if skip_bigram:
+                    continue
+
+                # Save an instance of bigram as a line in the jsonl training file.
+                # Use bigram as a key to avoid overlapping labeling
+                obj = {
+                    "period": period_tag,
+                    "bigram": f"{a.unicode_form} {b.unicode_form}",
+                    "gold_a": gold_a,
+                    "gold_b": gold_b,
+                }
+                if gold_morph_a is not None:
+                    obj["gold_morph_a"] = gold_morph_a
+                if gold_morph_b is not None:
+                    obj["gold_morph_b"] = gold_morph_b
+
+                f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+
+                # If dict does not have the gold of each token, save it as a monogram result as well.
+
+                for side, token in (("a", a), ("b", b)):
+                    if token.unicode_form not in token_gold_file:
+                        if side == "a":
+                            obj_mono = {
+                                "period": period_tag,
+                                "token": a.unicode_form,
+                                "gold": gold_a
+                            }
+                            if gold_morph_a is not None:
+                                obj_mono["gold_morph"] = gold_morph_a
+                        else:
+                            obj_mono = {
+                                "period": period_tag,
+                                "token": b.unicode_form,
+                                "gold": gold_b
+                            }
+                            if gold_morph_b is not None:
+                                obj_mono["gold_morph"] = gold_morph_b
+                
+                f.write(json.dumps(obj_mono, ensure_ascii=False) + "\n")
+
+                token_gold_file[token.unicode_form] = obj_mono["gold"]
+
+                f.flush()
+
+                if quit_training:
+                    break
 
     print(f"[INFO] Training data saved to {out_path}")
 
