@@ -12,10 +12,10 @@ class Token:
     unicode_form: Optional[str] = None
     yale: Optional[str] = None
     is_note: str = "MAIN"
-    tagged_form: Optional[str] = None
+    coarse_form: Optional[str] = None
     context: Optional[str] = None
     matched_part: Optional[str] = None
     # Morph-layer (optional; filled only when available)
-    morph_str: str | None = None
+    tagged_form: str | None = None
     morphs: list[tuple[str,str]] | None = None
 

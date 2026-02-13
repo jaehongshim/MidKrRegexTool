@@ -452,3 +452,12 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 
 ### What to do next
 - Support an interactive "active training" entry mode for adding gold annotations from the CLI.
+
+## 2026-02-12
+
+### What I did today
+- Rename attributes in the `Token` class:
+  - `tagged_form` -> `coarse_form`
+  - `morph_str` -> `tagged_form`
+- Add a `token-repr` argument to allow the user to select the token representation used in both search and training modes.  
+  - If `token-repr` is not provided, "yale" is used as the default for training mode and "tagged_form" for search mode.

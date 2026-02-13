@@ -14,8 +14,8 @@ def format_hit(tok: Token) -> str:
         return(
             f"{tok.source_id} {tok.token_index} {tok.is_note} [{tok.path}]\n"
             f"\t[TOKEN]\t\t{tok.unicode_form}\n"
+            f"\t[COARSE-FORM]\t{tok.coarse_form}\n"
             f"\t[TAGGED-FORM]\t{tok.tagged_form}\n"
-            f"\t[MORPH-STR]\t{tok.morph_str}\n"
             f"\t[MATCHED-PART]\t{tok.matched_part}\n"
             f"\t[CONTEXT]\t{tok.context}"
         )
@@ -23,27 +23,32 @@ def format_hit(tok: Token) -> str:
         return(
             f"{tok.source_id} {tok.token_index} {tok.is_note} [{tok.path}]\n"
             f"\t[TOKEN]\t\t{tok.unicode_form}\n"
+            f"\t[COARSE-FORM]\t{tok.coarse_form}\n"
             f"\t[TAGGED-FORM]\t{tok.tagged_form}\n"
-            f"\t[MORPH-STR]\t{tok.morph_str}\n"
             f"\t[MATCHED-PART]\t{tok.matched_part}\n"
         )
 
 def format_bigram(a: Token, b: Token) -> str:
     if a.context is not None:
+        # adjust the context
+        contextwords = a.context.split()
+        contextwords[a.token_index-1] = contextwords[a.token_index-1][:-2]
+        contextwords[b.token_index-1] = f"{contextwords[b.token_index-1]}>>"
+        displayed_context = " ".join(contextwords)
         return (
             f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} [{a.path}]\n"
             f"\t[TOKEN]\t\t{a.unicode_form} {b.unicode_form}\n"
+            f"\t[COARSE-FORM]\t{a.coarse_form} {b.coarse_form}\n"
             f"\t[TAGGED-FORM]\t{a.tagged_form} {b.tagged_form}\n"
-            f"\t[MORPH-STR]\t{a.morph_str} {b.morph_str}\n"
             f"\t[MATCHED_PART]\t{a.matched_part}\n"
-            f"\t[CONTEXT]\t{a.context}"
+            f"\t[CONTEXT]\t{displayed_context}"
         )
     else:
         return (
             f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} [{a.path}]\n"
             f"\t[TOKEN]\t\t{a.unicode_form} {b.unicode_form}\n"
+            f"\t[COARSE-FORM]\t{a.coarse_form} {b.coarse_form}\n"
             f"\t[TAGGED-FORM]\t{a.tagged_form} {b.tagged_form}\n"
-            f"\t[MORPH-STR]\t{a.morph_str} {b.morph_str}\n"
             f"\t[MATCHED_PART]\t{a.matched_part}\n"
         )
     # Comment the following out if you need PUA forms.
@@ -103,22 +108,27 @@ def confirm_overwrite(path: Path) -> bool:
 
 def format_monogram_results(tok: Token) -> str:
     if tok.context is not None:
-        return f"{tok.path}\t{tok.source_id} {tok.token_index} {tok.is_note}\t{tok.unicode_form}\t{tok.tagged_form}\t{tok.morph_str}\t{tok.matched_part}\t{tok.context}"
+        return f"{tok.path}\t{tok.source_id} {tok.token_index} {tok.is_note}\t{tok.unicode_form}\t{tok.coarse_form}\t{tok.tagged_form}\t{tok.matched_part}\t{tok.context}"
     else:
-        return f"{tok.path}\t{tok.source_id} {tok.token_index} {tok.is_note}\t{tok.unicode_form}\t{tok.tagged_form}\t{tok.morph_str}\t{tok.matched_part}\t\t"
+        return f"{tok.path}\t{tok.source_id} {tok.token_index} {tok.is_note}\t{tok.unicode_form}\t{tok.coarse_form}\t{tok.tagged_form}\t{tok.matched_part}\t\t"
 
 def format_bigram_results(a: Token, b: Token) -> str:
+    # adjust the context
+    contextwords = a.context.split()
+    contextwords[a.token_index-1] = contextwords[a.token_index-1][:-2]
+    contextwords[b.token_index-1] = f"{contextwords[b.token_index-1]}>>"
+    displayed_context = " ".join(contextwords)
     if a.context is not None:
-        return f"{a.path}\t{a.source_id} {a.token_index}-{b.token_index} {a.is_note}\t{a.unicode_form} {b.unicode_form}\t{a.tagged_form} {b.tagged_form}\t{a.morph_str} {b.morph_str}\t{a.matched_part}\t{a.context}"
+        return f"{a.path}\t{a.source_id} {a.token_index}-{b.token_index} {a.is_note}\t{a.unicode_form} {b.unicode_form}\t{a.coarse_form} {b.coarse_form}\t{a.tagged_form} {b.tagged_form}\t{a.matched_part}\t{displayed_context}"
     else:
-        return f"{a.path}\t{a.source_id} {a.token_index}-{b.token_index} {a.is_note}\t{a.unicode_form} {b.unicode_form}\t{a.tagged_form} {b.tagged_form}\t{a.morph_str} {b.morph_str}\t{a.matched_part}\t\t"
+        return f"{a.path}\t{a.source_id} {a.token_index}-{b.token_index} {a.is_note}\t{a.unicode_form} {b.unicode_form}\t{a.coarse_form} {b.coarse_form}\t{a.tagged_form} {b.tagged_form}\t{a.matched_part}\t\t"
     # Comment the following out if you need PUA forms.
     # return f"{a.source_id} {a.token_index}-{b.token_index} {a.is_note} {a.pua} {b.pua} {a.unicode_form} {b.unicode_form} {a.yale} {b.yale}"
 
 # Save the results file.
 def write_hits(path: Path, hits: list[tuple[Token, ...]], *, pattern: str, purpose: str | None = None, note: str | None = None) -> None:
     with open(path, "w", encoding=DEFAULT_OUTPUT_ENCODING, newline="\n") as f:
-        f.write(f"FILE_PATH\tSOURCE\tTOKEN\tTAGGED-FORM\t[MORPH-STR]\tMATCHED-PART\tCONTEXT\tNOTE\t# pattern={pattern!r} hits={len(hits)} purpose={purpose!r} note={note!r}\n")
+        f.write(f"FILE_PATH\tSOURCE\tTOKEN\tCOARSE-FORM\t[TAGGED-FORM]\tMATCHED-PART\tCONTEXT\tNOTE\t# pattern={pattern!r} hits={len(hits)} purpose={purpose!r} note={note!r}\n")
         if " " in pattern:
             for a, b in hits:
                 f.write(format_bigram_results(a,b) + "\n")

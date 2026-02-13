@@ -28,6 +28,7 @@ class CLIArgs:
     training_mode: bool = False
     candidate_mining: str | None = None
     training_data: Path | None = None
+    token_repr: str | None = None
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
@@ -45,6 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--training-data", type=Path, default=None, help="Path to training data for suffix proposal generation")
     p.add_argument("--candidate-mining", type=str, default = None, choices=["lemma", "suffix"], help="Enable candidate mining mode")
     p.add_argument("--sort", type=str, default=None, choices=["published_year"], help="XML files only; sort by published year string")
+    p.add_argument("--token-repr", type=str, default=None, choices = ["yale", "coarse_form", "tagged_form"], help="Select the token representation used for search or training.")
 
     return p
 
@@ -96,6 +98,14 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
     if ns.candidate_mining is not None and ns.candidate_mining not in ("lemma", "suffix"):
         raise SystemExit("[ERROR] Invalid options for --candidate-mining. Please use \"lemma\" or \"suffix\"")
     
+    # Set the default value of repr: "yale" for training-mode and "tagged_form" for search-mode
+    if (training_mode) and (ns.token_repr is None):
+        token_repr = "yale"
+    elif (not training_mode) and (ns.token_repr) is None: 
+        token_repr = "tagged_form"
+    else:
+        token_repr = ns.token_repr
+
     return CLIArgs(
         path,
         pattern=ns.pattern,
@@ -106,7 +116,8 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
         sort=ns.sort,
         training_mode=ns.training_mode,
         training_data=training_data,
-        candidate_mining = ns.candidate_mining
+        candidate_mining = ns.candidate_mining,
+        token_repr=token_repr
     )
 
 # Input-file-collecting function
@@ -196,8 +207,10 @@ def run_train(args: CLIArgs) -> None:
     training_data = args.training_data
     sort = args.sort
     pattern = args.pattern
+    token_repr = args.token_repr
 
     VALID = [15, 16, 17, 18, 19, 20] # Valid centuries for period filtering
+    infl_decomp = load_infl_decomp_from_training(training_data / f"training_{period}c.jsonl",period=period)
     
     # Guard clause: training mode requires an explicit period argument
 
@@ -232,7 +245,10 @@ def run_train(args: CLIArgs) -> None:
     is_bigram = False
 
     if pattern:
-        print(f"[INFO] Training-mode pattern filter enabled: {pattern!r} (matched against token.tagged_form).")
+        if token_repr == "coarse_form":
+            print(f"[INFO] Training-mode pattern filter enabled: {pattern!r} (matched against token.coarse_form).")
+        elif token_repr == "tagged_form":
+            print(f"[INFO] Training-mode pattern filter enabled: {pattern!r} (matched against token.tagged_form).")
         rx = re.compile(pattern)
         is_bigram = (" " in pattern) #If pattern has a space, training unit becomes (Token, Token)
 
@@ -242,19 +258,24 @@ def run_train(args: CLIArgs) -> None:
 
         tokens = attach_yale(parse_file(file_path, encoding=encoding, displaycontext=displaycontext))
 
-        tokens = tag_tokens(tokens, rules, lemma_list)
+        tokens = tag_tokens(tokens, rules, lemma_list, infl_decomp=infl_decomp)
 
         all_tokens.extend(tokens)
 
         if pattern and is_bigram:
             # Bigram hits must be collected per file (do NOT cross file boundaries).
-            bigram_hits.extend(search_tokens(tokens, pattern))
+            bigram_hits.extend(search_tokens(tokens, pattern, token_repr))
 
     # Decide training targets after collecting everything.
     if pattern and is_bigram:
         train_targets = bigram_hits
     elif pattern:
-        train_targets = [t for t in all_tokens if t.tagged_form and rx.search(t.tagged_form)]
+        if token_repr == "tagged_form":
+            train_targets = [t for t in all_tokens if t.tagged_form and rx.search(t.tagged_form)]
+        elif token_repr == "coarse_form":
+            train_targets = [t for t in all_tokens if t.coarse_form and rx.search(t.coarse_form)]
+        else:
+            train_targets = [t for t in all_tokens if t.yale and rx.search(t.yale)]
     else:
         train_targets = all_tokens
 
@@ -276,6 +297,7 @@ def run_search(args: CLIArgs) -> None:
     training_data = args.training_data
     sort = args.sort
     files = collect_input_files(args.path, period, sort=sort)
+    token_repr = args.token_repr
 
     last_period = period # Cache the current period to avoid re-collecting input files unless the period changes.
 
@@ -321,7 +343,7 @@ def run_search(args: CLIArgs) -> None:
 
                 tokens = tag_tokens(tokens, rules, lemma_list, infl_decomp=infl_decomp)
 
-                hits = search_tokens(tokens, pattern)
+                hits = search_tokens(tokens, pattern, token_repr)
 
                 # If there is no hit in the current file, skip it.
 
@@ -345,7 +367,7 @@ def run_search(args: CLIArgs) -> None:
 
             for hit in original_hits:
                 # Reassign the matched strings attribute for each hit
-                joined = " ".join((tok.morph_str or tok.tagged_form) for tok in hit)
+                joined = " ".join((tok.tagged_form or tok.tagged_form) for tok in hit)
                 m = rx.search(joined)
                 if m:
                     # Store the matched span for display/save

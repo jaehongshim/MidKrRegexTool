@@ -339,17 +339,17 @@ def tag_tokens(tokens: list[Token], rules: list[str], lemma_list: list[str], *, 
             print(f"    {suf}\t{cnt}")
 
     for token in tokens:
-        token.tagged_form = analyze_yale(token.yale, rules, lemma_list)
+        token.coarse_form = analyze_yale(token.yale, rules, lemma_list)
 
-        if "/INFL" not in token.tagged_form:
+        if "/INFL" not in token.coarse_form:
             continue
 
         if infl_decomp is not None:
-            infl = infl_from_tagged_form(token.tagged_form)
+            infl = infl_from_tagged_form(token.coarse_form)
             segmented = infl_decomp.get(infl)
             if segmented is None:
                 continue
-            token.morph_str = token.tagged_form.split("/LEM", 1)[0] + "/LEM-" + segmented
+            token.tagged_form = token.coarse_form.split("/LEM", 1)[0] + "/LEM-" + segmented
             token.morphs = parse_segmented(segmented)
 
     return tokens
@@ -559,12 +559,12 @@ def load_infl_decomp_from_training(training_path: Path, *, period:int) -> dict[s
 
     return d
 
-def infl_from_tagged_form(tagged_form: str) -> str:
-    if not tagged_form:
+def infl_from_tagged_form(coarse_form: str) -> str:
+    if not coarse_form:
         return None
-    if "/LEM-" not in tagged_form or "/INFL" not in tagged_form:
+    if "/LEM-" not in coarse_form or "/INFL" not in coarse_form:
         return None 
-    return tagged_form.split("/LEM-",1)[1].split("/INFL",1)[0]
+    return coarse_form.split("/LEM-",1)[1].split("/INFL",1)[0]
 
 def parse_segmented(segmented: str) -> list[tuple[str,str]]:
     return [tuple(seg.rsplit("/",1)) for seg in segmented.split("-")]
@@ -746,8 +746,8 @@ def train(tokens: list[Token]|list[tuple[Token,Token]], rules: list[str], period
                         cached = token_gold[token.unicode_form]
                         print(f"[BIGRAM-{label}] already labeled -> {cached}")
 
-                        if token.morph_str in token_gold:
-                            cached_morph = token_gold[token.morph_str]
+                        if token.tagged_form in token_gold:
+                            cached_morph = token_gold[token.tagged_form]
                             print(f"[BIGRAM-{label}] segmented -> {cached_morph}")
 
                             if side == "a":
@@ -768,13 +768,13 @@ def train(tokens: list[Token]|list[tuple[Token,Token]], rules: list[str], period
                             gold_a = cached
                             if raw:
                                 gold_morph_a = raw
-                                token_gold[token.morph_str] = raw
+                                token_gold[token.tagged_form] = raw
                         
                         else:
                             gold_b = cached
                             if raw:
                                 gold_morph_b = raw
-                                token_gold[token.morph_str] = raw
+                                token_gold[token.tagged_form] = raw
 
                         continue
 
