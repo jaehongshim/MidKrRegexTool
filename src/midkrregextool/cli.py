@@ -11,9 +11,9 @@ from midkrregextool.parser import parse_file
 from midkrregextool.yale import attach_yale
 from midkrregextool.search import search_tokens
 from midkrregextool.report import report_hits, maybe_save_hits
-from midkrregextool.tagger import tag_tokens, load_infl_suffixes, load_lemma_whitelist, train, load_learned_infl_suffixes, update_suffix_counter, dump_known_lemmas, finalize_suffix_proposals, display_lemma_candidates, display_suffix_candidates, load_infl_decomp_from_training
+from midkrregextool.tagger import tag_tokens, load_infl_suffixes, load_lemma_whitelist, load_lemma_lexicon
+from midkrregextool.training import train, load_learned_infl_suffixes, load_infl_decomp_from_training, load_rest_surfaces_from_training
 import re
-from collections import Counter
 import xml.etree.ElementTree as ET
 
 @dataclass(frozen=True)
@@ -24,9 +24,8 @@ class CLIArgs:
     period: str | None
     sort: str | None
     encoding: str = "utf-16"
-    displaycontext: str = "n"
+    display_context: bool = False
     training_mode: bool = False
-    candidate_mining: str | None = None
     training_data: Path | None = None
     token_repr: str | None = None
 
@@ -40,11 +39,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--pattern", type=str, default=None, help="Regex pattern to search over Yale-romanized Korean texts. When used over a training mode, only matching tokens are shown.")
     p.add_argument("--purpose", type=str, default=None, help="User's purposes for the performed regex search")
     p.add_argument("--encoding", type=str, default="utf-16", help="File encoding (default: utf-16)")
-    p.add_argument("--displaycontext", type=str, default = "n", help="Display context around matches (y/n), (default n)")
+    p.add_argument("--display-context", action="store_true", help="Enable a context-display function")
     p.add_argument("--period", type=str, default=None, help="Filter by historical period")
     p.add_argument ("--training-mode", action="store_true", help="Enable training mode (interactive labeling)")
     p.add_argument("--training-data", type=Path, default=None, help="Path to training data for suffix proposal generation")
-    p.add_argument("--candidate-mining", type=str, default = None, choices=["lemma", "suffix"], help="Enable candidate mining mode")
     p.add_argument("--sort", type=str, default=None, choices=["published_year"], help="XML files only; sort by published year string")
     p.add_argument("--token-repr", type=str, default=None, choices = ["yale", "coarse_form", "tagged_form"], help="Select the token representation used for search or training.")
 
@@ -68,13 +66,12 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
     # if ns.pattern is None: raise SystemExit("[Error] --pattern is required.")
 
     training_mode = ns.training_mode
-    candidate_mining = ns.candidate_mining
     pattern = ns.pattern
 
     # Search mode requires --pattern
-    if (not training_mode) and (not candidate_mining):
+    if not training_mode:
         if pattern is None:
-            raise SystemExit("[Error] --pattern is required unless --training-mode or --candidate-mining is set.")
+            raise SystemExit("[Error] --pattern is required unless --training-mode is set.")
     
     # Guard clause for missing --training-data
 
@@ -93,11 +90,6 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
     if ns.training_data is not None and ns.period is None:
         raise SystemExit("[Error] --training-data requires --period.")
     
-    # Guard clause for invalid options for --candidate-mining
-
-    if ns.candidate_mining is not None and ns.candidate_mining not in ("lemma", "suffix"):
-        raise SystemExit("[ERROR] Invalid options for --candidate-mining. Please use \"lemma\" or \"suffix\"")
-    
     # Set the default value of repr: "yale" for training-mode and "tagged_form" for search-mode
     if (training_mode) and (ns.token_repr is None):
         token_repr = "yale"
@@ -111,12 +103,11 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
         pattern=ns.pattern,
         purpose=ns.purpose,
         encoding=ns.encoding,
-        displaycontext=ns.displaycontext,
+        display_context=ns.display_context,
         period=ns.period,
         sort=ns.sort,
         training_mode=ns.training_mode,
         training_data=training_data,
-        candidate_mining = ns.candidate_mining,
         token_repr=token_repr
     )
 
@@ -184,7 +175,7 @@ def convert_to_century(year: str) -> int | None:
         return (y - 1) // 100 + 1
     
 def build_rules(*, training_data: Path | None, period: int | None) -> list[str]:
-    rules = load_infl_suffixes() # base rules
+    rules = load_infl_suffixes(period=period) # base rules
 
     if training_data is not None and period is not None:
         learned = load_learned_infl_suffixes(training_data, period=period)
@@ -203,11 +194,12 @@ def run_train(args: CLIArgs) -> None:
     # Assigning objects to the arguments
     encoding = args.encoding
     period = convert_to_century(args.period)
-    displaycontext = "y"
     training_data = args.training_data
     sort = args.sort
     pattern = args.pattern
     token_repr = args.token_repr
+    display_context = args.display_context
+    lexicon = load_lemma_lexicon(period, training_data=training_data)
 
     VALID = [15, 16, 17, 18, 19, 20] # Valid centuries for period filtering
     infl_decomp = load_infl_decomp_from_training(training_data / f"training_{period}c.jsonl",period=period)
@@ -235,7 +227,6 @@ def run_train(args: CLIArgs) -> None:
     
     # Import the existing rules
     rules = build_rules(training_data=training_data, period=period)
-    lemma_list = load_lemma_whitelist()
 
     # Collect tokens.
     all_tokens = []
@@ -253,12 +244,16 @@ def run_train(args: CLIArgs) -> None:
         is_bigram = (" " in pattern) #If pattern has a space, training unit becomes (Token, Token)
 
     # Load 
+    if training_data is not None:
+        rest_set = load_rest_surfaces_from_training(training_data, period)
+    else:
+        rest_set = set()
 
     for file_path in files:
 
-        tokens = attach_yale(parse_file(file_path, encoding=encoding, displaycontext=displaycontext))
+        tokens = attach_yale(parse_file(file_path, encoding=encoding, display_context=display_context))
 
-        tokens = tag_tokens(tokens, rules, lemma_list, infl_decomp=infl_decomp)
+        tokens = tag_tokens(tokens, rules, lexicon=lexicon, rest_set=rest_set, infl_decomp=infl_decomp)
 
         all_tokens.extend(tokens)
 
@@ -280,7 +275,7 @@ def run_train(args: CLIArgs) -> None:
         train_targets = all_tokens
 
 
-    train(train_targets, rules, period=period, training_data=training_data)
+    train(train_targets, rules, period=period, training_data=training_data, lexicon=lexicon)
 
     return
 
@@ -292,7 +287,7 @@ def run_search(args: CLIArgs) -> None:
     pattern = args.pattern
     purpose = args.purpose
     encoding = args.encoding
-    displaycontext = args.displaycontext
+    display_context = args.display_context
     period = convert_to_century(args.period)
     training_data = args.training_data
     sort = args.sort
@@ -309,8 +304,7 @@ def run_search(args: CLIArgs) -> None:
     # Search loop
 
     rules = build_rules(training_data=training_data, period=period)
-    lemmas = load_lemma_whitelist()
-    lemma_list = sorted(lemmas, key=len, reverse=True)
+    lexicon = load_lemma_lexicon(period, training_data=training_data)
 
     within_result_search = "n"
         
@@ -337,11 +331,14 @@ def run_search(args: CLIArgs) -> None:
             infl_decomp = None
             if training_data is not None:
                 infl_decomp = load_infl_decomp_from_training(training_data / f"training_{period}c.jsonl",period=period)
+                rest_set = load_rest_surfaces_from_training(training_data, period)
+            else:
+                rest_set = set()
 
             for file_path in files:
-                tokens = attach_yale(parse_file(file_path,encoding=encoding,displaycontext=displaycontext))
+                tokens = attach_yale(parse_file(file_path,encoding=encoding,display_context=display_context))
 
-                tokens = tag_tokens(tokens, rules, lemma_list, infl_decomp=infl_decomp)
+                tokens = tag_tokens(tokens, rules, lexicon=lexicon, rest_set=rest_set, infl_decomp=infl_decomp)
 
                 hits = search_tokens(tokens, pattern, token_repr)
 
@@ -443,66 +440,7 @@ def run_search(args: CLIArgs) -> None:
     if all_hits:
         maybe_save_hits(all_hits, pattern=pattern, purpose=purpose)
 
-def run_candidate_mining(args: CLIArgs) -> None:
-
-    # Assign objects
-    training_data = args.training_data
-    period = convert_to_century(args.period)
-    displaycontext = args.displaycontext
-    encoding = args.encoding
-    sort = args.sort
-    files = collect_input_files(args.path, period, sort=sort)
-    
-    if args.candidate_mining == "lemma":
-        lemma_flag = True
-        suffix_flag = False
-
-    else: 
-        lemma_flag = False
-        suffix_flag = True
-
-    # Placeholder for suffix anchor
-    suffix_anchor = args.pattern
-
-    # No input files found
-    if not files:
-        print(f"[INFO] No supported files found under: {args.path} (expected: .txt, .xml)") 
-        return
-
-    c = Counter()
-
-    rules = build_rules(training_data=training_data, period=period)
-    lemma_counter: Counter[str] = Counter()
-    lemmas = load_lemma_whitelist()
-    lemma_list = sorted(lemmas, key=len, reverse=True)
-
-    for file_path in files:
-        tokens = attach_yale(parse_file(file_path,encoding=encoding,displaycontext=displaycontext))
-        tokens = tag_tokens(tokens, rules, lemma_list, debug_suffixes = suffix_flag)
-
-        if suffix_flag:
-            update_suffix_counter(c, tokens, rules, max_len = 8, suffix_must_endwith=suffix_anchor)
-
-        elif lemma_flag:
-            for lem, cnt in dump_known_lemmas(tokens, rules, lemma_list, top_k=50):
-                lemma_counter[lem] += cnt
-
-
-    all_proposals = finalize_suffix_proposals(c, rules, top_k=50, min_count = 1)
-
-    if suffix_flag:
-        display_suffix_candidates(all_proposals)
-
-    if lemma_flag:
-        display_lemma_candidates(lemma_counter)
-
 def run(args: CLIArgs) -> None:
-
-    # Candidate-mining mode
-
-    if args.candidate_mining:
-        run_candidate_mining(args)
-        return
 
     # Training mode
 

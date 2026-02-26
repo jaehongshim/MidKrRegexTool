@@ -461,3 +461,40 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
   - `morph_str` -> `tagged_form`
 - Add a `token-repr` argument to allow the user to select the token representation used in both search and training modes.  
   - If `token-repr` is not provided, "yale" is used as the default for training mode and "tagged_form" for search mode.
+
+## 2026-02-23
+
+### What I did today
+- Temporarily disabled the `candidate-mining` module to simplify the pipeline.
+- Separated training logic into a new `training.py`, simplifying `tagger.py` and clarifying module responsibilities.
+- Reduced false positives and false negatives in stem-suffix boundary detection.
+  - Boundary evaluation is now performed **only when both the lemma and the suffix are attested** in the recorded lexicon and training files.
+- Incorporated POS information provided during training into the existing lemma inventory to improve tagging accuracy. 
+- Enabled optional POS output during search/training.
+- Identified a limitation:
+  - Negative prefixes are recorded separately in the training file, but prefix information is not currently reflected in tagging. -> Temporarily solved by an ad hoc solution.
+  - Possible optimal solution: introduce a small, controlled prefix list and handle prefix annotation explicitly.
+
+## 2026-02-24
+
+### What I did today
+- Renamed `displaycontext` -> `display-context` and converted it into a boolean flag for cleaner CLI behavior.
+- Introduced an empty `rest_set()` fallback for cases where `--training-data` is not provided.
+- Restructured the `lexicon` dictionary to support prefix annotation.
+  - Legacy structure: {"mwotho":"V", "kwoksik":"N", ...}
+  - Updated structure: {"mwotho":"mwot/NEG/PREFIX-ho/V", "kwoksik":"kwoksik/N"}
+- Integrated jsonl training file lookup into `candidate_generator`.
+  - Added `load_lemma_lexicon` support inside `candidate_generator`
+- Enabled full training-from-scratch workflow.
+- Refined `parse_gold_morph_to_coarse` function to correctly render coarse forms. 
+
+### Detected issues
+- The current lemma whitelist does not properly handle tokens with prefixes.
+  - Temporary workaround: remove such tokens from the whitelist and delegate handling to the jsonl-based training lexicon. 
+- Need a more efficient strategy for predicates with Sino-Korean (Chinese) roots.
+
+## 2026-02-25
+
+### Detected issue
+- Don't really have to train and search on Chinese texts. 
+  - e.g. Exclude: <sent type="main" lang="chi" page="04b" n="5">孟子ᅵ 對曰</sent>

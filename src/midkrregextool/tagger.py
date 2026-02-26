@@ -3,14 +3,38 @@
 from __future__ import annotations
 from .model import Token
 from pathlib import Path
-from collections import Counter
-import unicodedata, re
-import json, random
+import unicodedata, re, json
 
-_GLOSS_RX = re.compile(r"/[A-Za-z][A-Za-z0-9_-]*")
+def _resolve_training_data(training_data: Path, period: int | str | None = None) -> Path:
+    period_tag = _period_tag(period)
+    training_dir = training_data if training_data is not None else default_training_dir()
+    return training_dir / f"training_{period_tag}.jsonl"
 
-def load_infl_suffixes() -> list[str]:
-    path = Path(__file__).with_name("infl_suffixes.txt")
+def _period_tag(period: int | str | None) -> str | None:
+    if period is None:
+        return None
+    if isinstance(period, int):
+        return f"{period}c"
+    p = str(period).strip()
+    if not p:
+        return None
+    return p if p.endswith("c") else f"{p}c"
+
+def _resolve_data_file(filename: str, *, period: int | str | None = None) -> Path:
+    """
+    Preferred: <repo_root>/data/<period_tag>/<filename>
+    Fallback: <this_module_dir>/<filename>
+    """
+    period_tag = _period_tag(period)
+    if period_tag is not None:
+        repo_root = Path(__file__).resolve().parents[2]
+        cand = repo_root / "data" / period_tag / filename
+        if cand.exists():
+            return cand
+    return Path(__file__).with_name(filename)
+
+def load_infl_suffixes(period: int | str | None = None) -> list[str]:
+    path = _resolve_data_file("infl_suffixes.txt", period=period)
     with open(path, encoding="utf-8") as f:
         lines = f.readlines()
 
@@ -25,18 +49,110 @@ def load_infl_suffixes() -> list[str]:
 
     return sorted(suffixes, key=len, reverse=True)
 
-def load_lemma_whitelist() -> set[str]:
-    path = Path(__file__).with_name("lemma_whitelist.txt")
-    lemmas: set[str] = set()
+def load_lemma_lexicon(period: int | str | None = None, *, training_data: Path) -> dict[str, str]:
 
+    def _assign_pos(form_pos: str) -> list[str, str]:
+        """
+        Expected input: kwoksik/N or mwot/NEG/PREFIX-ho/V, returns form and pos
+        Fallback: kwoksik or mwot/NEG/PREFIX-ho, returns form and "UNK"
+        """    
+        if "/PREFIX-" in form_pos:
+            if "/" in form_pos.split("/PREFIX-")[0]:
+                prefix = form_pos.split("/PREFIX")[0].split("/")[0]
+                lem = form_pos.split("/PREFIX-")[1].split("/")[0]
+                lem = prefix + lem
+                pos = form_pos
+
+        elif "/" in form_pos:
+            lem = form_pos.split("/")[0]
+            pos = form_pos
+        
+        else: 
+            lem = form_pos
+            pos = form_pos + "/UNK"
+
+        return [lem, pos]
+    
+    def _add_from_gold_morph(m: str) -> None:
+        """
+        Expected input: (LEMMA)/(POS)/LEM or (LEMMA)/(POS)/LEM-(SUFFIXES)
+        Fallback: (Lemma)/LEM or (LEMMA)/LEM-(SUFFIXES)
+        """
+        if m is None:
+            return
+        
+        m1 = m.split("/LEM")[0] # The part before "/LEM", e.g., kwoksik/N <-
+
+        [lem, pos] = _assign_pos(m1)
+        
+        if lem in lex.keys():
+            return
+        lex[lem] = pos
+
+    def _add_from_gold(g: str) -> None:
+        """
+        Expected input: (LEMMA)/(POS)/LEM or (LEMMA)/(POS)/LEM-(SUFFIXES)/INFL
+        Fallback: (Lemma)/LEM or (LEMMA)/LEM-(SUFFIXES)/INFL
+        """
+        if g is None:
+            return
+
+        g1 = g.split("/LEM")[0]
+
+        [lem, pos] = _assign_pos(g1)
+
+        if lem in lex.keys():
+            return
+        lex[lem] = pos
+        
+    path = _resolve_data_file("lemma_whitelist.txt", period=period)
+    lex: dict[str, str] = {}
+    current_pos: str | None = None
     with open(path, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith("#"):
+        for raw in f:
+            line = raw.strip()
+            if not line:
                 continue
-            lemmas.add(line)
+            if line.startswith("#"): # Setting POS tag if line starts with #
+                header = line.lstrip("#").strip()
+                current_pos = header.split()[0].upper() if header else None
+                continue
+            if current_pos is None:
+                raise ValueError(
+                    f"Lemma '{line} appears before any POS header in {path}'"
+                )
+            pos = line + "/" + current_pos
+            lex[line] = pos
 
-    return lemmas
+    if training_data is not None:
+
+        training_file = _resolve_training_data(training_data, period)
+
+        try: 
+            f = open(training_file, encoding="utf-8")
+            for raw in f:
+
+                obj = json.loads(raw)
+
+                if not obj:
+                    continue
+
+                for k in ("gold_morph", "gold_morph_a", "gold_morph_b"):
+                    m = obj.get(k)
+                    if m:
+                        _add_from_gold_morph(m)
+
+                for k in ("gold", "gold_a", "gold_b"):
+                    g = obj.get(k)
+                    if g:
+                        _add_from_gold(g)
+        except:
+            return
+
+    return lex
+
+def load_lemma_whitelist(period: int | str | None = None) -> set[str]:
+    return set(load_lemma_lexicon(period).keys())
 
 def contains_han(s: str) -> bool:
     for ch in s:
@@ -47,22 +163,34 @@ def contains_han(s: str) -> bool:
 def analyze_yale(
         yale: str, 
         infl_suffixes: list[str],
-        lemmas: list[str]) -> str:
+        lexicon: dict[str, str] | None = None,
+        rest_set: set[str] | None = None,
+        ) -> str:
     
     if not yale:
         return ""   # guard against missing yale
     
+    if not rest_set:
+        rest_set = set()
+
+    if not lexicon:
+        lexicon = dict()
+
+    lemma_list = sorted(lexicon.keys(), key=len, reverse=True)
+    
     # Check if yale starts with an item in the whitelist.
 
-    for lem in lemmas:
+    for lem in lemma_list:
         if yale.startswith(lem):
+            lem_pos = lexicon[lem]
             suffix = yale[len(lem):]
             if not suffix:
-                return f"{lem}/LEM"
+                return f"{lem_pos}/LEM"
+                
             else:
-                return f"{lem}/LEM-{suffix}/INFL"
-
-    # If not, 
+                if suffix in rest_set:
+                    return f"{lem_pos}/LEM-{suffix}/INFL"
+                continue
 
     has_han = contains_han(yale)
 
@@ -77,17 +205,17 @@ def analyze_yale(
         if m1:
             lem = m1.group(1)
             suf = m1.group(2)
-            return f"{lem}/LEM-{suf}/INFL"
+            return f"{lem}/CH/LEM-{suf}/INFL"
 
         # 1-2. If yale contains any non-Chinese characters, parse a boundary between CH/LEM-...
         elif m2:
             lem = m2.group(1)
             suf = m2.group(2)
-            return f"{lem}/LEM-{suf}/INFL"
+            return f"{lem}/CH/LEM-{suf}/INFL"
 
         # 1-3. else, yale is lemma.
         else:
-            return f"{yale}/LEM"
+            return f"{yale}/CH/LEM"
 
     
     for suf in infl_suffixes:
@@ -96,13 +224,14 @@ def analyze_yale(
         # Inspect longer suffixes first
 
         if yale.endswith(suf):
-            lem = yale[:-len(suf)]
-            if not lem:
+            stem = yale[:-len(suf)]
+            if not stem:
                 return f"{yale}/LEM"
-            if not re.search(r"[aeiou]", lem):
+            if stem not in lexicon:
                 continue
             else:
-                return f"{lem}/LEM-{suf}/INFL"
+                pos = lexicon[stem]
+                return f"{stem}/{pos}/LEM-{suf}/INFL"
         else:
             continue
         
@@ -128,218 +257,19 @@ def split_lem_infl(yale: str, infl_suffixes: list[str]) -> tuple[str, str] | Non
                 return (lem, suf)
     return None
 
-def dump_known_lemmas(
-        tokens: list[Token],
-        infl_suffixes: list[str],
-        lemmas: set[str],
-        *,
-        min_count: int = 5,
-        top_k: int | None = None
-) -> list[tuple[str, int]]:
-    c = Counter()
-    for t in tokens:
-        yale = t.yale
-
-        if not yale: # guard clause
-            continue
-
-        if any(yale.startswith(L) for L in lemmas):
-            continue
-
-        else:
-            
-            r = split_lem_infl(yale, infl_suffixes)
-            
-            # If any inflectional suffix is not detected, suggest yale as a potential lemma.
-            if r is None:
-                if not contains_han(yale):
-                    c[yale] += 1
-
-            else:
-            
-                # Assign the part prior to the suffix as potential lemma
-                lem, _ = r
-
-                # if any(lem.startswith(L) for L in lemmas):
-                #     continue
-
-                # Check if lem has Chinese character
-                has_han = contains_han(lem)
-
-                # If lem has any Chinese character, no need to suggest.
-                if has_han:
-                    continue
-
-                else:
-
-                    # Filter if the candidate does not have any vowel
-                    if re.search(r"[aeiou]", lem) is None:
-                        continue
-                    else:
-
-                        # If the lemma starts with a consonantal cluster, lemma must be longer than two characters. 
-                        if lem.startswith("."):
-                            if len(lem) > 2:
-                                c[lem] += 1
-
-                        elif len(lem) > 1:
-                            c[lem] += 1
-
-        
-    
-    items = [(lem, cnt) for lem, cnt in c.items() if cnt >= min_count]
-    items.sort(key=lambda x: (-x[1], x[0]))
-    if top_k is not None:
-        items = items[:top_k]
-    return items
-
-def display_lemma_candidates(
-        counter: Counter
-) -> None:
-    lemmas = [(lem, cnt) for lem, cnt in counter.items()]
-    lemmas.sort(key=lambda x: (-x[1],x[0]))
-    print("[DEBUG] Comprehensive list of the potential lemma list (candidate, count):")
-    for (lem, cnt) in lemmas:
-        print(f"\t{lem}\t{cnt}")
-    
-    save_lemma_candidates(lemmas)
-
-def save_lemma_candidates(
-        items: list[tuple[str,int]],
-        *,
-        header: str | None = None,
-) -> None:
-    if ask_yes_no("Save lemma candidates?"):
-        out_path = Path(__file__).parent / "lemma_candidates.txt"
-        with open(out_path, "w", encoding="utf-8", newline="\n") as f:
-            for (lem, cnt) in items:
-                f.write(f"{lem}\n")
-
-        print(f"[DEBUG] Saved lemma candidates to {out_path}")
-
-def ask_yes_no(msg: str) -> bool:
-    while True:
-        ans = input(f"{msg} (y/n) ").strip().lower()                
-        # Clean up user input:
-        #   - remove extra spaces
-        #   - ignore upper/lower case differences
-
-        if ans in ("y", "yes"):
-            return True
-        if ans in ("n", "no"):
-            return False
-        
-        print("Please type 'y' or 'n'.")
-
-
-def propose_infl_suffixes(
-        tokens: list[Token],
-        infl_suffixes: list[str],
-        *,
-        max_len: int = 10,
-        min_count: int = 20,
-        top_k: int = 50,
-) -> list[tuple[str, int]]:
-    """
-    Look at tokens where split_lem_infl() fails, and propose frequent suffix strings (up to max_len) from the end of yale.    
-    """
-    c = Counter()
-
-    # Counting suffix candidates
-
-    for t in tokens:
-        yale = t.yale
-        if not yale:
-            continue
-
-        # If the given suffix is already in the suffix list, skip.
-        if split_lem_infl(yale, infl_suffixes) is not None:
-            continue
-
-        # collect suffix candidates of length 1..max_len from the end of the given yale string.
-        for L in range(1, min(max_len, len(yale))+1):
-            cand = yale[-L:]
-            c[cand] += 1
-
-    # Keep only frequent suffix candidates above the minimum count threshold (min_k)
-    # sort by suffix length (desc), frequency (desc), then alphabetically
-    items = [(suf, cnt) for suf, cnt in c.items() if cnt >= min_count]
-    items.sort(key=lambda x: (-len(x[0]), -x[1], x[0]))
-
-    return items[:top_k]
-
-def update_suffix_counter(
-        counter: Counter,
-        tokens: list[Token],
-        infl_suffixes: list[str],
-        *,
-        max_len: int = 6,
-        suffix_must_endwith: str | None = None
-) -> None:
-    for t in tokens:
-        yale = t.yale
-        if not yale:
-            continue
-        if split_lem_infl(yale, infl_suffixes) is not None:
-            continue
-
-        for L in range(1, min(len(yale), max_len) + 1):
-            if L < len(yale):
-                if suffix_must_endwith is not None:
-                    if len(suffix_must_endwith) >= len(yale):
-                        continue
-
-                    if yale.endswith(suffix_must_endwith) == False:
-                        continue
-                    counter[yale[-L:]] += 1
-                else:
-                    counter[yale[-L:]] += 1
-
-def finalize_suffix_proposals(
-        counter: Counter,
-        infl_suffixes: list[str],
-        *,
-        min_count: int = 20,
-        top_k: int = 50,
-        min_len: int = 3
-) -> list[tuple[str, int]]:
-    
-    items: list[tuple[str, int]] = []
-
-    for cand, cnt in counter.items():
-        if cnt < min_count:
-            continue
-
-        if len(cand) < min_len:
-            continue
-
-        if not cand.isascii():
-            continue
-
-        if any(known.endswith(cand) for known in infl_suffixes):
-            continue
-
-        items.append((cand, cnt))
-     
-    items.sort(key=lambda x: (-len(x[0]), -x[1], x[0]))
-    return items[:top_k]
-
-def display_suffix_candidates(proposed_suffixes: list[tuple[str,int]]) -> None:
-    print("[DEBUG] Comprehensive list of the proposed INFL suffixes including (candidate, count):")
-    for (suf, cnt) in proposed_suffixes:
-        print(f"\t{suf}\t{cnt}")
-
-def tag_tokens(tokens: list[Token], rules: list[str], lemma_list: list[str], *, infl_decomp: dict[str,str] | None = None, debug_suffixes: bool = False) -> list[Token]:
+def tag_tokens(
+        tokens: list[Token], 
+        rules: list[str], 
+        *, 
+        lexicon: dict[str, str], 
+        rest_set: set[str],
+        infl_decomp: dict[str,str] | None = None,
+        debug_suffixes: bool = False
+        ) -> list[Token]:
     """Enrich tokens with morphological tagging for downstream processing."""
 
-    if debug_suffixes:
-        proposals = propose_infl_suffixes(tokens, rules)
-        print("[DEBUG] Proposed INFL suffixes (candidate, count):")
-        for suf, cnt in proposals:
-            print(f"    {suf}\t{cnt}")
-
     for token in tokens:
-        token.coarse_form = analyze_yale(token.yale, rules, lemma_list)
+        token.coarse_form = analyze_yale(token.yale, rules, lexicon, rest_set)
 
         if "/INFL" not in token.coarse_form:
             continue
@@ -354,211 +284,6 @@ def tag_tokens(tokens: list[Token], rules: list[str], lemma_list: list[str], *, 
 
     return tokens
 
-def candidate_generator(
-        token: Token, 
-        rules: list[str],
-        *,
-        infl_decomp: dict[str, str] | None = None
-        ) -> list[str]:
-    
-    yale = (token.yale or "").strip()
-    if not yale:
-        return []
-    
-    infl_suffixes = sorted(rules, key=len, reverse=True)
-
-    candidates: list[str] = []
-
-    for suf in infl_suffixes:
-        if yale.endswith(suf):
-            stem = yale[:-len(suf)]
-            stem = stem.rstrip("-")
-
-            if not stem:
-                continue
-
-            candidates.append(f"{stem}/LEM-{suf}/INFL")
-    
-    # If we have learned infl decompositions, prepend morph-level candidates
-    if infl_decomp is not None:
-        morph_candidates: list[str] = []
-        for cand in candidates:                     # cand: stem/LEM-suf/INFL
-            infl = extract_infl_from_gold(cand)
-            if infl in infl_decomp:
-                segmented = infl_decomp[infl]       # e.g., si/HON-li/FUT-...
-                stem = cand.split("/LEM-", 1)[0]    # e.g., ka
-                morph_candidates.append(f"{stem}/LEM-{segmented}")
-        candidates = list(dict.fromkeys(morph_candidates + candidates))
-
-    return candidates
-
-def format_candidate(token: Token, candidates: list[str]) -> None:
-    print(f"[Training] {token.source_id} [{token.path}]\n\t[Token]\t\t{token.unicode_form}\n\t[CONTEXT]\t{token.context}")
-    # Display candidates
-    for i, cand in enumerate(candidates, start=1):
-        if i == 1:
-            print(f"\t[CANDIDATES]\t{i}. {cand}")
-        else:
-            print(f"\t\t\t{i}. {cand}")
-
-def default_training_dir() -> Path:
-    repo_root = Path(__file__).resolve().parents[2]
-    return repo_root / "data" / "training"
-
-def load_token_gold(training_path: Path) -> dict[str, str]:
-    token_gold: dict[str, str] = {}
-
-    if not training_path.exists():
-        return token_gold
-    
-    with open(training_path, "r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                obj = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-
-            token = obj.get("token")
-            gold = obj.get("gold")
-            gold_morph = obj.get("gold_morph")
-            if token and isinstance(gold, str) and gold:
-                token_gold[token] = gold
-            elif token and isinstance(gold_morph, str) and gold_morph:
-                token_gold[token] = gold_morph
-
-    return token_gold
-
-def is_coarse_gold(s: str) -> bool:
-    s = (s or "").strip()
-
-    if s.endswith("/LEM") and (" " not in s):
-        return True
-    
-    return ("/LEM-" in s) and ("/INFL" in s)
-
-def parse_gold_morph_to_coarse(gold_morph: str) -> tuple[str, str] | None:
-    """
-    Convert a morph-level string like:
-        ho/ROOT-si/HON-li/FUT-le/ASP-la/C
-    into coarse:
-        ho/LEM-sililela/INFL
-
-    Minimal assumption (intentionally simple):
-    - The first morph is treated as LEM surface.
-    - All remaining morph forms are concatenated as INFL surface.
-    """
-    parts = [p.strip() for p in gold_morph.split("-") if p.strip()]
-    if len(parts) < 2:
-        return None
-    
-    morphs: list[tuple[str, str]] = []
-    for p in parts:
-        if "/" not in p:
-            return None
-        form, tag = p.rsplit("/", 1)
-        form = form.strip()
-        tag = tag.strip()
-        if not form or not tag:
-            return None
-        morphs.append((form,tag))
-
-    lem_form = morphs[0][0]
-    infl_surface = "".join(m[0] for m in morphs[1:])
-    if not lem_form or not infl_surface:
-        return None
-    
-    coarse = f"{lem_form}/LEM-{infl_surface}/INFL"
-    return coarse, gold_morph
-
-def extract_infl_from_gold(gold: str) -> str | None:
-    if "/LEM-" not in gold or "/INFL" not in gold:
-        return None
-    return gold.split("/LEM-", 1)[1].split("/INFL", 1)[0]
-
-def load_learned_infl_suffixes(training_path: Path, *, period: int) -> list[str]:
-    infls = set()
-    """
-    Load learned INFL suffixes from a JSONL training file.
-
-    - If training_path is a directory, it resolves to: training_{period}c.jsonl
-    - If training_path is a file, it is used as-is.
-
-    The file is expected to be JSONL where each line contains a dict with key "gold."
-    """
-
-    training_path = Path(training_path)
-
-    if training_path.is_dir():
-        training_path = training_path / f"training_{period}c.jsonl"
-
-    infls: set[str] = set()
-
-    try:
-        with open(training_path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    continue
-
-                obj = json.loads(line)
-                gold = obj.get("gold")
-
-                # If gold is properly defined, that means we are in the monogram loop.
-
-                if isinstance(gold, str) and gold and gold != "None":
-                    infl = extract_infl_from_gold(gold)
-                    if infl:
-                        infls.add(infl)
-                    continue
-
-                # bigram loop
-
-                for key in ("gold_a", "gold_b"):
-                    gold_part = obj.get(key)
-                    if not isinstance(gold_part, str):
-                        continue
-
-                    infl = extract_infl_from_gold(gold_part)
-                    if infl:
-                        infls.add(infl)
-
-    except FileNotFoundError:
-        return []
-    
-    result = sorted(infls, key=len, reverse=True)
-    return result
-
-def load_infl_decomp_from_training(training_path: Path, *, period:int) -> dict[str, str]:
-    """
-    Return a dict: infl_surface -> segmented_infl_string
-    Example:
-        "sililela" -> "si/HON-li/FUT-le/IPFV-la/DECL"
-    """
-    d: dict[str, str] = {}
-
-    with open(training_path, "r", encoding="utf-8") as f:
-        for line in f:
-            obj = json.loads(line)
-
-            gm = obj.get("gold_morph")
-            if not isinstance(gm, str) or not gm:
-                continue
-
-            gold = obj["gold"]
-            gold_morph = obj["gold_morph"]
-            
-
-            infl = extract_infl_from_gold(gold)
-            if infl is None:
-                continue
-            segmented = gold_morph.split("/LEM-",1)[1].strip()
-            d[infl] = segmented
-
-    return d
-
 def infl_from_tagged_form(coarse_form: str) -> str:
     if not coarse_form:
         return None
@@ -569,290 +294,5 @@ def infl_from_tagged_form(coarse_form: str) -> str:
 def parse_segmented(segmented: str) -> list[tuple[str,str]]:
     return [tuple(seg.rsplit("/",1)) for seg in segmented.split("-")]
 
-def _prompt_gold(token: Token, candidates: list[str]) -> tuple[str | None, str | None, bool]:
-    # Returns (gold, gold_morph, quit_training)
 
-    # If we have candidates, show them once.
-    if candidates:
-        format_candidate(token, candidates)
-
-    while True:
-        if candidates:
-            raw_ans = input(
-                f"[Training] What is the optimal candidate for {token.unicode_form}?\n"
-                f"(1-{len(candidates)} to select / s=skip / m=manual input / q=quit) > ".strip()
-            )
-        else:
-            raw_ans = input(
-                f"[Training] No candidates for {token.unicode_form}. "
-                f"(m=manual / s=skip / q=quit) > "
-            ).strip()
-
-        ans = raw_ans.lower()
-
-        if ans == "q":
-            return None, None, True
-        
-        if ans == "s":
-            return None, None, False
-        
-        # Manual input
-        if ans == "m":
-            raw = input("Please type your desired tagged form: ").strip()
-
-            if is_coarse_gold(raw):
-                return raw, None, False
-            
-            parsed = parse_gold_morph_to_coarse(raw)
-            if parsed is None:
-                print("[Training] Invalid manual input format. Try again.")
-                continue
-
-            gold, gold_morph = parsed
-            return gold, gold_morph, False
-        
-        # Direct gold without typing "m"
-        if _GLOSS_RX.search(raw_ans) is not None: # ans contains a gloss.
-            raw = raw_ans.strip()
-
-            if is_coarse_gold(raw):
-                return raw, None, False
-            
-            parsed = parse_gold_morph_to_coarse(raw)
-            if parsed is None:
-                print("[Training] Invalid tagged form. Try again.")
-                continue
-
-            gold, gold_morph = parsed
-            return gold, gold_morph, False
-        
-        # Pick from candidates
-        if candidates and ans.isdigit():
-            idx = int(ans)-1
-            if 0 <= idx < len(candidates):
-                if candidates[idx].endswith("/LEM"):
-                    return candidates[idx], candidates[idx], False
-                elif candidates[idx].endswith("/INFL"):
-                    return candidates[idx], None, False
-                else:
-                    return candidates[idx], candidates[idx], False
-            else:
-                print("[Training] Out of range. Try again.")
-                continue
-        
-        print("[ERROR] Invalid input.")
-
-def train(tokens: list[Token]|list[tuple[Token,Token]], rules: list[str], period: int, training_data: Path | None) -> None:
-
-    period_tag = f"{period}c"
-
-    print(f"[INFO] Training mode is ON.")
-
-    if not period:
-        raise ValueError("Period must be specified in training mode.")
-
-    # Locate or create training data file
-
-    out_dir = training_data if training_data is not None else default_training_dir()
-    out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"training_{period_tag}.jsonl"
-    infl_decomp = load_infl_decomp_from_training(out_path,period=period)
-
-    # Load token gold list
-    token_gold_file = load_token_gold(out_path) 
-    token_gold = load_token_gold(out_path)
-
-    # If first item is a tuple, training unit is a bigram: (Token, Token)
-
-    is_bigram = (len(tokens) > 0 and isinstance(tokens[0], tuple))
-
-    with open(out_path, "a", encoding="utf-8") as f:
-
-        quit_training = False
-
-        random.shuffle(tokens)
-
-        # Branch for monogram-training mode
-
-        if not is_bigram:
-
-            for token in tokens:
-                # Guard clause
-                gold_morph: str | None = None
-
-                if token.unicode_form in token_gold:
-                    continue
-
-                candidates = candidate_generator(token, rules, infl_decomp=infl_decomp)
-
-                if not candidates:
-                    continue
-
-                if token.unicode_form in token_gold:
-                    gold = token_gold[token.unicode_form]
-                    if gold in candidates:
-                        candidates = [gold] + [c for c in candidates if c != gold]
-
-                gold, gold_morph, quit_training = _prompt_gold(token, candidates)
-                if quit_training:
-                    return
-                
-                # If skip, do nothing. 
-                elif gold == None and gold_morph == None and quit_training == False:
-                    continue
-                
-                # Normalize: if selected gold is morph-style, convert to coarse gold + gold_morph
-                if gold is not None and not is_coarse_gold(gold):
-                    parsed = parse_gold_morph_to_coarse(gold)
-                    if parsed is not None:
-                        gold, gold_morph = parsed
-
-                obj = {"period": period_tag, "token": token.unicode_form, "gold": gold}
-
-                if gold_morph is not None:
-                    obj["gold_morph"] = gold_morph
-                f.write(json.dumps(obj, ensure_ascii=False) + "\n")
-                f.flush()
-
-                # IMPORTANT: do not cache None
-                if gold is not None:
-                    token_gold[token.unicode_form] = gold
-                
-
-        # Branch for bigram-training mode
-        
-        else:
-
-            for a, b in tokens:
-                skip_bigram = False
-                # Bigram training: label token A then token B
-                gold_a = None
-                gold_b = None
-                gold_morph_a: str | None = None
-                gold_morph_b: str | None = None
-
-                # Let the user know that we are entering the bigram loop
-                print(f"[BIGRAM] {a.unicode_form} {b.unicode_form}")
-                
-                for side, token in (("a", a), ("b", b)):
-                    label = "A" if side == "a" else "B"
-                    
-                    print(f"[BIGRAM]-{label} tagging token: {token.unicode_form}")
-
-                    gold_morph: str | None = None
-                    
-
-                    if token.unicode_form in token_gold:
-                        cached = token_gold[token.unicode_form]
-                        print(f"[BIGRAM-{label}] already labeled -> {cached}")
-
-                        if token.tagged_form in token_gold:
-                            cached_morph = token_gold[token.tagged_form]
-                            print(f"[BIGRAM-{label}] segmented -> {cached_morph}")
-
-                            if side == "a":
-                                gold_a = cached
-                                gold_morph_a = cached_morph
-                            else:
-                                gold_b = cached
-                                gold_morph_b = cached_morph
-
-                            continue
-
-                        raw = input(
-                            f"Optional: provide more detailed glosses for {token.unicode_form} "
-                            f"(coarse={cached}). Press Enter to skip: "
-                            ).strip()
-                            
-                        if side == "a":
-                            gold_a = cached
-                            if raw:
-                                gold_morph_a = raw
-                                token_gold[token.tagged_form] = raw
-                        
-                        else:
-                            gold_b = cached
-                            if raw:
-                                gold_morph_b = raw
-                                token_gold[token.tagged_form] = raw
-
-                        continue
-
-                    else:
-                        candidates = candidate_generator(token, rules, infl_decomp=infl_decomp)
-
-                        gold, gold_morph, quit_training = _prompt_gold(token, candidates)
-
-                        if quit_training:
-                            return
-                        elif gold == None and gold_morph == None and quit_training == False:
-                            skip_bigram = True
-                            break
-
-                        # Normalize: (same as monogram)
-                        if gold is not None and not is_coarse_gold(gold):
-                            parsed = parse_gold_morph_to_coarse(gold)
-                            if parsed is not None:
-                                gold, gold_morph = parsed
-
-                        # Cache only real labels
-                        if gold is not None:
-                            token_gold[token.unicode_form] = gold
-
-                        if side == "a":
-                            gold_a = gold
-                            gold_morph_a = gold_morph
-                        else:
-                            gold_b = gold
-                            gold_morph_b = gold_morph
-
-                if skip_bigram:
-                    continue
-
-                # Save an instance of bigram as a line in the jsonl training file.
-                # Use bigram as a key to avoid overlapping labeling
-                obj = {
-                    "period": period_tag,
-                    "bigram": f"{a.unicode_form} {b.unicode_form}",
-                    "gold_a": gold_a,
-                    "gold_b": gold_b,
-                }
-                if gold_morph_a is not None:
-                    obj["gold_morph_a"] = gold_morph_a
-                if gold_morph_b is not None:
-                    obj["gold_morph_b"] = gold_morph_b
-
-                f.write(json.dumps(obj, ensure_ascii=False) + "\n")
-
-                # If dict does not have the gold of each token, save it as a monogram result as well.
-
-                for side, token in (("a", a), ("b", b)):
-                    if token.unicode_form not in token_gold_file:
-                        if side == "a":
-                            obj_mono = {
-                                "period": period_tag,
-                                "token": a.unicode_form,
-                                "gold": gold_a
-                            }
-                            if gold_morph_a is not None:
-                                obj_mono["gold_morph"] = gold_morph_a
-                        else:
-                            obj_mono = {
-                                "period": period_tag,
-                                "token": b.unicode_form,
-                                "gold": gold_b
-                            }
-                            if gold_morph_b is not None:
-                                obj_mono["gold_morph"] = gold_morph_b
-                
-                f.write(json.dumps(obj_mono, ensure_ascii=False) + "\n")
-
-                token_gold_file[token.unicode_form] = obj_mono["gold"]
-
-                f.flush()
-
-                if quit_training:
-                    break
-
-    print(f"[INFO] Training data saved to {out_path}")
 

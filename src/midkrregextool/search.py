@@ -61,7 +61,7 @@ def search_tokens(tokens: list[Token], pattern: str, token_repr: str, flags=0) -
         hits: Hits = []
         for tok in toks:
 
-            m = rx.search(_s(tok) or "")
+            m = rx.search(_s(tok, token_repr=token_repr) or "")
             if m:
                 tok.matched_part = m.group(0)
                 hits.append((tok,))

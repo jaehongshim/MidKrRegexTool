@@ -1,0 +1,25 @@
+{"period": "16c", "token": "몯ᄒᆞ야", "gold": "mwot/PREFIX-ho/LEM-ya/INFL", "gold_morph": "mwot/NEG/PREFIX-ho/V/LEM-ya/E"}
+{"period": "16c", "token": "셰니라", "gold": "sye/LEM-ynila/INFL", "gold_morph": "sye/V/LEM-y/CAUS-ni/AOR-la/DECL"}
+{"period": "16c", "token": "ᄒᆞᄂᆞ니라", "gold": "ho/LEM-nonila/INFL", "gold_morph": "ho/V/LEM-no/PRS-ni/AOR-la/DECL"}
+{"period": "16c", "token": "몯ᄒᆞ니라", "gold": "mwot/PREFIX-ho/LEM-nila/INFL", "gold_morph": "mwot/NEG/PREFIX-ho/V/LEM-ni/AOR-la/DECL"}
+{"period": "16c", "token": "내티니라", "gold": "naythi/LEM-nila/INFL", "gold_morph": "naythi/V/LEM-ni/AOR-la/DECL"}
+{"period": "16c", "token": "아니라", "gold": "ani/LEM-la/INFL", "gold_morph": "ani/V.NEG/LEM-la/DECL"}
+{"period": "16c", "token": "아니ᄒᆞ니라", "gold": "ani/PREFIX-ho/LEM-nila/INFL", "gold_morph": "ani/NEG/PREFIX-ho/V/LEM-ni/AOR-la/DECL"}
+{"period": "16c", "token": "주디", "gold": "cwu/LEM-ti/INFL", "gold_morph": "cwu/V/LEM-ti/TI"}
+{"period": "16c", "token": "아니ᄒᆞ더니", "gold": "ani/PREFIX-ho/LEM-teni/INFL", "gold_morph": "ani/NEG/PREFIX-ho/V/LEM-teni/TENI"}
+{"period": "16c", "token": "性은", "gold": "性/LEM-un/INFL", "gold_morph": "性/CH/LEM-un/TOP"}
+{"period": "16c", "token": "達ᄒᆞᆯᄊᆡ니라", "gold": "達ho/LEM-lssoynila/INFL", "gold_morph": "達ho/V.CH/LEM-l/FUT/REL-sso/DEP/N-y/COP-ni/AOR-la/DECL"}
+{"period": "16c", "token": "사긔와", "gold": "sakuy/LEM-wa/INFL", "gold_morph": "sakuy/N/LEM-wa/COM"}
+{"period": "16c", "token": "달마", "gold": "talm/LEM-a/INFL", "gold_morph": "talm/A/LEM-a/E"}
+{"period": "16c", "token": "血氣", "gold": "血氣/CH/LEM"}
+{"period": "16c", "token": "君이", "gold": "軍/LEM-i/INFL", "gold_morph": "軍/CH/LEM-i/NOM"}
+{"period": "16c", "token": "구즌", "gold": "kwuc/LEM-un/INFL", "gold_morph": "kwuc/A/LEM-un/NFUT/REL"}
+{"period": "16c", "token": "勤心ᄒᆞ야", "gold": "勤心ho/LEM-ᅟya/INFL", "gold_morph": "勤心ho/V.CH/LEM-ᅟya/E"}
+{"period": "16c", "token": "同티", "gold": "同(ho)/LEM-thi/INFL", "gold_morph": "同(ho)/V.CH/LEM-thi/TI"}
+{"period": "16c", "token": "렴ᄒᆞ면", "gold": "lyemho/LEM-myen/INFL", "gold_morph": "lyemho/V/LEM-myen/COND"}
+{"period": "16c", "token": "者ᅵ", "gold": "者/N/LEM"}
+{"period": "16c", "token": "그", "gold": "ku/DEM/LEM"}
+{"period": "16c", "token": "쥬ᅀᅵᆫ", "gold": "cywuzin/N/LEM"}
+{"period": "16c", "token": "야ᇰ으란", "gold": "yang/LEM-ulan/INFL", "gold_morph": "yang/DEP/N/LEM-ulan/TOP"}
+{"period": "16c", "token": "ᄒᆞ나ᄒᆡ", "gold": "honah/LEM-oy/INFL", "gold_morph": "honah/NUM/LEM-oy/GEN"}
+{"period": "16c", "token": "ᄒᆞ리ᄂᆞᆫ", "gold": "ho/LEM-inon/INFL", "gold_morph": "ho/V/LEM-i/DEP/N-non/TOP"}

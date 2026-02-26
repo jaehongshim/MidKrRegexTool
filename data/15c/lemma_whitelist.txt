@@ -1,4 +1,4 @@
-# Nominals
+# N
 pwuthyey
 salom
 kwot
@@ -28,17 +28,12 @@ syelhuntwul
 hoy
 susung
 
-
-
-
-
-# Verbs
+# V
 ho
 nilo
 nil
 aniho
 epsu
-mwotho
 al
 pwo
 kotho
@@ -49,7 +44,6 @@ kule
 kacolpi
 kyesi
 solW
-kyesi
 wo
 cwoc
 kolochi
@@ -73,28 +67,23 @@ culki
 moyhwo
 salWw
 salp
+cwuk
 
-
-
-
-
-# Adjectives
+# A
 culkep
 culkew
 eculep
 eculew
 khu
 mwoton
+mel
+talo
 
-
-# Adverbs
+# ADV
 mwot
 pilwok
-meli
 
-
-
-# Chinese characters
+# CH
 衆生
-得ho
+得
 

@@ -103,3 +103,7 @@ inflectional morphology (beyond a flat `/INFL` label).
 - Each phase is designed to be commit-friendly and independently testable.
 - The roadmap prioritizes pipeline clarity and research-driven extensibility
   over short-term feature additions.
+- The forms tagged as /LEM eventually have to be supplemented by more detailed tag information. To that end,
+  - /LEM has to be excluded from assessing potential suffix forms. Currently, execution immediately fails if there is no /LEM in the tagged form. 
+  - At some point, I have to run training sessions over anything tagged as /LEM.
+  - Or more generally, the machine could support a relabelling function for materials with specific labels. e.g., a relabelling session for /WO-tagged suffixes. 
