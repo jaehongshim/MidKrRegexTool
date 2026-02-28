@@ -84,7 +84,7 @@ def convert_token(token: Token) -> Token:
         token.context = normalize_modern_only(pua_to_unicode(token.context))
     return token
 
-def attach_yale(tokens: Iterable[Token]) -> list[Token]:
+def attach_yale(tokens: Iterable[Token], include_ch: bool = False) -> list[Token]:
     """
     Convert all tokens from PUA to Unicode + Yale, returning a new list.
 
@@ -102,6 +102,8 @@ def attach_yale(tokens: Iterable[Token]) -> list[Token]:
             print(t.pua, "→", t.unicode_form, "→", t.yale)
     """
     result: list[Token] = []
+    if include_ch == False:
+        tokens = [token for token in tokens if token.lang == "kor"]
     for token in tokens:
         result.append(convert_token(token))
     return result

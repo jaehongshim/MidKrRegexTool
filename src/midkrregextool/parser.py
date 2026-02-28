@@ -193,7 +193,7 @@ def parse_file(path: str | Path, *, encoding: str = "utf-16", display_context: b
 
     return tokens
 
-def parse_xml_file(path: str | Path, *, encoding: str = "utf-8", display_context: bool = False) -> List[Token]:
+def parse_xml_file(path: str | Path, *, encoding: str = "utf-8", display_context: bool = False, include_ch: bool = False) -> List[Token]:
     """
     Parse NIKL-style XML file where sentences are stored as <sent ...>TEXT</sent>.
 
@@ -257,7 +257,8 @@ def parse_xml_file(path: str | Path, *, encoding: str = "utf-8", display_context
                     token_index = token_index,
                     pua = word,
                     is_note = stype,
-                    context = current_context if display_context else None
+                    context = current_context if display_context else None,
+                    lang = lang
                 )
             )
 

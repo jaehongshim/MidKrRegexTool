@@ -68,7 +68,7 @@ def candidate_generator(
     return candidates
 
 def format_candidate(token: Token, candidates: list[str] | None = None) -> None:
-    print(f"[Training] {token.source_id} [{token.path}]\n\t[Token]\t\t{token.unicode_form}\n\t[CONTEXT]\t{token.context}")
+    print(f"[Training] {token.source_id} [{token.path}]\n\t[Token]\t\t{token.unicode_form}\n\t[LANGUAGE]\t{token.lang}\n\t[CONTEXT]\t{token.context}")
     if candidates is None:
         return    
     # Display candidates

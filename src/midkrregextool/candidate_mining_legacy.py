@@ -1,6 +1,8 @@
 from collections import Counter
 from .model import Token
 from .tagger import split_lem_infl, contains_han
+import re
+from .training import extract_infl_from_gold
 
 def dump_known_lemmas(
         tokens: list[Token],

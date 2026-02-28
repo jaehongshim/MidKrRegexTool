@@ -27,6 +27,7 @@ class CLIArgs:
     display_context: bool = False
     training_mode: bool = False
     training_data: Path | None = None
+    include_ch: bool = False
     token_repr: str | None = None
 
 def build_parser() -> argparse.ArgumentParser:
@@ -45,6 +46,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--training-data", type=Path, default=None, help="Path to training data for suffix proposal generation")
     p.add_argument("--sort", type=str, default=None, choices=["published_year"], help="XML files only; sort by published year string")
     p.add_argument("--token-repr", type=str, default=None, choices = ["yale", "coarse_form", "tagged_form"], help="Select the token representation used for search or training.")
+    p.add_argument("--include-ch", action="store_true", help="Train or search also on classical Chinese texts minimally annotated with Korean")
 
     return p
 
@@ -66,6 +68,7 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
     # if ns.pattern is None: raise SystemExit("[Error] --pattern is required.")
 
     training_mode = ns.training_mode
+    include_ch = ns.include_ch
     pattern = ns.pattern
 
     # Search mode requires --pattern
@@ -107,6 +110,7 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
         period=ns.period,
         sort=ns.sort,
         training_mode=ns.training_mode,
+        include_ch=ns.include_ch,
         training_data=training_data,
         token_repr=token_repr
     )
@@ -198,8 +202,9 @@ def run_train(args: CLIArgs) -> None:
     sort = args.sort
     pattern = args.pattern
     token_repr = args.token_repr
-    display_context = args.display_context
+    display_context = True
     lexicon = load_lemma_lexicon(period, training_data=training_data)
+    include_ch = args.include_ch
 
     VALID = [15, 16, 17, 18, 19, 20] # Valid centuries for period filtering
     infl_decomp = load_infl_decomp_from_training(training_data / f"training_{period}c.jsonl",period=period)
@@ -251,7 +256,7 @@ def run_train(args: CLIArgs) -> None:
 
     for file_path in files:
 
-        tokens = attach_yale(parse_file(file_path, encoding=encoding, display_context=display_context))
+        tokens = attach_yale(parse_file(file_path, encoding=encoding, display_context=display_context), include_ch)
 
         tokens = tag_tokens(tokens, rules, lexicon=lexicon, rest_set=rest_set, infl_decomp=infl_decomp)
 
@@ -293,6 +298,7 @@ def run_search(args: CLIArgs) -> None:
     sort = args.sort
     files = collect_input_files(args.path, period, sort=sort)
     token_repr = args.token_repr
+    include_ch = args.include_ch
 
     last_period = period # Cache the current period to avoid re-collecting input files unless the period changes.
 
@@ -336,7 +342,7 @@ def run_search(args: CLIArgs) -> None:
                 rest_set = set()
 
             for file_path in files:
-                tokens = attach_yale(parse_file(file_path,encoding=encoding,display_context=display_context))
+                tokens = attach_yale(parse_file(file_path,encoding=encoding,display_context=display_context), include_ch)
 
                 tokens = tag_tokens(tokens, rules, lexicon=lexicon, rest_set=rest_set, infl_decomp=infl_decomp)
 
@@ -441,6 +447,11 @@ def run_search(args: CLIArgs) -> None:
         maybe_save_hits(all_hits, pattern=pattern, purpose=purpose)
 
 def run(args: CLIArgs) -> None:
+
+    if args.include_ch:
+        print(f"[INFO] All tokens including minimally-annotated classical Chinese texts are processed.")
+    else:
+        print(f"[INFO] Tokens from minimally-annotated classical Chinese texts are now filtered out.")
 
     # Training mode
 

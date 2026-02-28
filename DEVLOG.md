@@ -493,8 +493,18 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
   - Temporary workaround: remove such tokens from the whitelist and delegate handling to the jsonl-based training lexicon. 
 - Need a more efficient strategy for predicates with Sino-Korean (Chinese) roots.
 
-## 2026-02-25
+## 2026-02-26
 
 ### Detected issue
-- Don't really have to train and search on Chinese texts. 
-  - e.g. Exclude: <sent type="main" lang="chi" page="04b" n="5">孟子ᅵ 對曰</sent>
+- Classical Chinese segments (e.g., <sent type="main" lang="chi" page="04b" n="5">孟子ᅵ 對曰</sent>) do not need to be included in default search or training.
+  - These texts are minimally annotated and irrelevant to the core Middle Korean analysis.
+  - Example: <sent type="main" lang="chi" page="04b" n="5">孟子ᅵ 對曰</sent>
+
+## 2026-02-27
+
+### What I did today
+- Excluded minimally annotated classical Chinese (`lang="chi"`) segments from search and training **by default**. 
+  - Users must explicitly pass `--include-ch` to include such texts.  
+  - Updated `attach_yale` in `yale.py`:
+    - Tokens with `lang="chi"` are filtered out unless `--include-ch` argument is provided.
+- Forced context display in training mode to ensure full visibility during training diagnostics.

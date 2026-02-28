@@ -9,6 +9,7 @@ class Token:
     source_id: str
     token_index: int
     pua: str
+    lang: str
     unicode_form: Optional[str] = None
     yale: Optional[str] = None
     is_note: str = "MAIN"
