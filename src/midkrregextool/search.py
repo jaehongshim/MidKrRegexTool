@@ -3,35 +3,34 @@
 """
 Regex-based search tool over token representations (default: Yale).
 
-Primary entry point:
-    search_tokens(tokens, patterns, *, flags=0)
+search_tokens(tokens: list[Token], pattern: str, token_repr: str, flags=0)
 """
 
 from __future__ import annotations
 
 import re
-from typing import Iterable, TypeAlias
+from typing import TypeAlias
 
 from .model import Token
 
 Hits: TypeAlias = list[tuple[Token, ...]]
 
-def _s(tok: Token, *, token_repr: str | None) -> str:
+
+def _s(tok: Token, *, token_repr: str | None) -> str | None:
     if token_repr == "yale":
         return tok.yale
-    elif token_repr == "coarse_form":
-        return tok.coarse_form
     elif token_repr == "tagged_form":
         return tok.tagged_form
     else:
-        return tok.tagged_form or tok.coarse_form
+        return tok.tagged_form or tok.yale
+
 
 def search_tokens(tokens: list[Token], pattern: str, token_repr: str, flags=0) -> Hits:
     """
     Input:
 
     Output:
-    
+
     """
     rx = re.compile(pattern, flags)
     toks = list(tokens)
@@ -42,7 +41,7 @@ def search_tokens(tokens: list[Token], pattern: str, token_repr: str, flags=0) -
         for i in range(len(toks) - 1):
             a, b = toks[i], toks[i + 1]
 
-            joined = f"{_s(a, token_repr=token_repr)} {_s(b, token_repr=token_repr)}"
+            joined = f"{_s(a, token_repr=token_repr) or ''} {_s(b, token_repr=token_repr) or ''}"
             # print(f"[DEBUG] Joined: {joined}")
             # print(joined)
 
@@ -53,7 +52,7 @@ def search_tokens(tokens: list[Token], pattern: str, token_repr: str, flags=0) -
             m = rx.search(joined)
             if m:
                 a.matched_part = m.group(0)
-                hits.append((a,b))
+                hits.append((a, b))
 
         return hits
     else:

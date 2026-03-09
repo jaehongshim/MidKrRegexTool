@@ -508,3 +508,13 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
   - Updated `attach_yale` in `yale.py`:
     - Tokens with `lang="chi"` are filtered out unless `--include-ch` argument is provided.
 - Forced context display in training mode to ensure full visibility during training diagnostics.
+
+## 2026-03-09
+
+### What I did today
+- Removed `gold` and `coarse_form` attributes entirely from the pipeline.
+- Implemented candidate generation based on learned suffix decompositions (`infl_decomp`) and the lemma lexicon, enabling automatic suggestions of `gold_morph` candidates during training.
+- Refactored training data loading so that suffix decompositions are derived directly from the current period-specific training file.
+- Implemented an analysis coverage display in training mode.
+- Improved training UI when tagging tokens containing Sino-Korean characters.
+- Introduced context-sensitive tagging support for auxiliary verbs (based on preceding verb + -a/e form).

@@ -12,22 +12,25 @@ Pipeline for each token (conceptually):
 
 from __future__ import annotations  # Prevent type errors
 
+import unicodedata
 from typing import Iterable
 
 from .model import Token
-import unicodedata
 
 try:
-    import YaleKorean   # type: ignore[import]
-except ImportError:     # pragma: no cover
+    import YaleKorean  # type: ignore[import]
+except ImportError:  # pragma: no cover
     YaleKorean = None
+
 
 class YaleKoreanNotInstalledError(ImportError):
     """Raised when the YaleKorean package is required but not installed."""
 
+
 # Formatting how to report the result either on the command line or in a separate file.
 def normalize_modern_only(s: str) -> str:
     return unicodedata.normalize("NFC", s)
+
 
 def _require_yalekorean() -> None:
     """Ensure that the external YaleKorean package is available."""
@@ -37,15 +40,17 @@ def _require_yalekorean() -> None:
             "Install it with: \n\n"
             "   pip install YaleKorean\n"
         )
-    
+
+
 def pua_to_unicode(text: str) -> str:
     """
     Convert a Hanyang-PUA encoded string to Unicode Hangul/jamo.
-    
+
     This is a thin wrapper around YaleKorean.PUAtoUni().
     """
     _require_yalekorean()
     return YaleKorean.PUAtoUni(text)
+
 
 def unicode_to_yale_mid(text: str) -> str:
     """
@@ -55,6 +60,7 @@ def unicode_to_yale_mid(text: str) -> str:
     """
     _require_yalekorean()
     return YaleKorean.YaleMid(text)
+
 
 def pua_to_yale(text: str) -> tuple[str, str]:
     """
@@ -84,6 +90,7 @@ def convert_token(token: Token) -> Token:
         token.context = normalize_modern_only(pua_to_unicode(token.context))
     return token
 
+
 def attach_yale(tokens: Iterable[Token], include_ch: bool = False) -> list[Token]:
     """
     Convert all tokens from PUA to Unicode + Yale, returning a new list.
@@ -102,7 +109,7 @@ def attach_yale(tokens: Iterable[Token], include_ch: bool = False) -> list[Token
             print(t.pua, "→", t.unicode_form, "→", t.yale)
     """
     result: list[Token] = []
-    if include_ch == False:
+    if not include_ch:
         tokens = [token for token in tokens if token.lang == "kor"]
     for token in tokens:
         result.append(convert_token(token))

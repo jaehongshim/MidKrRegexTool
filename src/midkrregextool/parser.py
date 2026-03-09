@@ -1,17 +1,15 @@
 # parser.py
-from multiprocessing import context
 import re
-from pathlib import Path
-from typing import List, TextIO
 import xml.etree.ElementTree as ET
+from pathlib import Path
+from typing import List
 
 from .model import Token
 
-
-# Source marker at the *beginning* of a line, e.g.: 
+# Source marker at the *beginning* of a line, e.g.:
 # <釋詳3:1a> [head] ...
 # We capture the content inside angle brackets and allow optional whitespace after it:
-SOURCE_TAG_RE = re.compile(r"<([^>]+)>\s*") # e.g. <釋詳3:1a>
+SOURCE_TAG_RE = re.compile(r"<([^>]+)>\s*")  # e.g. <釋詳3:1a>
 
 # We treat [note] ... [/note] specially because we want to keep track of is_note.
 NOTE_TAGS = {"[note]", "[/note]"}
@@ -24,11 +22,14 @@ HEAD_CLOSE_RE = re.compile(r"\[/head\]")
 ADD_OPEN_RE = re.compile(r"\[add\]")
 ADD_CLOSE_RE = re.compile(r"\[/add\]")
 
-def parse_file(path: str | Path, *, encoding: str = "utf-16", display_context: bool = False) -> List[Token]:
+
+def parse_file(
+    path: str | Path, *, encoding: str = "utf-16", display_context: bool = False
+) -> List[Token]:
     # Guard: XML inputs are collected by the CLI, but XML parsing/extraction is not implemented yet.
     if path.suffix.lower() == ".xml":
-        return parse_xml_file(path,encoding=encoding,display_context=display_context)
-    
+        return parse_xml_file(path, encoding=encoding, display_context=display_context)
+
     # Flag for displaying context
     want_ctx = display_context
     """
@@ -69,7 +70,7 @@ def parse_file(path: str | Path, *, encoding: str = "utf-16", display_context: b
     #     f = open(path, encoding="utf-16")
     # except UnicodeError:
     #     f = open(path, encoding="utf-8")
-    
+
     with f:
         for raw_line in f:
             # Remove surrounding whitespace, but keep internal spacing.
@@ -85,13 +86,11 @@ def parse_file(path: str | Path, *, encoding: str = "utf-16", display_context: b
             m = SOURCE_TAG_RE.match(line)
             if m:
                 # Update the current source context
-                current_source_id = m.group(1) # the strings wrapped with ()
-
-                
+                current_source_id = m.group(1)  # the strings wrapped with ()
 
                 # Remove the source tag prefix from the line and continue
                 # processing the remainder as normal text.
-                line = line[m.end():].lstrip() 
+                line = line[m.end() :].lstrip()
 
                 # If nothing remains on this line, move on to the next line.
                 if not line:
@@ -130,8 +129,8 @@ def parse_file(path: str | Path, *, encoding: str = "utf-16", display_context: b
             #   - tokenize text segments according to the current inside_note
             # ----------------------------------------------------------
 
-            parts = NOTE_TAG_SPLIT_RE.split(line) 
-            '''
+            parts = NOTE_TAG_SPLIT_RE.split(line)
+            """
             e.g., 
             parts = [
                 "무상천으로 가리니 ", 
@@ -140,21 +139,21 @@ def parse_file(path: str | Path, *, encoding: str = "utf-16", display_context: b
                 "[/note]",
                 " 몯 미처"
                 ]
-            '''
+            """
 
             context = None
 
             if want_ctx:
                 context = " ".join(p for p in parts if p and p not in NOTE_TAGS)
-            
-            inside_note = "MAIN"    # The beginning is always the main body text, so set the flag as "MAIN" 
+
+            inside_note = "MAIN"  # The beginning is always the main body text, so set the flag as "MAIN"
 
             for part in parts:
-                
+
                 # Reset token numbering within this part section.
 
-                if not part: 
-                    continue # Skip the remaining processes and go on to the next cycle.
+                if not part:
+                    continue  # Skip the remaining processes and go on to the next cycle.
 
                 token_index = 0
 
@@ -171,13 +170,11 @@ def parse_file(path: str | Path, *, encoding: str = "utf-16", display_context: b
                 # This is a normal text segment (either inside or outside a note).
                 # We split it into words on whitespace.
 
-            
-
-                words = part.split() # e.g., words = ["무상천으로", "가리니"]
-                if not words: 
+                words = part.split()  # e.g., words = ["무상천으로", "가리니"]
+                if not words:
                     continue
 
-                for w in words: # e.g., as for "무상천으로" in ["무상천으로", "가리니"]
+                for w in words:  # e.g., as for "무상천으로" in ["무상천으로", "가리니"]
                     token_index += 1
                     tokens.append(
                         Token(
@@ -186,18 +183,24 @@ def parse_file(path: str | Path, *, encoding: str = "utf-16", display_context: b
                             token_index=token_index,
                             pua=w,
                             is_note=inside_note,
-                            context=context
+                            context=context,
                         )
                     )
-                
 
     return tokens
 
-def parse_xml_file(path: str | Path, *, encoding: str = "utf-8", display_context: bool = False, include_ch: bool = False) -> List[Token]:
+
+def parse_xml_file(
+    path: str | Path,
+    *,
+    encoding: str = "utf-8",
+    display_context: bool = False,
+    include_ch: bool = False,
+) -> List[Token]:
     """
     Parse NIKL-style XML file where sentences are stored as <sent ...>TEXT</sent>.
 
-    We create a fresh source_id per <sent>, so token_index resets for each sentence.    
+    We create a fresh source_id per <sent>, so token_index resets for each sentence.
     """
     path = Path(path)
     root = ET.parse(path).getroot()
@@ -208,7 +211,9 @@ def parse_xml_file(path: str | Path, *, encoding: str = "utf-8", display_context
 
     doc_name = (root.findtext(".//title") or "").strip()
 
-    published_year = (root.findtext(".//teiHeader//titleStmt//date") or root.findtext(".//date")).strip()
+    published_year = (
+        root.findtext(".//teiHeader//titleStmt//date") or root.findtext(".//date")
+    ).strip()
     published_year = (published_year or "").strip()
 
     # Extract volume information if available.
@@ -233,7 +238,7 @@ def parse_xml_file(path: str | Path, *, encoding: str = "utf-8", display_context
 
         if display_context:
             context = text
-            
+
         # Build a stable source_id from attributes if available.
         page = sent.get("page")
         n = sent.get("n")
@@ -248,20 +253,18 @@ def parse_xml_file(path: str | Path, *, encoding: str = "utf-8", display_context
             token_index += 1
             if display_context:
                 contextwords = context.split()
-                contextwords[token_index-1] = f"<<{contextwords[token_index-1]}>>"
+                contextwords[token_index - 1] = f"<<{contextwords[token_index-1]}>>"
                 current_context = " ".join(contextwords)
             tokens.append(
                 Token(
-                    path = path,
-                    source_id = source_id,
-                    token_index = token_index,
-                    pua = word,
-                    is_note = stype,
-                    context = current_context if display_context else None,
-                    lang = lang
+                    path=path,
+                    source_id=source_id,
+                    token_index=token_index,
+                    pua=word,
+                    is_note=stype,
+                    context=current_context if display_context else None,
+                    lang=lang,
                 )
             )
 
     return tokens
-
-

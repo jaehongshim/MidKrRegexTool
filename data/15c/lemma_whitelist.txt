@@ -33,7 +33,7 @@ ho
 nilo
 nil
 aniho
-epsu
+eps
 al
 pwo
 kotho

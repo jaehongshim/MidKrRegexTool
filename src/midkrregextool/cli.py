@@ -2,19 +2,30 @@
 
 from __future__ import annotations
 
-import argparse                 # To avoid positional arguments
-import sys
-from dataclasses import dataclass
-from pathlib import Path                    # is_file(), is_dir()
-
-from midkrregextool.parser import parse_file    
-from midkrregextool.yale import attach_yale
-from midkrregextool.search import search_tokens
-from midkrregextool.report import report_hits, maybe_save_hits
-from midkrregextool.tagger import tag_tokens, load_infl_suffixes, load_lemma_whitelist, load_lemma_lexicon
-from midkrregextool.training import train, load_learned_infl_suffixes, load_infl_decomp_from_training, load_rest_surfaces_from_training
+import argparse  # To avoid positional arguments
 import re
+import sys
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
+from pathlib import Path  # is_file(), is_dir()
+
+from midkrregextool.parser import parse_file
+from midkrregextool.report import maybe_save_hits, report_hits
+from midkrregextool.search import search_tokens
+from midkrregextool.tagger import (
+    load_infl_suffixes,
+    load_lemma_lexicon,
+    tag_tokens,
+)
+from midkrregextool.training import (
+    candidate_generator,
+    load_infl_decomp_from_training,
+    load_rest_surfaces_from_training,
+    train,
+    training_priority,
+)
+from midkrregextool.yale import attach_yale
+
 
 @dataclass(frozen=True)
 class CLIArgs:
@@ -30,25 +41,70 @@ class CLIArgs:
     include_ch: bool = False
     token_repr: str | None = None
 
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="midkrregextool",
-        description="Parse Middle Korean text and run regex search."
+        description="Parse Middle Korean text and run regex search.",
     )
 
     p.add_argument("--path", type=Path, help="Input file or directory.")
-    p.add_argument("--pattern", type=str, default=None, help="Regex pattern to search over Yale-romanized Korean texts. When used over a training mode, only matching tokens are shown.")
-    p.add_argument("--purpose", type=str, default=None, help="User's purposes for the performed regex search")
-    p.add_argument("--encoding", type=str, default="utf-16", help="File encoding (default: utf-16)")
-    p.add_argument("--display-context", action="store_true", help="Enable a context-display function")
-    p.add_argument("--period", type=str, default=None, help="Filter by historical period")
-    p.add_argument ("--training-mode", action="store_true", help="Enable training mode (interactive labeling)")
-    p.add_argument("--training-data", type=Path, default=None, help="Path to training data for suffix proposal generation")
-    p.add_argument("--sort", type=str, default=None, choices=["published_year"], help="XML files only; sort by published year string")
-    p.add_argument("--token-repr", type=str, default=None, choices = ["yale", "coarse_form", "tagged_form"], help="Select the token representation used for search or training.")
-    p.add_argument("--include-ch", action="store_true", help="Train or search also on classical Chinese texts minimally annotated with Korean")
+    p.add_argument(
+        "--pattern",
+        type=str,
+        default=None,
+        help="Regex pattern to search over Yale-romanized Korean texts. When used over a training mode, only matching tokens are shown.",
+    )
+    p.add_argument(
+        "--purpose",
+        type=str,
+        default=None,
+        help="User's purposes for the performed regex search",
+    )
+    p.add_argument(
+        "--encoding", type=str, default="utf-16", help="File encoding (default: utf-16)"
+    )
+    p.add_argument(
+        "--display-context",
+        action="store_true",
+        help="Enable a context-display function",
+    )
+    p.add_argument(
+        "--period", type=str, default=None, help="Filter by historical period"
+    )
+    p.add_argument(
+        "--training-mode",
+        action="store_true",
+        help="Enable training mode (interactive labeling)",
+    )
+    p.add_argument(
+        "--training-data",
+        type=Path,
+        default=None,
+        help="Path to training data for suffix proposal generation",
+    )
+    p.add_argument(
+        "--sort",
+        type=str,
+        default=None,
+        choices=["published_year"],
+        help="XML files only; sort by published year string",
+    )
+    p.add_argument(
+        "--token-repr",
+        type=str,
+        default=None,
+        choices=["yale", "tagged_form"],
+        help="Select the token representation used for search or training.",
+    )
+    p.add_argument(
+        "--include-ch",
+        action="store_true",
+        help="Train or search also on classical Chinese texts minimally annotated with Korean",
+    )
 
     return p
+
 
 def parse_cli_args(args: list[str] | None) -> CLIArgs:
 
@@ -68,18 +124,19 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
     # if ns.pattern is None: raise SystemExit("[Error] --pattern is required.")
 
     training_mode = ns.training_mode
-    include_ch = ns.include_ch
     pattern = ns.pattern
 
     # Search mode requires --pattern
     if not training_mode:
         if pattern is None:
-            raise SystemExit("[Error] --pattern is required unless --training-mode is set.")
-    
+            raise SystemExit(
+                "[Error] --pattern is required unless --training-mode is set."
+            )
+
     # Guard clause for missing --training-data
 
     training_data: Path | None = None
-    
+
     if ns.training_data is not None:
         training_data = Path(ns.training_data)
 
@@ -92,11 +149,11 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
     # Guard: training data requires explicit period
     if ns.training_data is not None and ns.period is None:
         raise SystemExit("[Error] --training-data requires --period.")
-    
+
     # Set the default value of repr: "yale" for training-mode and "tagged_form" for search-mode
     if (training_mode) and (ns.token_repr is None):
         token_repr = "yale"
-    elif (not training_mode) and (ns.token_repr) is None: 
+    elif (not training_mode) and (ns.token_repr) is None:
         token_repr = "tagged_form"
     else:
         token_repr = ns.token_repr
@@ -112,21 +169,25 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
         training_mode=ns.training_mode,
         include_ch=ns.include_ch,
         training_data=training_data,
-        token_repr=token_repr
+        token_repr=token_repr,
     )
+
 
 # Input-file-collecting function
 
-def collect_input_files(path: Path, period: int | None, *, sort: str | None = None) -> list[Path]:
+
+def collect_input_files(
+    path: Path, period: int | None, *, sort: str | None = None
+) -> list[Path]:
 
     if path.is_file():
         return [path]
-    
+
     if period is None:
         return sorted([*path.rglob("*.txt"), *path.rglob("*.xml")])
 
     matched_files: list[Path] = []
-    
+
     sorting_key: dict[Path, str] = {}
 
     # period filtering: XML metadata(date) needed
@@ -135,12 +196,16 @@ def collect_input_files(path: Path, period: int | None, *, sort: str | None = No
         try:
             root = ET.parse(file).getroot()
         except ET.ParseError as e:
-            print(f"[ERROR] Malformed XML file skipped:")
+            print("[ERROR] Malformed XML file skipped:")
             print(f"        file = {file}")
             print(f"        error = {e}")
             continue
 
-        published_year = (root.findtext(".//teiHeader//titleStmt//date") or root.findtext(".//date") or "").strip()
+        published_year = (
+            root.findtext(".//teiHeader//titleStmt//date")
+            or root.findtext(".//date")
+            or ""
+        ).strip()
 
         if not published_year:
             print("[WARN] No <date> found; skipped:")
@@ -159,6 +224,7 @@ def collect_input_files(path: Path, period: int | None, *, sort: str | None = No
 
     return sorted(matched_files)
 
+
 def convert_to_century(year: str) -> int | None:
     year = (year or "").strip()
     if not year:
@@ -173,24 +239,16 @@ def convert_to_century(year: str) -> int | None:
     # If the input is in the century format already
     if y < 20:
         return y
-    
+
     # If the input is in the year format
     else:
         return (y - 1) // 100 + 1
-    
+
+
 def build_rules(*, training_data: Path | None, period: int | None) -> list[str]:
-    rules = load_infl_suffixes(period=period) # base rules
+    return load_infl_suffixes(period=period)
 
-    if training_data is not None and period is not None:
-        learned = load_learned_infl_suffixes(training_data, period=period)
-        if learned:
-            print(f"[INFO] Loaded {len(learned)} learned INFL suffixes (period={period}c).")
-        else:
-            print(f"[INFO] No existing training data found (period={period}c). Using base rules only.")
-        rules = sorted(set(rules) | set(learned), key=len, reverse=True)
 
-    return rules
-    
 def run_train(args: CLIArgs) -> None:
 
     # Training-only mode
@@ -203,62 +261,80 @@ def run_train(args: CLIArgs) -> None:
     pattern = args.pattern
     token_repr = args.token_repr
     display_context = True
-    lexicon = load_lemma_lexicon(period, training_data=training_data)
     include_ch = args.include_ch
 
-    VALID = [15, 16, 17, 18, 19, 20] # Valid centuries for period filtering
-    infl_decomp = load_infl_decomp_from_training(training_data / f"training_{period}c.jsonl",period=period)
-    
+    VALID = [15, 16, 17, 18, 19, 20]  # Valid centuries for period filtering
+
     # Guard clause: training mode requires an explicit period argument
 
     while period is None:
-        raw = input("[INFO] Training mode requires period filtering. Enter 15-20: ").strip()
+        raw = input(
+            "[INFO] Training mode requires period filtering. Enter 15-20: "
+        ).strip()
         period = convert_to_century(raw)
 
         while period not in VALID:
-            raw = input("[ERROR] Please enter a valid period (e.g., 15 for 15th century): ").strip()
+            raw = input(
+                "[ERROR] Please enter a valid period (e.g., 15 for 15th century): "
+            ).strip()
             period = convert_to_century(raw)
 
+    lexicon = load_lemma_lexicon(period, training_data=training_data)
 
     files = collect_input_files(args.path, period, sort=sort)
 
-    # Period argument has been provided and validated. 
-    
+    # Period argument has been provided and validated.
+
     # Guard clause: no files to train on -> exit early
     if not files:
         print(f"[INFO] No supported files found for period={period}c")
-        print(f"[INFO] Training aborted.")
+        print("[INFO] Training aborted.")
         return
-    
+
     # Import the existing rules
     rules = build_rules(training_data=training_data, period=period)
 
     # Collect tokens.
     all_tokens = []
-    bigram_hits = [] # Collect per-file bigram hits only when needed.
+    bigram_hits = []  # Collect per-file bigram hits only when needed.
 
     rx = None
     is_bigram = False
 
     if pattern:
-        if token_repr == "coarse_form":
-            print(f"[INFO] Training-mode pattern filter enabled: {pattern!r} (matched against token.coarse_form).")
-        elif token_repr == "tagged_form":
-            print(f"[INFO] Training-mode pattern filter enabled: {pattern!r} (matched against token.tagged_form).")
+        if token_repr == "tagged_form":
+            print(
+                f"[INFO] Training-mode pattern filter enabled: {pattern!r} (matched against token.tagged_form)."
+            )
         rx = re.compile(pattern)
-        is_bigram = (" " in pattern) #If pattern has a space, training unit becomes (Token, Token)
+        is_bigram = (
+            " " in pattern
+        )  # If pattern has a space, training unit becomes (Token, Token)
 
-    # Load 
+    # Load
+    infl_decomp = None
     if training_data is not None:
+        infl_decomp = load_infl_decomp_from_training(
+            training_data / f"training_{period}c.jsonl"
+        )
         rest_set = load_rest_surfaces_from_training(training_data, period)
     else:
         rest_set = set()
 
     for file_path in files:
 
-        tokens = attach_yale(parse_file(file_path, encoding=encoding, display_context=display_context), include_ch)
+        tokens = attach_yale(
+            parse_file(file_path, encoding=encoding, display_context=display_context),
+            include_ch,
+        )
 
-        tokens = tag_tokens(tokens, rules, lexicon=lexicon, rest_set=rest_set, infl_decomp=infl_decomp)
+        tokens = tag_tokens(
+            tokens,
+            rules,
+            lexicon=lexicon,
+            rest_set=rest_set,
+            infl_decomp=infl_decomp,
+        )
 
         all_tokens.extend(tokens)
 
@@ -266,23 +342,72 @@ def run_train(args: CLIArgs) -> None:
             # Bigram hits must be collected per file (do NOT cross file boundaries).
             bigram_hits.extend(search_tokens(tokens, pattern, token_repr))
 
+    # Coverage measurement
+
+    total_tokens = 0
+    covered_tokens = 0
+
+    for tok in all_tokens:
+        total_tokens += 1
+        if tok.tagged_form:
+            covered_tokens += 1
+
+    if total_tokens > 0:
+        print(
+            f"[INFO] Analysis coverage: {covered_tokens}/{total_tokens} ({covered_tokens/total_tokens:.1%})"
+        )
+    else:
+        print("[INFO] Analysis coverage: 0/0 (0.0%)")
+
+    token_lookup = {(t.source_id, t.token_index): t for t in all_tokens}
+
     # Decide training targets after collecting everything.
     if pattern and is_bigram:
         train_targets = bigram_hits
     elif pattern:
         if token_repr == "tagged_form":
-            train_targets = [t for t in all_tokens if t.tagged_form and rx.search(t.tagged_form)]
-        elif token_repr == "coarse_form":
-            train_targets = [t for t in all_tokens if t.coarse_form and rx.search(t.coarse_form)]
+            train_targets = [
+                t for t in all_tokens if t.tagged_form and rx.search(t.tagged_form)
+            ]
         else:
             train_targets = [t for t in all_tokens if t.yale and rx.search(t.yale)]
     else:
         train_targets = all_tokens
 
+    known_rests = (
+        load_rest_surfaces_from_training(training_data, period)
+        if training_data
+        else set()
+    )
 
-    train(train_targets, rules, period=period, training_data=training_data, lexicon=lexicon)
+    train_targets = sorted(
+        train_targets,
+        key=lambda tok: training_priority(
+            tok,
+            lexicon=lexicon,
+            known_rests=known_rests,
+            candidates=candidate_generator(
+                tok,
+                rules,
+                period,
+                token_lookup=token_lookup,
+                infl_decomp=infl_decomp,
+                lexicon=lexicon,
+            ),
+        ),
+    )
+
+    train(
+        train_targets,
+        rules,
+        period=period,
+        training_data=training_data,
+        lexicon=lexicon,
+        token_lookup=token_lookup,
+    )
 
     return
+
 
 def run_search(args: CLIArgs) -> None:
 
@@ -300,11 +425,13 @@ def run_search(args: CLIArgs) -> None:
     token_repr = args.token_repr
     include_ch = args.include_ch
 
-    last_period = period # Cache the current period to avoid re-collecting input files unless the period changes.
+    last_period = period  # Cache the current period to avoid re-collecting input files unless the period changes.
 
     # No input files found
     if not files:
-        print(f"[INFO] No supported files found under: {args.path} (expected: .txt, .xml)") 
+        print(
+            f"[INFO] No supported files found under: {args.path} (expected: .txt, .xml)"
+        )
         return
 
     # Search loop
@@ -313,8 +440,9 @@ def run_search(args: CLIArgs) -> None:
     lexicon = load_lemma_lexicon(period, training_data=training_data)
 
     within_result_search = "n"
-        
+
     while True:
+        bigram_flag = " " in pattern
 
         # Recollect input files when period filter is changed
 
@@ -322,6 +450,8 @@ def run_search(args: CLIArgs) -> None:
 
             files = collect_input_files(args.path, period, sort=sort)
             last_period = period
+            rules = build_rules(training_data=training_data, period=period)
+            lexicon = load_lemma_lexicon(period, training_data=training_data)
 
             if not files:
                 print(f"[INFO] No supported files found for period={period}.")
@@ -330,21 +460,32 @@ def run_search(args: CLIArgs) -> None:
         # Initial search or non-within-previous-results search
         if within_result_search == "n":
 
-            bigram_flag = " " in pattern
-
             all_hits = []
 
             infl_decomp = None
             if training_data is not None:
-                infl_decomp = load_infl_decomp_from_training(training_data / f"training_{period}c.jsonl",period=period)
+                infl_decomp = load_infl_decomp_from_training(
+                    training_data / f"training_{period}c.jsonl"
+                )
                 rest_set = load_rest_surfaces_from_training(training_data, period)
             else:
                 rest_set = set()
 
             for file_path in files:
-                tokens = attach_yale(parse_file(file_path,encoding=encoding,display_context=display_context), include_ch)
+                tokens = attach_yale(
+                    parse_file(
+                        file_path, encoding=encoding, display_context=display_context
+                    ),
+                    include_ch,
+                )
 
-                tokens = tag_tokens(tokens, rules, lexicon=lexicon, rest_set=rest_set, infl_decomp=infl_decomp)
+                tokens = tag_tokens(
+                    tokens,
+                    rules,
+                    lexicon=lexicon,
+                    rest_set=rest_set,
+                    infl_decomp=infl_decomp,
+                )
 
                 hits = search_tokens(tokens, pattern, token_repr)
 
@@ -354,7 +495,9 @@ def run_search(args: CLIArgs) -> None:
                     continue
 
                 print(f"[INFO] Searching in file: {file_path}")
-                print(f"[INFO] pattern={pattern!r} hits={len(hits)} purposes={purpose!r}")
+                print(
+                    f"[INFO] pattern={pattern!r} hits={len(hits)} purposes={purpose!r}"
+                )
                 print("-" * 70)
 
                 report_hits(hits, bigram_flag)
@@ -370,24 +513,33 @@ def run_search(args: CLIArgs) -> None:
 
             for hit in original_hits:
                 # Reassign the matched strings attribute for each hit
-                joined = " ".join((tok.tagged_form or tok.tagged_form) for tok in hit)
+                joined = " ".join((tok.tagged_form or tok.yale) for tok in hit)
                 m = rx.search(joined)
                 if m:
                     # Store the matched span for display/save
                     hit[0].matched_part = m.group(0)
                     all_hits.append(hit)
-            print(f"[INFO] Searching within previous results")
-            print(f"[INFO] pattern={pattern!r} hits={len(all_hits)} purposes={purpose!r}")
-            report_hits(all_hits,bigram_flag)
-
+            print("[INFO] Searching within previous results")
+            print(
+                f"[INFO] pattern={pattern!r} hits={len(all_hits)} purposes={purpose!r}"
+            )
+            report_hits(all_hits, bigram_flag)
 
         # Ask if another search is to be performed
-        another_search = input("Do you want to run another search? Type Enter to continue, \"q\" to exit: ").strip().lower()
+        another_search = (
+            input(
+                'Do you want to run another search? Type Enter to continue, "q" to exit: '
+            )
+            .strip()
+            .lower()
+        )
 
         # Guard for valid input
-        if another_search not in ("","q"):
-            another_search = input("Please type Enter to continue, or 'q' to exit: ").strip().lower()
-        
+        if another_search not in ("", "q"):
+            another_search = (
+                input("Please type Enter to continue, or 'q' to exit: ").strip().lower()
+            )
+
         # Exit condition
         if another_search == "q":
             break
@@ -404,21 +556,37 @@ def run_search(args: CLIArgs) -> None:
             # If results exist, ask if the user wants to perform a within-results earch and save results before moving on
             else:
                 # Save before proceeding to the next search?
-                save_before_next = input("Do you want to save the current results before the next search? Type \"y\" if you want, otherwise press any keys: ").strip().lower()
+                save_before_next = (
+                    input(
+                        'Do you want to save the current results before the next search? Type "y" if you want, otherwise press any keys: '
+                    )
+                    .strip()
+                    .lower()
+                )
 
                 if save_before_next == "y":
                     maybe_save_hits(all_hits, pattern=pattern, purpose=purpose)
 
                 # Ask if within-previous-results search is desired
-                within_result_search = input("Do you want to search within the previous results? Type \"y\" or \"n\": ").strip().lower()
+                within_result_search = (
+                    input(
+                        'Do you want to search within the previous results? Type "y" or "n": '
+                    )
+                    .strip()
+                    .lower()
+                )
 
                 # Guard for valid input
-                if within_result_search not in ("y","n"):
-                    within_result_search = input("Please type 'y' or 'n': ").strip().lower()
+                if within_result_search not in ("y", "n"):
+                    within_result_search = (
+                        input("Please type 'y' or 'n': ").strip().lower()
+                    )
 
             # Ask if period changes if not within-result search
             if within_result_search == "n":
-                new_period = input("Provide a new period filter if you want to change (e.g., 15c). Otherwise, type enter:").strip()
+                new_period = input(
+                    "Provide a new period filter if you want to change (e.g., 15c). Otherwise, type enter:"
+                ).strip()
 
                 if new_period:
                     new_period_c = convert_to_century(new_period)
@@ -428,39 +596,45 @@ def run_search(args: CLIArgs) -> None:
                         period = new_period_c
 
             while True:
-                pattern = input("Enter new regex pattern: ").strip("\"")
+                pattern = input("Enter new regex pattern: ").strip('"')
                 try:
                     re.compile(pattern)
                     break
                 except re.error as e:
                     print(f"[ERROR] Invalid regex pattern: {e}")
-                    print(f"[INFO] Please enter a valid regex.")
-            
-            bigram_flag = " " in pattern
-            new_purpose = input("Enter purpose for the new search (or press Enter if you wish to maintain the purpose of the previous search): ").strip()
+                    print("[INFO] Please enter a valid regex.")
+
+            new_purpose = input(
+                "Enter purpose for the new search (or press Enter if you wish to maintain the purpose of the previous search): "
+            ).strip()
             if new_purpose:
                 purpose = new_purpose
-
 
     # After all searches are done, ask to save the results
     if all_hits:
         maybe_save_hits(all_hits, pattern=pattern, purpose=purpose)
 
+
 def run(args: CLIArgs) -> None:
 
     if args.include_ch:
-        print(f"[INFO] All tokens including minimally-annotated classical Chinese texts are processed.")
+        print(
+            "[INFO] All tokens including minimally-annotated classical Chinese texts are processed."
+        )
     else:
-        print(f"[INFO] Tokens from minimally-annotated classical Chinese texts are now filtered out.")
+        print(
+            "[INFO] Tokens from minimally-annotated classical Chinese texts are now filtered out."
+        )
 
     # Training mode
 
     if args.training_mode:
         run_train(args)
         return
-    
+
     run_search(args)
-    
+
+
 def main(argv: list[str] | None = None) -> None:
     args = parse_cli_args(argv)
     run(args)
