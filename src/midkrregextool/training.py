@@ -12,6 +12,10 @@ from .tagger import _resolve_training_data, default_training_dir
 
 _GLOSS_RX = re.compile(r"/[A-Za-z][A-Za-z0-9_-]*")
 
+CATEGORY_CHANGERS = {
+    "NMLZ": "N",
+}
+
 
 def prompt_with_default(message: str, default: str) -> str:
     return prompt(message, default=default)
@@ -203,31 +207,26 @@ def training_priority(
     *,
     lexicon: dict[str, str],
     known_rests: set[str],
-    candidates: list[str],
 ) -> tuple[int, str]:
     yale = (token.yale or "").strip()
 
     known_stem = False
     known_rest = False
 
-    for lem in lexicon.keys():
-        if yale.startswith(lem):
+    for i in range(len(yale) + 1):
+        stem = yale[:i]
+        rest = yale[i:]
+
+        if not known_stem and stem in lexicon:
             known_stem = True
-            rest = yale[len(lem) :]
-            if rest in known_rests:
-                known_rest = True
+
+        if not known_rest and rest in known_rests:
+            known_rest = True
+
+        if known_stem and known_rest:
             break
 
-    if not known_rest:
-        for rest in known_rests:
-            if yale.endswith(rest):
-                known_rest = True
-                stem = yale[: -len(rest)]
-                if stem in lexicon:
-                    known_stem = True
-                break
-
-    # lower number = higher priority
+    # Lower number = higher priority
     if not known_stem and not known_rest:
         return (0, yale)
     if known_stem and not known_rest:
@@ -273,6 +272,8 @@ def train(
 
         random.shuffle(tokens)
 
+        candidate_cache: dict[tuple[str, bool], list[str]] = {}
+
         # Branch for monogram-training mode
 
         if not is_bigram:
@@ -284,14 +285,36 @@ def train(
                 if token.unicode_form in token_gold:
                     continue
 
-                candidates = candidate_generator(
-                    token,
-                    rules,
-                    period,
-                    token_lookup=token_lookup,
-                    infl_decomp=infl_decomp,
-                    lexicon=lexicon,
-                )
+                yale = (token.yale or "").strip()
+
+                prev_token = None
+                if token_lookup is not None:
+                    prev_token = token_lookup.get(
+                        (token.source_id, token.token_index - 1)
+                    )
+
+                aux_context = False
+                if prev_token and prev_token.tagged_form:
+                    if "/V" in prev_token.tagged_form and (
+                        "/LEM-a/" in prev_token.tagged_form
+                        or "/LEM-e/" in prev_token.tagged_form
+                    ):
+                        aux_context = True
+                cache_key = (yale, aux_context)
+
+                if cache_key in candidate_cache:
+                    candidates = candidate_cache[cache_key]
+                else:
+                    candidates = candidate_generator(
+                        token,
+                        rules,
+                        period,
+                        token_lookup=token_lookup,
+                        infl_decomp=infl_decomp,
+                        lexicon=lexicon,
+                    )
+                    candidate_cache[cache_key] = candidates
+
                 gold_morph, quit_training = _prompt_gold(token, candidates)
 
                 if quit_training:
@@ -345,14 +368,37 @@ def train(
                         continue
 
                     else:
-                        candidates = candidate_generator(
-                            token,
-                            rules,
-                            period,
-                            token_lookup=token_lookup,
-                            infl_decomp=infl_decomp,
-                            lexicon=lexicon,
-                        )
+                        yale = (token.yale or "").strip()
+
+                        prev_token = None
+                        if token_lookup is not None:
+                            prev_token = token_lookup.get(
+                                (token.source_id, token.token_index - 1)
+                            )
+
+                        aux_context = False
+                        if prev_token and prev_token.tagged_form:
+                            if "/V" in prev_token.tagged_form and (
+                                "/LEM-a/" in prev_token.tagged_form
+                                or "/LEM-e/" in prev_token.tagged_form
+                            ):
+                                aux_context = True
+
+                        cache_key = (yale, aux_context)
+
+                        if cache_key in candidate_cache:
+                            candidates = candidate_cache[cache_key]
+                        else:
+                            candidates = candidate_generator(
+                                token,
+                                rules,
+                                period,
+                                token_lookup=token_lookup,
+                                infl_decomp=infl_decomp,
+                                lexicon=lexicon,
+                            )
+                            candidate_cache[cache_key] = candidates
+
                         gold_morph, quit_training = _prompt_gold(token, candidates)
 
                         if quit_training:
@@ -451,13 +497,13 @@ def load_infl_decomp_from_training(training_path: Path) -> dict[str, list[str]]:
                     if not isinstance(gm, str) or not gm:
                         continue
 
-                    parts = gm.split("-")
-                    if len(parts) < 2:
+                    if "/LEM-" not in gm:
                         continue
 
-                    segmented = "-".join(parts[1:]).strip()
+                    segmented = gm.split("/LEM-", 1)[1].strip()
+                    parts = segmented.split("-")
                     infl_surface = "".join(
-                        seg.split("/", 1)[0] for seg in parts[1:] if "/" in seg
+                        seg.split("/", 1)[0] for seg in parts if "/" in seg
                     )
 
                     if infl_surface:
@@ -477,11 +523,12 @@ def load_rest_surfaces_from_training(
     rest_set: set[str] = set()
 
     def _add_from_gold_morph(m: str) -> None:
-        parts = m.split("-")
-        if len(parts) < 2:
+        if "/LEM-" not in m:
             return
 
-        surfaces = [seg.split("/", 1)[0] for seg in parts[1:] if "/" in seg]
+        segmented = m.split("/LEM-", 1)[1]
+        parts = segmented.split("-")
+        surfaces = [seg.split("/", 1)[0] for seg in parts if "/" in seg]
         if surfaces:
             rest_set.add("".join(surfaces))
 
@@ -500,3 +547,86 @@ def load_rest_surfaces_from_training(
         return rest_set
 
     return rest_set
+
+
+def load_pos_to_allowed_morphemes_inventory_from_training(
+    training_data: Path, period: int | str | None = None
+) -> dict[str, set[str]]:
+    pos_to_allowed_morphemes: dict[str, set[str]] = {}
+
+    def _add_from_gold_morph(m: str) -> None:
+        """
+        Input: "nulk/A/LEM-no/PRS-ni/AOR-la/DECL"
+        Output:
+        {
+            "V": {"no/PRS", "ni/AOR", "la/DECL", ...}
+            "A": {"no/PRS", "ni/AOR", "la/DECL", ...}
+        }
+        """
+        # Guard clauses
+        if not isinstance(m, str) or not m:
+            return
+        if "/LEM-" not in m:
+            return
+
+        left, right = m.split("/LEM-", 1)
+
+        # m = "nulk/A/LEM-no/PRS-ni/AOR-la/DECL"
+        #   → left  = "nulk/A"
+        #   → right = "no/PRS-ni/AOR-la/DECL"
+
+        if "/" not in left:
+            return
+
+        state = left.split("/")[-1]
+
+        # left  = "nulk/A"
+        # state = "A"
+
+        if not state:
+            return
+
+        parts = right.split("-")
+
+        # right = "no/PRS-ni/AOR-la/DECL"
+        # parts = ["no/PRS", "ni/AOR", "la/DECL"]
+
+        for part in parts:
+
+            # part = "no/PRS"
+            # state = "A"
+
+            if "/" not in part:
+                continue
+
+            if state not in pos_to_allowed_morphemes:
+                pos_to_allowed_morphemes[state] = set()
+                # pos_to_allowed_morphemes = {"A": set()}
+            pos_to_allowed_morphemes[state].add(part)
+            # pos_to_allowed_morphemes["A"] = set()
+            # pos_to_allowed_morphemes["A"].add("no/PRS") → {"no/PRS"}
+
+            tag = part.split("/")[-1]
+            # tag = "PRS"
+            if tag in CATEGORY_CHANGERS:
+                state = CATEGORY_CHANGERS[tag]
+
+            # if tag = "NMLZ",
+            #   -> state = CATEGORY_CHANGERS["NMLZ"] = "N"
+            # Then, the subsequent suffixes are added to "N":{}
+
+    training_file = _resolve_training_data(training_data, period)
+
+    try:
+        with open(training_file, encoding="utf-8") as f:
+            for raw in f:
+                obj = json.loads(raw)
+
+                for k in ("gold_morph", "gold_morph_a", "gold_morph_b"):
+                    m = obj.get(k)
+                    if m:
+                        _add_from_gold_morph(m)
+    except (OSError, json.JSONDecodeError):
+        return pos_to_allowed_morphemes
+
+    return pos_to_allowed_morphemes

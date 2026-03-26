@@ -9,6 +9,10 @@ from pathlib import Path
 
 from .model import Token
 
+CATEGORY_CHANGERS = {
+    "NMLZ": "N",
+}
+
 
 def default_training_dir() -> Path:
     repo_root = Path(__file__).resolve().parents[2]
@@ -186,15 +190,32 @@ def analyze_yale(
 
     lemma_list = sorted(lexicon.keys(), key=len, reverse=True)
 
-    # Check if yale starts with an item in the whitelist.
+    # First, prefer exact surface lemma matches already present in the lexicon.
+    if yale in lexicon:
+        return f"{lexicon[yale]}/LEM"
+
+    # Then check lemmas with restored material in parentheses.
+    # Ignore the parenthesized part only for surface matching.
 
     for lem in lemma_list:
-        if yale.startswith(lem):
+        surface_lem = re.sub(r"\([^)]*\)", "", lem)
+
+        if not surface_lem:
+            continue
+
+        if yale.startswith(surface_lem):
+            suffix = yale[len(surface_lem) :]
+
+            if "(o)" in lem and suffix and not suffix.startswith("w"):
+                continue
+
             lem_pos = lexicon[lem]
-            suffix = yale[len(lem) :]
+
             if not suffix:
                 return f"{lem_pos}/LEM"
             if suffix in rest_set:
+                return f"{lem_pos}/LEM-{suffix}/INFL"
+            if suffix in infl_suffixes:
                 return f"{lem_pos}/LEM-{suffix}/INFL"
 
     has_han = contains_han(yale)
@@ -233,8 +254,10 @@ def analyze_yale(
                 return f"{yale}/LEM"
             if stem not in lexicon:
                 continue
-            pos = lexicon[stem]
-            return f"{pos}/LEM-{suf}/INFL"
+
+            lem_pos = lexicon[stem]
+
+            return f"{lem_pos}/LEM-{suf}/INFL"
 
     # 3. the whole yale is lemma.
 
@@ -248,13 +271,63 @@ def tag_tokens(
     lexicon: dict[str, str],
     rest_set: set[str],
     infl_decomp: dict[str, str] | None = None,
+    pos_to_allowed_morphemes: dict[str, set[str]] | None = None,
     debug_suffixes: bool = False,
 ) -> list[Token]:
     """Enrich tokens with morphological tagging for downstream processing."""
 
+    def _segmented_chain_allowed(analyzed: str, segmented: str) -> bool:
+        left = analyzed.split("/LEM", 1)[0]
+        if "/" not in left:
+            return True
+
+        parts = segmented.split("-")
+        if not parts:
+            return True
+
+        first_surface = parts[0].split("/", 1)[0]
+
+        # Parenthetical vowel contraction conditions
+        if "(o)" in left:
+            if not first_surface.startswith("wo"):
+                return False
+
+        if "(u)" in left:
+            if not first_surface.startswith("wu"):
+                return False
+
+        if "(a)" in left:
+            if not first_surface.startswith("a"):
+                return False
+
+        if "(e)" in left:
+            if not first_surface.startswith("e"):
+                return False
+
+        if not pos_to_allowed_morphemes:
+            return True
+
+        state = left.split("/")[-1]
+
+        for part in parts:
+            allowed = pos_to_allowed_morphemes.get(state)
+            if allowed and part not in allowed:
+                return False
+
+            tag = part.split("/")[-1]
+            if tag in CATEGORY_CHANGERS:
+                state = CATEGORY_CHANGERS[tag]
+
+        return True
+
     for i, token in enumerate(tokens):
         prev_token = tokens[i - 1] if i > 0 else None
-        analyzed = analyze_yale(token.yale, rules, lexicon, rest_set)
+        analyzed = analyze_yale(
+            token.yale,
+            rules,
+            lexicon,
+            rest_set,
+        )
 
         aux_context = False
         if (
@@ -272,6 +345,8 @@ def tag_tokens(
                 aux_context = True
 
         if "/INFL" not in analyzed:
+            if analyzed.endswith("/LEM"):
+                token.tagged_form = analyzed
             continue
 
         if infl_decomp is not None:
@@ -279,13 +354,22 @@ def tag_tokens(
             segmented_list = infl_decomp.get(infl)
             if not segmented_list:
                 continue
+
+            filtered_segmented = [
+                segmented
+                for segmented in segmented_list
+                if _segmented_chain_allowed(analyzed, segmented)
+            ]
+            if not filtered_segmented:
+                continue
+
             if aux_context and "/V" in analyzed and "/AUX" not in analyzed:
                 token.tagged_form = (
-                    analyzed.split("/LEM", 1)[0] + "/AUX/LEM-" + segmented_list[0]
+                    analyzed.split("/LEM", 1)[0] + "/AUX/LEM-" + filtered_segmented[0]
                 )
             else:
                 token.tagged_form = (
-                    analyzed.split("/LEM", 1)[0] + "/LEM-" + segmented_list[0]
+                    analyzed.split("/LEM", 1)[0] + "/LEM-" + filtered_segmented[0]
                 )
 
     return tokens

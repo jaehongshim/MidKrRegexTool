@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse  # To avoid positional arguments
 import re
 import sys
+import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path  # is_file(), is_dir()
@@ -18,8 +19,8 @@ from midkrregextool.tagger import (
     tag_tokens,
 )
 from midkrregextool.training import (
-    candidate_generator,
     load_infl_decomp_from_training,
+    load_pos_to_allowed_morphemes_inventory_from_training,
     load_rest_surfaces_from_training,
     train,
     training_priority,
@@ -281,7 +282,9 @@ def run_train(args: CLIArgs) -> None:
 
     lexicon = load_lemma_lexicon(period, training_data=training_data)
 
+    t0 = time.perf_counter()
     files = collect_input_files(args.path, period, sort=sort)
+    print(f"[TIMING] collect_input_files: {time.perf_counter() - t0:.3f}s")
 
     # Period argument has been provided and validated.
 
@@ -313,14 +316,19 @@ def run_train(args: CLIArgs) -> None:
 
     # Load
     infl_decomp = None
+    rest_set = set()
+    pos_to_allowed_morphemes: dict[str, set[str]] = {}
+
     if training_data is not None:
         infl_decomp = load_infl_decomp_from_training(
             training_data / f"training_{period}c.jsonl"
         )
         rest_set = load_rest_surfaces_from_training(training_data, period)
-    else:
-        rest_set = set()
+        pos_to_allowed_morphemes = (
+            load_pos_to_allowed_morphemes_inventory_from_training(training_data, period)
+        )
 
+    t_tag = time.perf_counter()
     for file_path in files:
 
         tokens = attach_yale(
@@ -334,6 +342,7 @@ def run_train(args: CLIArgs) -> None:
             lexicon=lexicon,
             rest_set=rest_set,
             infl_decomp=infl_decomp,
+            pos_to_allowed_morphemes=pos_to_allowed_morphemes,
         )
 
         all_tokens.extend(tokens)
@@ -341,6 +350,8 @@ def run_train(args: CLIArgs) -> None:
         if pattern and is_bigram:
             # Bigram hits must be collected per file (do NOT cross file boundaries).
             bigram_hits.extend(search_tokens(tokens, pattern, token_repr))
+
+    print(f"[TIMING] tag_tokens {file_path.name}: {time.perf_counter() - t_tag:.3f}s")
 
     # Coverage measurement
 
@@ -362,6 +373,7 @@ def run_train(args: CLIArgs) -> None:
     token_lookup = {(t.source_id, t.token_index): t for t in all_tokens}
 
     # Decide training targets after collecting everything.
+    t_select = time.perf_counter()
     if pattern and is_bigram:
         train_targets = bigram_hits
     elif pattern:
@@ -373,30 +385,22 @@ def run_train(args: CLIArgs) -> None:
             train_targets = [t for t in all_tokens if t.yale and rx.search(t.yale)]
     else:
         train_targets = all_tokens
+    print(f"[TIMING] target selection: {time.perf_counter() - t_select:.3f}s")
 
-    known_rests = (
-        load_rest_surfaces_from_training(training_data, period)
-        if training_data
-        else set()
-    )
+    known_rests = rest_set
 
+    t_sort = time.perf_counter()
     train_targets = sorted(
         train_targets,
         key=lambda tok: training_priority(
             tok,
             lexicon=lexicon,
             known_rests=known_rests,
-            candidates=candidate_generator(
-                tok,
-                rules,
-                period,
-                token_lookup=token_lookup,
-                infl_decomp=infl_decomp,
-                lexicon=lexicon,
-            ),
         ),
     )
+    print(f"[TIMING] target sorting: {time.perf_counter() - t_sort:.3f}s")
 
+    t_train = time.perf_counter()
     train(
         train_targets,
         rules,
@@ -405,6 +409,7 @@ def run_train(args: CLIArgs) -> None:
         lexicon=lexicon,
         token_lookup=token_lookup,
     )
+    print(f"[TIMING] train(): {time.perf_counter() - t_train:.3f}s")
 
     return
 
@@ -463,13 +468,19 @@ def run_search(args: CLIArgs) -> None:
             all_hits = []
 
             infl_decomp = None
+            rest_set = set()
+            pos_to_allowed_morphemes: dict[str, set[str]] = {}
+
             if training_data is not None:
                 infl_decomp = load_infl_decomp_from_training(
                     training_data / f"training_{period}c.jsonl"
                 )
                 rest_set = load_rest_surfaces_from_training(training_data, period)
-            else:
-                rest_set = set()
+                pos_to_allowed_morphemes = (
+                    load_pos_to_allowed_morphemes_inventory_from_training(
+                        training_data, period
+                    )
+                )
 
             for file_path in files:
                 tokens = attach_yale(
@@ -485,6 +496,7 @@ def run_search(args: CLIArgs) -> None:
                     lexicon=lexicon,
                     rest_set=rest_set,
                     infl_decomp=infl_decomp,
+                    pos_to_allowed_morphemes=pos_to_allowed_morphemes,
                 )
 
                 hits = search_tokens(tokens, pattern, token_repr)

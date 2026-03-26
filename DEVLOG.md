@@ -518,3 +518,39 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 - Implemented an analysis coverage display in training mode.
 - Improved training UI when tagging tokens containing Sino-Korean characters.
 - Introduced context-sensitive tagging support for auxiliary verbs (based on preceding verb + -a/e form).
+
+## 2026-03-11
+
+### What I did today
+- Supported searching phonologically reduced form, if relevant underlying forms are trained by the user. 
+
+## 2026-03-26
+
+## 2026-03-25 (committed on 2026-03-26)
+
+### What I did today
+- Introduced split-point based search in `training_priority()` to eliminate full lexicon/rest scans.
+- Removed redundant training data loading in `run_train()` (reused `rest_set` instead of reloading).
+- Added timing instrumentation to training pipeline:
+  - file collection
+  - parsing + Yale attachment
+  - tagging
+  - target selection
+  - sorting
+  - training loop
+- Implemented candidate caching in `train()`:
+  - cache key based on `(yale, aux_context)`
+  - avoided repeated calls to `candidate_generator()` for identical inputs
+- Built a minimal test script (`test_candidate_generator.py`) to verify candidate equivalence before/after refactoring.
+
+### Performance note
+- Current bottleneck is `tag_tokens`, taking approximately **2 minutes 30 seconds** during training.
+
+### Why this matters
+- Eliminates major sources of repeated computation in training mode.
+- Establishs measurement points to identify real bottlenecks.
+- Ensures all optimizations preserve original candidate generation behavior.
+
+### Notes
+- No linguistic behavior was changed.
+- All optimizations are strictly structural (performance-oriented).
