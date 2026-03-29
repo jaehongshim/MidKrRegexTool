@@ -249,6 +249,9 @@ def parse_xml_file(
 
         token_index = 0
 
+        if stype == "dharani":
+            continue
+
         for word in text.split():
             token_index += 1
             if display_context:

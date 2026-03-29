@@ -361,6 +361,10 @@ def run_train(args: CLIArgs) -> None:
     for tok in all_tokens:
         total_tokens += 1
         if tok.tagged_form:
+            if tok.tagged_form.endswith("/INFL") or (
+                tok.tagged_form == "NO-TAGGED-FORM"
+            ):
+                continue
             covered_tokens += 1
 
     if total_tokens > 0:

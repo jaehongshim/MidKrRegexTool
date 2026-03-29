@@ -554,3 +554,48 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 ### Notes
 - No linguistic behavior was changed.
 - All optimizations are strictly structural (performance-oriented).
+
+## 2026-03-28
+
+### What I did today
+- Fixed an issue where tokens not present in the lexicon were incorrectly tagged as /LEM.
+	- Debugging strategy:
+		- Inspected all outputs returned by `analyze_yale`.
+
+	- Issue 1: Misanalysis of Sino-Korean tokens containing Roman letters
+		- Some tokens containing Hanja + Roman letters were incorrectly analyzed as /N.CH/LEM.
+
+		- Cause:
+			- These tokens should have been matched by `m2`, but some failed to match. 
+			- `m2` was intended to match C+N+.
+			- Tokens not matched by `m1` or `m2` fall back to "/N.CH/LEM".
+		- Problem:
+			- Some Chinese characters in the corpus are not covered by the predefined Hanja filter.
+			- -> These tokens failed to match `m2`.
+			- -> These tokens fall back to "/N.CH/LEM".
+		
+	- Fix:
+		- Observed that all intended `m2` targets end with Roman letters.
+		- Updated filtering condition:
+			- `^(.+?)([\.A-Za-z]+)$`
+		- This captures all tokens ending in Roman letters as `m2`.
+
+	- Result:
+		- Only pure Hanja tokens (no Roman letters) fall back to elsewhere. 
+		- Visual inspection suggests expected behavior is carried on. 
+
+- Issue 2: Incorrect fallback behavior
+	- Cause:
+		- Likely inherited from legacy code
+	- Fix:
+		- Removed the problematic final fallback logic from `analyze_yale()`
+		- Verified outputs under the current pipeline assumptions.
+
+- Excluded tokens with `type="dharani"` from both training and search targets. 
+- Refined fallback behavior for unanalyzable tokens:
+
+	- If neither stem nor suffix is analyzable:
+		- Assign "NO-TAGGED-FORM" to `tagged_form`
+
+	- If stem is analyzable but suffix is not found in `infl_decomp` with the given stem:
+		- Preserve the output of `analyze_yale()` as being assgined to `tagged_form`

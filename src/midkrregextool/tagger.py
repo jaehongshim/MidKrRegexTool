@@ -192,6 +192,7 @@ def analyze_yale(
 
     # First, prefer exact surface lemma matches already present in the lexicon.
     if yale in lexicon:
+        # print(f"[DEBUG] {yale} -> {lexicon[yale]}/LEM")
         return f"{lexicon[yale]}/LEM"
 
     # Then check lemmas with restored material in parentheses.
@@ -212,10 +213,13 @@ def analyze_yale(
             lem_pos = lexicon[lem]
 
             if not suffix:
+                # print(f"[DEBUG] {yale} -> {lem_pos}/LEM")
                 return f"{lem_pos}/LEM"
             if suffix in rest_set:
+                # print(f"[DEBUG] {yale} -> {lem_pos}/LEM-{suffix}/INFL")
                 return f"{lem_pos}/LEM-{suffix}/INFL"
             if suffix in infl_suffixes:
+                # print(f"[DEBUG] {yale} -> {lem_pos}/LEM-{suffix}/INFL")
                 return f"{lem_pos}/LEM-{suffix}/INFL"
 
     has_han = contains_han(yale)
@@ -228,23 +232,26 @@ def analyze_yale(
             r"^([\u4E00-\u9FFF]+hw?o)(.+?)$", yale
         )  # verb with a Sino-Korean root
         m2 = re.match(
-            r"^([\u4E00-\u9FFF]+)([^\u4E00-\u9FFF]+)$", yale
+            r"^(.+?)([\.A-Za-z]+)$", yale
         )  # yale containing a non-Chinese character
 
         # 1-1. If yale contains a verbalizer, CH+ho/LEM.../INFL
         if m1:
             lem = m1.group(1)
             suf = m1.group(2)
+            # print(f"[DEBUG] {yale} -> {lem}/V.CH/LEM-{suf}/INFL")
             return f"{lem}/V.CH/LEM-{suf}/INFL"
 
         # 1-2. If yale contains any non-Chinese characters, parse a boundary between CH/LEM-...
         elif m2:
             lem = m2.group(1)
             suf = m2.group(2)
+            # print(f"[DEBUG] {yale} -> {lem}/N.CH/LEM-{suf}/INFL")
             return f"{lem}/N.CH/LEM-{suf}/INFL"
 
         # 1-3. else, yale is lemma.
         else:
+            # print(f"[DEBUG] {yale} -> {yale}/N.CH/LEM")
             return f"{yale}/N.CH/LEM"
 
     for suf in infl_suffixes:
@@ -258,10 +265,6 @@ def analyze_yale(
             lem_pos = lexicon[stem]
 
             return f"{lem_pos}/LEM-{suf}/INFL"
-
-    # 3. the whole yale is lemma.
-
-    return f"{yale}/LEM"
 
 
 def tag_tokens(
@@ -322,12 +325,18 @@ def tag_tokens(
 
     for i, token in enumerate(tokens):
         prev_token = tokens[i - 1] if i > 0 else None
+
         analyzed = analyze_yale(
             token.yale,
             rules,
             lexicon,
             rest_set,
         )
+        # print(f"[DEBUG] {token.yale} -> {analyzed}.")
+
+        if not analyzed:
+            token.tagged_form = "NO-TAGGED-FORM"
+            continue
 
         aux_context = False
         if (
@@ -339,20 +348,25 @@ def tag_tokens(
             and prev_token.tagged_form
         ):
             if "/V" in prev_token.tagged_form and (
-                "/LEM-a/" in prev_token.tagged_form
-                or "/LEM-e/" in prev_token.tagged_form
+                prev_token.tagged_form.endswith("/CONN")
             ):
                 aux_context = True
 
         if "/INFL" not in analyzed:
             if analyzed.endswith("/LEM"):
-                token.tagged_form = analyzed
-            continue
+                if "/" in analyzed.split("/LEM")[0]:
+                    token.tagged_form = analyzed
+                    continue
+            else:
+                token.tagged_form = "NO-TAGGED-FORM"
+                continue
 
         if infl_decomp is not None:
             infl = infl_from_tagged_form(analyzed)
             segmented_list = infl_decomp.get(infl)
             if not segmented_list:
+                # print(f"[DEBUG] TEST is assigned as token.tagged_form for {analyzed}")
+                token.tagged_form = analyzed
                 continue
 
             filtered_segmented = [
