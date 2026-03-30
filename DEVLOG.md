@@ -599,3 +599,9 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 
 	- If stem is analyzable but suffix is not found in `infl_decomp` with the given stem:
 		- Preserve the output of `analyze_yale()` as being assgined to `tagged_form`
+
+## 2026-03-29
+
+### What I did today
+- Expand look-up function for a more precise tagging function. 
+	- Tokens now look up not only previous tokens but also following tokens (Test required)

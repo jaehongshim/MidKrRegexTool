@@ -7,7 +7,9 @@ from midkrregextool.tagger import load_infl_suffixes, load_lemma_lexicon
 from midkrregextool.training import candidate_generator, load_infl_decomp_from_training
 
 
-def make_token(yale: str, prev_tagged: str | None = None):
+def make_token(
+    yale: str, prev_tagged: str | None = None, next_tagged: str | None = None
+):
     t = Token(
         path="",
         source_id="test",
@@ -29,6 +31,17 @@ def make_token(yale: str, prev_tagged: str | None = None):
             tagged_form=prev_tagged,
         )
         token_lookup = {("test", 0): prev}
+    elif next_tagged is not None:
+        next = Token(
+            path="",
+            source_id="test",
+            token_index=2,
+            pua="",
+            lang="kor",
+            yale="",
+            tagged_form=next_tagged,
+        )
+        token_lookup = {("test", 2): next}
     else:
         token_lookup = {}
 
@@ -40,31 +53,49 @@ TEST_CASES = [
         "name": "basic learned suffix",
         "yale": "hosinila",
         "prev": None,
+        "next": None,
     },
     {
         "name": "suffix-first case",
         "yale": "nwolwomila",
         "prev": None,
+        "next": None,
     },
     {
         "name": "aux context",
         "yale": "polikwo",
         "prev": "ho/V/LEM-ya/CONN",
+        "next": None,
+    },
+    {
+        "name": "gen context",
+        "yale": "alphuy",
+        "prev": None,
+        "next": "pich/N/LEM",
+    },
+    {
+        "name": "non gen context",
+        "yale": "alphuy",
+        "prev": None,
+        "next": "naka/V/LEM-si/SUBJ/HON-ni/ASS-la/DECL",
     },
     {
         "name": "lemma-only",
         "yale": "twuluhhye",
         "prev": None,
+        "next": None,
     },
     {
         "name": "sino-korean noun",
         "yale": "種子",
         "prev": None,
+        "next": None,
     },
     {
         "name": "sino-korean + suffix",
         "yale": "種子lol",
         "prev": None,
+        "next": None,
     },
 ]
 
@@ -81,7 +112,7 @@ def run_tests():
     )
 
     for case in TEST_CASES:
-        token, token_lookup = make_token(case["yale"], case["prev"])
+        token, token_lookup = make_token(case["yale"], case["prev"], case["next"])
 
         out = candidate_generator(
             token,
@@ -95,6 +126,7 @@ def run_tests():
         print(f"\n[CASE] {case['name']}")
         print(f"yale = {case['yale']}")
         print(f"prev = {case['prev']}")
+        print(f"next = {case['next']}")
         print("OUTPUT = [")
         for cand in out:
             print(f'    "{cand}",')

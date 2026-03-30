@@ -323,6 +323,8 @@ def tag_tokens(
 
         return True
 
+    pending_token_idx = []
+
     for i, token in enumerate(tokens):
         prev_token = tokens[i - 1] if i > 0 else None
 
@@ -381,10 +383,74 @@ def tag_tokens(
                 token.tagged_form = (
                     analyzed.split("/LEM", 1)[0] + "/AUX/LEM-" + filtered_segmented[0]
                 )
+                continue
+
             else:
                 token.tagged_form = (
                     analyzed.split("/LEM", 1)[0] + "/LEM-" + filtered_segmented[0]
                 )
+                if ("/DAT" in token.tagged_form) or ("/GEN" in token.tagged_form):
+                    pending_token_idx.append(i)
+                    # print(
+                    #     f"[DEBUG] index {i} was appended to pending_token_idx for {token.tagged_form}"
+                    # )
+
+                continue
+
+    # post-adjustment
+
+    nominal_tag_re = re.compile(r"(/N(\.[A-Z]+)?|NMLZ)$")
+
+    def _has_nominal_tag(tagged_form: str | None) -> bool:
+        if tagged_form is None:
+            return False
+
+        for morph in tagged_form.split("-"):
+            if nominal_tag_re.search(morph):
+                return True
+        return False
+
+    for i in pending_token_idx:
+
+        # print(f"[DEBUG] pending token: {tokens[i].tagged_form}")
+        # print(f"\tNext token: {tokens[i+1].tagged_form}")
+
+        gen_context = False
+        if i + 1 >= len(tokens):
+            continue
+
+        if _has_nominal_tag(tokens[i + 1].tagged_form):
+            gen_context = True
+            # print(
+            #     f"[DEBUG] gen_context set to {gen_context} for {tokens[i].tagged_form}"
+            # )
+            # print(f"\ttokens[i+1].tagged_form: {tokens[i+1].tagged_form}")
+
+        # if tokens[i].unicode_form == "알ᄑᆡᆺ":
+        #     print("[DEBUG A] i =", i)
+        #     print("[DEBUG B] current =", tokens[i].tagged_form)
+        #     print("[DEBUG C] next    =", tokens[i + 1].tagged_form)
+        #     print("[DEBUG D] gen_context =", gen_context)
+        #     print(
+        #         "[DEBUG E] oy/DAT in current =",
+        #         "oy/DAT" in tokens[i].tagged_form if tokens[i].tagged_form else None,
+        #     )
+        #     print(
+        #         "[DEBUG F] uy/DAT in current =",
+        #         "uy/DAT" in tokens[i].tagged_form if tokens[i].tagged_form else None,
+        #     )
+
+        if (
+            gen_context
+            and (tokens[i].tagged_form is not None)
+            and (
+                ("oy/DAT" in tokens[i].tagged_form)
+                or ("uy/DAT" in tokens[i].tagged_form)
+            )
+        ):
+            # print(f"[DEBUG] Original tag: {tokens[i].tagged_form}")
+            tokens[i].tagged_form = tokens[i].tagged_form.replace("/DAT", "/GEN")
+            # print(f"[DEBUG] New tag: {tokens[i].tagged_form}")
 
     return tokens
 
