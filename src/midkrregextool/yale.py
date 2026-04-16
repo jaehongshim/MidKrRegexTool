@@ -16,6 +16,7 @@ import unicodedata
 from typing import Iterable
 
 from .model import Token
+from .tagger import contains_han
 
 try:
     import YaleKorean  # type: ignore[import]
@@ -91,7 +92,9 @@ def convert_token(token: Token) -> Token:
     return token
 
 
-def attach_yale(tokens: Iterable[Token], include_ch: bool = False) -> list[Token]:
+def attach_yale(
+    tokens: Iterable[Token], classical_ch: bool = False, exclude_ch: bool = False
+) -> list[Token]:
     """
     Convert all tokens from PUA to Unicode + Yale, returning a new list.
 
@@ -109,8 +112,15 @@ def attach_yale(tokens: Iterable[Token], include_ch: bool = False) -> list[Token
             print(t.pua, "→", t.unicode_form, "→", t.yale)
     """
     result: list[Token] = []
-    if not include_ch:
+
+    # Filter tokens from Classical Chinese texts unless `--classical-ch` is provided.
+    if not classical_ch:
         tokens = [token for token in tokens if token.lang == "kor"]
+    # Filter tokens with any Chinese characters if `--exclude-ch` argument is provided
+    if exclude_ch:
+
+        tokens = [token for token in tokens if not contains_han(token.pua)]
+
     for token in tokens:
         result.append(convert_token(token))
     return result

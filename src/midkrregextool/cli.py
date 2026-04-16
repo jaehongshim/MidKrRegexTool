@@ -39,8 +39,10 @@ class CLIArgs:
     display_context: bool = False
     training_mode: bool = False
     training_data: Path | None = None
-    include_ch: bool = False
+    classical_ch: bool = False
     token_repr: str | None = None
+    exclude_ch: bool = False
+    print_corpus: bool = False
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -99,9 +101,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Select the token representation used for search or training.",
     )
     p.add_argument(
-        "--include-ch",
+        "--classical-ch",
         action="store_true",
         help="Train or search also on classical Chinese texts minimally annotated with Korean",
+    )
+    p.add_argument(
+        "--exclude-ch",
+        action="store_true",
+        help="Exclude tokens with Chinese characters when for training or search",
+    )
+    p.add_argument(
+        "--print-corpus",
+        action="store_true",
+        help="Print tagged corpus",
     )
 
     return p
@@ -125,10 +137,11 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
     # if ns.pattern is None: raise SystemExit("[Error] --pattern is required.")
 
     training_mode = ns.training_mode
+    print_corpus = ns.print_corpus
     pattern = ns.pattern
 
     # Search mode requires --pattern
-    if not training_mode:
+    if not (training_mode or print_corpus):
         if pattern is None:
             raise SystemExit(
                 "[Error] --pattern is required unless --training-mode is set."
@@ -168,9 +181,11 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
         period=ns.period,
         sort=ns.sort,
         training_mode=ns.training_mode,
-        include_ch=ns.include_ch,
+        classical_ch=ns.classical_ch,
         training_data=training_data,
         token_repr=token_repr,
+        exclude_ch=ns.exclude_ch,
+        print_corpus=ns.print_corpus,
     )
 
 
@@ -262,7 +277,8 @@ def run_train(args: CLIArgs) -> None:
     pattern = args.pattern
     token_repr = args.token_repr
     display_context = True
-    include_ch = args.include_ch
+    classical_ch = args.classical_ch
+    exclude_ch = args.exclude_ch
 
     VALID = [15, 16, 17, 18, 19, 20]  # Valid centuries for period filtering
 
@@ -333,7 +349,8 @@ def run_train(args: CLIArgs) -> None:
 
         tokens = attach_yale(
             parse_file(file_path, encoding=encoding, display_context=display_context),
-            include_ch,
+            classical_ch,
+            exclude_ch,
         )
 
         tokens = tag_tokens(
@@ -362,7 +379,7 @@ def run_train(args: CLIArgs) -> None:
         total_tokens += 1
         if tok.tagged_form:
             if tok.tagged_form.endswith("/INFL") or (
-                tok.tagged_form == "NO-TAGGED-FORM"
+                tok.tagged_form.endswith("NO-TAGGED_FORM")
             ):
                 continue
             covered_tokens += 1
@@ -432,7 +449,8 @@ def run_search(args: CLIArgs) -> None:
     sort = args.sort
     files = collect_input_files(args.path, period, sort=sort)
     token_repr = args.token_repr
-    include_ch = args.include_ch
+    classical_ch = args.classical_ch
+    exclude_ch = args.exclude_ch
 
     last_period = period  # Cache the current period to avoid re-collecting input files unless the period changes.
 
@@ -491,7 +509,8 @@ def run_search(args: CLIArgs) -> None:
                     parse_file(
                         file_path, encoding=encoding, display_context=display_context
                     ),
-                    include_ch,
+                    classical_ch,
+                    exclude_ch,
                 )
 
                 tokens = tag_tokens(
@@ -631,9 +650,68 @@ def run_search(args: CLIArgs) -> None:
         maybe_save_hits(all_hits, pattern=pattern, purpose=purpose)
 
 
+def run_print_corpus(args: CLIArgs) -> None:
+
+    # print corpus mode
+
+    # Assigning objects to arguments
+    encoding = args.encoding
+    period = convert_to_century(args.period)
+    training_data = args.training_data
+    sort = args.sort
+    files = collect_input_files(args.path, period, sort=sort)
+    display_context = args.display_context
+    classical_ch = args.classical_ch
+    exclude_ch = False
+
+    # No input files found
+    if not files:
+        print(
+            f"[INFO] No supported files found under: {args.path} (expected: .txt, .xml)"
+        )
+        return
+
+    # Print loop
+
+    rules = build_rules(training_data=training_data, period=period)
+    lexicon = load_lemma_lexicon(period, training_data=training_data)
+
+    infl_decomp = None
+    rest_set = set()
+    pos_to_allowed_morphemes: dict[str, set[str]] = {}
+
+    if training_data is not None:
+        infl_decomp = load_infl_decomp_from_training(
+            training_data / f"training_{period}c.jsonl"
+        )
+        rest_set = load_rest_surfaces_from_training(training_data, period)
+        pos_to_allowed_morphemes = (
+            load_pos_to_allowed_morphemes_inventory_from_training(training_data, period)
+        )
+
+    for file_path in files:
+        tokens = attach_yale(
+            parse_file(file_path, encoding=encoding, display_context=display_context),
+            classical_ch,
+            exclude_ch,
+        )
+
+        tokens = tag_tokens(
+            tokens,
+            rules,
+            lexicon=lexicon,
+            rest_set=rest_set,
+            infl_decomp=infl_decomp,
+            pos_to_allowed_morphemes=pos_to_allowed_morphemes,
+        )
+
+        for token in tokens:
+            print(f"{token.unicode_form}: {token.tagged_form}")
+
+
 def run(args: CLIArgs) -> None:
 
-    if args.include_ch:
+    if args.classical_ch:
         print(
             "[INFO] All tokens including minimally-annotated classical Chinese texts are processed."
         )
@@ -642,10 +720,25 @@ def run(args: CLIArgs) -> None:
             "[INFO] Tokens from minimally-annotated classical Chinese texts are now filtered out."
         )
 
+    if args.exclude_ch:
+        if run_print_corpus is None:
+            print(
+                "[INFO] exclude_ch mode is on. Any tokens containing Chinese characters will not be included in token analysis."
+            )
+
     # Training mode
 
     if args.training_mode:
         run_train(args)
+        return
+
+    # Print corpus mode
+
+    if args.print_corpus:
+        print(
+            "[INFO] print_corpus mode is on. Corpora will be printed with tagged morphemes based on the current training data."
+        )
+        run_print_corpus(args)
         return
 
     run_search(args)

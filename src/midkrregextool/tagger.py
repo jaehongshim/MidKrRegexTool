@@ -166,7 +166,9 @@ def load_lemma_lexicon(
 
 
 def contains_han(s: str) -> bool:
+
     for ch in s:
+
         if "CJK UNIFIED IDEOGRAPH" in unicodedata.name(ch, ""):
             return True
     return False
@@ -337,7 +339,7 @@ def tag_tokens(
         # print(f"[DEBUG] {token.yale} -> {analyzed}.")
 
         if not analyzed:
-            token.tagged_form = "NO-TAGGED-FORM"
+            token.tagged_form = token.yale + "/" + "NO-TAGGED-FORM"
             continue
 
         aux_context = False
@@ -360,7 +362,7 @@ def tag_tokens(
                     token.tagged_form = analyzed
                     continue
             else:
-                token.tagged_form = "NO-TAGGED-FORM"
+                token.tagged_form = token.yale + "/" + "NO-TAGGED-FORM"
                 continue
 
         if infl_decomp is not None:

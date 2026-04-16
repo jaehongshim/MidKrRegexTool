@@ -605,3 +605,11 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 ### What I did today
 - Expand look-up function for a more precise tagging function. 
 	- Tokens now look up not only previous tokens but also following tokens (Test required)
+
+## 2026-04-15
+
+### What I did today
+- Support `exclude_ch` mode to improve efficency
+  - When `exclude_ch` mode is on, only tokens with Chinese characters are excluded from the further pipeline. 
+- Support a tagged-corpus print function to overview morpheme-tagging performance.
+  - To be developed further.

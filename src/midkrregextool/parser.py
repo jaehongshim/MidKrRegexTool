@@ -195,7 +195,7 @@ def parse_xml_file(
     *,
     encoding: str = "utf-8",
     display_context: bool = False,
-    include_ch: bool = False,
+    classical_ch: bool = False,
 ) -> List[Token]:
     """
     Parse NIKL-style XML file where sentences are stored as <sent ...>TEXT</sent>.
