@@ -1,47 +1,104 @@
 # MidKrRegexTool
 
-A regex-based search tool for Middle Korean texts, designed to support research on morphosyntactic patterns. 
+A regex-based search and morphological annotation tool for Middle Korean texts, designed to support research on morphosyntactic patterns.
 
-The tool operates over Middle Korean texts encoded in the Hanyang PUA format, converts them into Unicode and Yale romanized forms, and performs a regex search over the Yale romanized forms. The program currently supports the monogram and bigram searches. 
+The tool operates over Middle Korean texts encoded in the Hanyang PUA format, converts them into Unicode and Yale romanized forms, assigns morphological analyses, and supports regex search over tagged forms. It also provides an interactive training mode for building period-specific gold-annotated morphological data.
 
-## Pipeline overview
+## Installation
 
-The current processing pipeline is as follows:
-
-```
-excerpt text
-↓
-parser.py → list[Token] 
-↓
-yale.py → tokens with unicode_form and yale
-↓
-search.py → search hits (monogram or bigram)
-↓
-report.py → command-line output / optional file output
+```bash
+pip install -e .
 ```
 
-## Regex search behavior
+## Pipeline Overview
+
+```
+Hanyang PUA text files (.txt / .xml)
+    ↓ parser.py      → list[Token]  (pua, source_id, token_index, is_note, context, lang)
+    ↓ yale.py        → Token.unicode_form, Token.yale
+    ↓ tagger.py      → Token.tagged_form  (lemma/POS + inflection decomposition)
+    ↓ search.py      → matched hits (monogram or bigram)
+    ↓ report.py      → CLI output + optional UTF-16 LE file save
+```
+
+## Execution Modes
+
+### Search mode (default)
+
+Requires `--pattern`. Runs an interactive multi-round regex loop; within-results narrowing is supported between rounds.
+
+```bash
+python -m midkrregextool --path /corpus --pattern "kwoksik" --period 15 --training-data data/
+```
+
+```bash
+# Bigram search (literal space in pattern)
+python -m midkrregextool --path /corpus --pattern "kwoksik /N" --period 15 --training-data data/
+```
+
+### Training mode
+
+Interactive morphological annotation. Presents candidate analyses per token and saves confirmed gold labels to a period-specific JSONL file.
+
+```bash
+python -m midkrregextool --path /corpus --training-mode --period 15 --training-data data/
+```
+
+- `--pattern` is optional: when provided, only matching tokens are shown.
+- Tokens already annotated in a previous session are skipped automatically.
+- Tokens fully parseable from the existing lexicon and learned inflection data are also skipped.
+
+### Print corpus mode
+
+Prints `unicode_form: tagged_form` for every token, useful for reviewing tagging coverage.
+
+```bash
+python -m midkrregextool --path /corpus --print-corpus --period 15 --training-data data/
+```
+
+## Search Behavior
 
 ### Monogram search
-- Applied when the regex does not span whitespace.
-- Matches against `token.yale`.
-- N.B. Non-whitespace characters must be written as `[^\s]`, not `[^ ]`
+- Applied when the pattern contains no literal space.
+- Matches against `token.tagged_form` (default) or `token.yale` (with `--token-repr yale`).
 
 ### Bigram search
-- Applied when the regex pattern **contains a literal space character (`" "`)**. 
-- Matches are evaluated against the concatenation of two adjacent tokens.
+- Applied when the pattern **contains a literal space**.
+- Matches against the concatenation of two adjacent tokens' `tagged_form` (or `yale`).
 
-## Output
-Search results are printed to the command line with a header indicating:
-- the regex pattern
-- the number of hits
+## Key Arguments
 
-Users are then prompted to optionally save the results as a UTF-8 text file.
+| Argument | Description |
+|---|---|
+| `--path` | Input file or directory (defaults to CWD) |
+| `--pattern` | Regex pattern |
+| `--period` | Century filter: `15`–`20` or year (e.g., `1459`) |
+| `--training-mode` | Enable training mode |
+| `--training-data` | Path to training data directory |
+| `--print-corpus` | Enable print-corpus mode |
+| `--token-repr` | `yale` or `tagged_form` (default varies by mode) |
+| `--classical-ch` | Include minimally-annotated classical Chinese tokens |
+| `--exclude-ch` | Exclude tokens containing Chinese characters |
+| `--display-context` | Show surrounding token context for hits |
+| `--sort published_year` | Sort XML files by publication year |
+| `--encoding` | Input file encoding (default: `utf-16`) |
+| `--purpose` | Free-form label saved with search results |
 
-## Current limitations
-- Bigram results are not yet saved as a separate UTF-8 text file (to be implemented).
-- Only single-file processing is currently supported.
+## Training Data
 
-## Planned extensions
-- Batch processing of multiple input files.
-- An optional user-provided `comment` field attached to search results, allowing researchers to record the intent of a given regex search.
+Gold annotations are stored in `data/training/training_{period}c.jsonl` (not committed to the repository). Each record contains the token's Unicode form and its morphological analysis, e.g.:
+
+```json
+{"period": "15c", "token": "가져시리러니라", "gold_morph": "kacy/V/LEM-e/CONN-si/AUX-li/FUT-le/IPFV-ni/ASS-la/DECL"}
+```
+
+The training file is used to:
+- extend the lemma lexicon with attested POS information,
+- learn inflectional suffix decompositions (`infl_decomp`) for richer candidate generation,
+- skip already-annotated and fully-parseable tokens in subsequent training sessions.
+
+## Notes
+
+- Corpus files are **not** included in this repository.
+- The tool resolves relative `--training-data` paths from the repository root.
+- Classical Chinese segments (`lang="chi"`) are excluded from search and training by default.
