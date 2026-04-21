@@ -1094,3 +1094,9 @@
 {"period": "15c", "token": "기러셔", "gold_morph": "kil/V/LEM-esye/ESYE"}
 {"period": "15c", "token": "겨시니", "gold_morph": "kyesi/V.HON/LEM-ni/C"}
 {"period": "15c", "token": "말오", "gold_morph": "mal/V/LEM-wo/KWO"}
+{"period": "15c", "token": "듣ᄌᆞᄫᆞ시니라", "gold_morph": "tut/V/LEM-coW/OBJ/HON-osi/SUBJ/HON-ni/ASSERT-la/DECL"}
+{"period": "15c", "token": "나ᄊᆞᄫᆞ시니", "gold_morph": "nas/V/LEM-soW/OBJ/HON-osi/SUBJ/HON-ni/C"}
+{"period": "15c", "token": "듣ᄌᆞᄫᆞ시며", "gold_morph": "tut/V/LEM-coW/OBJ/HON-osi/SUBJ/HON-mye/MYE"}
+{"period": "15c", "token": "듣ᄌᆞᄫᆞ신", "gold_morph": "tut/V/LEM-coW/OBJ/HON-osi/SUBJ/HON-n/NFUT/REL"}
+{"period": "15c", "token": "깃ᄉᆞᄫᆞ시니", "gold_morph": "kis/V/LEM-soW/OBJ/HON-osi/SUBJ/HON-ni/C"}
+{"period": "15c", "token": "받ᄌᆞᄫᆞ시고", "gold_morph": "pat/V/LEM-coW/OBJ/HON-osi/SUBJ/HON-kwo/KWO"}

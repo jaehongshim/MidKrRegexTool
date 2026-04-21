@@ -202,6 +202,24 @@ def _prompt_gold(
         print("[ERROR] Invalid input.")
 
 
+def has_known_parse(
+    yale: str,
+    lexicon: dict[str, str],
+    infl_decomp: dict[str, list[str]],
+) -> bool:
+    for lem in lexicon:
+        if yale.startswith(lem):
+            rest = yale[len(lem):]
+            if rest in infl_decomp:
+                return True
+    for rest in infl_decomp:
+        if yale.endswith(rest):
+            stem = yale[: -len(rest)]
+            if stem and stem in lexicon:
+                return True
+    return False
+
+
 def training_priority(
     token: Token,
     *,
@@ -287,6 +305,9 @@ def train(
 
                 yale = (token.yale or "").strip()
 
+                if has_known_parse(yale, lexicon or {}, infl_decomp):
+                    continue
+
                 prev_token = None
                 if token_lookup is not None:
                     prev_token = token_lookup.get(
@@ -354,6 +375,8 @@ def train(
 
                     gold_morph: str | None = None
 
+                    token_yale = (token.yale or "").strip()
+
                     if token.unicode_form in token_gold:
                         cached_gold_morph = token_gold[token.unicode_form]
                         print(
@@ -368,7 +391,7 @@ def train(
                         continue
 
                     else:
-                        yale = (token.yale or "").strip()
+                        yale = token_yale
 
                         prev_token = None
                         if token_lookup is not None:

@@ -606,6 +606,20 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 - Expand look-up function for a more precise tagging function. 
 	- Tokens now look up not only previous tokens but also following tokens (Test required)
 
+## 2026-04-21
+
+### What I did today
+- Improved monogram training mode to skip tokens that are already fully parseable from known data.
+  - Added `has_known_parse()` in `training.py`:
+    - Returns `True` if a token's Yale form can be split into a lexicon stem + a known `infl_decomp` suffix, or vice versa.
+    - Checks only learned suffix decompositions (`infl_decomp`), not the base inflectional suffix rules — avoiding over-confident skips.
+  - In the monogram training loop, tokens that pass `has_known_parse` are skipped before the candidate prompt is shown.
+  - Bigram training loop is unchanged for now; criteria for skipping bigrams require further consideration.
+
+### Design note
+- The motivation: tokens like `듣ᄌᆞᄫᆞ시고` (tut/V + coWosikwo suffix) were surfacing as training candidates even though both components existed in the training data. The fix ensures that only genuinely ambiguous or unknown tokens reach the annotation prompt.
+- Bigram skip criteria are deferred: the appropriate definition of a "known" bigram depends on what analytic constructions are worth training, which has not yet been decided.
+
 ## 2026-04-15
 
 ### What I did today
