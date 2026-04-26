@@ -43,6 +43,7 @@ class CLIArgs:
     token_repr: str | None = None
     exclude_ch: bool = False
     print_corpus: bool = False
+    document_type: str | None = None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -115,6 +116,16 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Print tagged corpus",
     )
+    p.add_argument(
+        "--document-type",
+        type=str,
+        default=None,
+        choices=[
+            "letter",
+            # To be elaborated
+        ],
+        help="Train or search on a specific type of documents.",
+    )
 
     return p
 
@@ -139,6 +150,16 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
     training_mode = ns.training_mode
     print_corpus = ns.print_corpus
     pattern = ns.pattern
+    document_type = ns.document_type
+
+    if document_type:
+        print(
+            f"[INFO] document_type has been set to `{document_type}.` Any subsequent steps will be operated only on {document_type} files."
+        )
+    else:
+        print(
+            "[INFO] document_type argument has not been provided. All the available files in the file path will be processed."
+        )
 
     # Search mode requires --pattern
     if not (training_mode or print_corpus):
@@ -186,6 +207,7 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
         token_repr=token_repr,
         exclude_ch=ns.exclude_ch,
         print_corpus=ns.print_corpus,
+        document_type=ns.document_type,
     )
 
 
@@ -193,14 +215,15 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
 
 
 def collect_input_files(
-    path: Path, period: int | None, *, sort: str | None = None
+    path: Path,
+    period: int | None,
+    *,
+    sort: str | None = None,
+    document_type: str | None = None,
 ) -> list[Path]:
 
     if path.is_file():
         return [path]
-
-    if period is None:
-        return sorted([*path.rglob("*.txt"), *path.rglob("*.xml")])
 
     matched_files: list[Path] = []
 
@@ -216,6 +239,10 @@ def collect_input_files(
             print(f"        file = {file}")
             print(f"        error = {e}")
             continue
+
+        if document_type == "letter":
+            if root.find(".//letter") is None:
+                continue
 
         published_year = (
             root.findtext(".//teiHeader//titleStmt//date")
@@ -246,19 +273,16 @@ def convert_to_century(year: str) -> int | None:
     if not year:
         return None
 
-    digits = "".join(ch for ch in year if ch.isdigit())
-    if not digits:
+    m = re.search(r"\d+", year)
+    if m is None:
         return None
 
-    y = int(digits)
+    y = int(m.group())
 
-    # If the input is in the century format already
     if y < 20:
         return y
 
-    # If the input is in the year format
-    else:
-        return (y - 1) // 100 + 1
+    return (y - 1) // 100 + 1
 
 
 def build_rules(*, training_data: Path | None, period: int | None) -> list[str]:
@@ -274,6 +298,7 @@ def run_train(args: CLIArgs) -> None:
     period = convert_to_century(args.period)
     training_data = args.training_data
     sort = args.sort
+    document_type = args.document_type
     pattern = args.pattern
     token_repr = args.token_repr
     display_context = True
@@ -299,7 +324,9 @@ def run_train(args: CLIArgs) -> None:
     lexicon = load_lemma_lexicon(period, training_data=training_data)
 
     t0 = time.perf_counter()
-    files = collect_input_files(args.path, period, sort=sort)
+    files = collect_input_files(
+        args.path, period, sort=sort, document_type=document_type
+    )
     print(f"[TIMING] collect_input_files: {time.perf_counter() - t0:.3f}s")
 
     # Period argument has been provided and validated.
@@ -446,8 +473,11 @@ def run_search(args: CLIArgs) -> None:
     display_context = args.display_context
     period = convert_to_century(args.period)
     training_data = args.training_data
+    document_type = args.document_type
     sort = args.sort
-    files = collect_input_files(args.path, period, sort=sort)
+    files = collect_input_files(
+        args.path, period, sort=sort, document_type=document_type
+    )
     token_repr = args.token_repr
     classical_ch = args.classical_ch
     exclude_ch = args.exclude_ch
@@ -475,7 +505,9 @@ def run_search(args: CLIArgs) -> None:
 
         if period != last_period:
 
-            files = collect_input_files(args.path, period, sort=sort)
+            files = collect_input_files(
+                args.path, period, sort=sort, document_type=document_type
+            )
             last_period = period
             rules = build_rules(training_data=training_data, period=period)
             lexicon = load_lemma_lexicon(period, training_data=training_data)
@@ -559,6 +591,9 @@ def run_search(args: CLIArgs) -> None:
                 f"[INFO] pattern={pattern!r} hits={len(all_hits)} purposes={purpose!r}"
             )
             report_hits(all_hits, bigram_flag)
+
+        print(f"[INFO] Search completed for pattern `{pattern}`")
+        print(f"\tTotal hits: {len(all_hits)}")
 
         # Ask if another search is to be performed
         another_search = (
@@ -659,7 +694,10 @@ def run_print_corpus(args: CLIArgs) -> None:
     period = convert_to_century(args.period)
     training_data = args.training_data
     sort = args.sort
-    files = collect_input_files(args.path, period, sort=sort)
+    document_type = args.document_type
+    files = collect_input_files(
+        args.path, period, sort=sort, document_type=document_type
+    )
     display_context = args.display_context
     classical_ch = args.classical_ch
     exclude_ch = False

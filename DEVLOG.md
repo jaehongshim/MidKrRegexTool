@@ -606,6 +606,15 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 - Expand look-up function for a more precise tagging function. 
 	- Tokens now look up not only previous tokens but also following tokens (Test required)
 
+
+## 2026-04-15
+
+### What I did today
+- Support `exclude_ch` mode to improve efficency
+  - When `exclude_ch` mode is on, only tokens with Chinese characters are excluded from the further pipeline. 
+- Support a tagged-corpus print function to overview morpheme-tagging performance.
+  - To be developed further.
+
 ## 2026-04-21
 
 ### What I did today
@@ -620,10 +629,10 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 - The motivation: tokens like `듣ᄌᆞᄫᆞ시고` (tut/V + coWosikwo suffix) were surfacing as training candidates even though both components existed in the training data. The fix ensures that only genuinely ambiguous or unknown tokens reach the annotation prompt.
 - Bigram skip criteria are deferred: the appropriate definition of a "known" bigram depends on what analytic constructions are worth training, which has not yet been decided.
 
-## 2026-04-15
+## 2026-04-26
 
 ### What I did today
-- Support `exclude_ch` mode to improve efficency
-  - When `exclude_ch` mode is on, only tokens with Chinese characters are excluded from the further pipeline. 
-- Support a tagged-corpus print function to overview morpheme-tagging performance.
-  - To be developed further.
+- Support specifying the document type via --document-type argument.
+- Improve xml parsing function
+  - There was a bug in which vernacular letter files were filtered from analysis in a wholesale way. 
+  - The problem stemmed from `analyze_yale` function's Classical Chinese-filtering line where tokens without `lang` attribute are completely filtered out.  

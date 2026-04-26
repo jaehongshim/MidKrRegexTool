@@ -115,7 +115,10 @@ def attach_yale(
 
     # Filter tokens from Classical Chinese texts unless `--classical-ch` is provided.
     if not classical_ch:
-        tokens = [token for token in tokens if token.lang == "kor"]
+        tokens = [
+            token for token in tokens if token.lang == "kor" or token.lang is None
+        ]
+
     # Filter tokens with any Chinese characters if `--exclude-ch` argument is provided
     if exclude_ch:
 

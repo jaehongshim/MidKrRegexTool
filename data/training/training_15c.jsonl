@@ -1100,3 +1100,16 @@
 {"period": "15c", "token": "듣ᄌᆞᄫᆞ신", "gold_morph": "tut/V/LEM-coW/OBJ/HON-osi/SUBJ/HON-n/NFUT/REL"}
 {"period": "15c", "token": "깃ᄉᆞᄫᆞ시니", "gold_morph": "kis/V/LEM-soW/OBJ/HON-osi/SUBJ/HON-ni/C"}
 {"period": "15c", "token": "받ᄌᆞᄫᆞ시고", "gold_morph": "pat/V/LEM-coW/OBJ/HON-osi/SUBJ/HON-kwo/KWO"}
+{"period": "15c", "token": "맛나ᅀᆞᄫᆞ시니", "gold_morph": "masna/V/LEM-zoW/OBJ/HON-osi/SUBJ/HON-ni/C"}
+{"period": "15c", "token": "받ᄌᆞᄫᆞ시니", "gold_morph": "pat/V/LEM-coW/OBJ/HON-osi/SUBJ/HON-ni/C"}
+{"period": "15c", "token": "뵈ᅀᆞᄫᆞ신대", "gold_morph": "pwo/V/LEM-y/CAUS-zoW/OBJ/HON-osi/SUBJ/HON-ntay/NTAY"}
+{"period": "15c", "token": "비ᅀᆞᄫᆞ시니", "gold_morph": "pi/V/LEM-zoW/OBJ/HON-osi/SUBJ/HON-ni/C"}
+{"period": "15c", "token": "보ᅀᆞᄫᆞ시니ᅌᅵᆺ가", "gold_morph": "pwo/V/LEM-zoW/OBJ/HON-osi/SUBJ/HON-ni/ASSERT-.ngi/ADDR/HON-ska/Q"}
+{"period": "15c", "token": "묻ᄌᆞᄫᆞ시니", "gold_morph": "mwut/V/LEM-coW/OBJ/HON-osi/SUBJ/HON-ni/C"}
+{"period": "15c", "token": "보ᅀᆞᄫᆞ시며", "gold_morph": "pwo/V/LEM-zoW/OBJ/HON-osi/SUBJ/HON-mye/MYE"}
+{"period": "15c", "token": "묻ᄌᆞᄫᆞ시더니", "gold_morph": "mwut/V/LEM-coW/OBJ/HON-osi/SUBJ/HON-te/IPFV-ni/C"}
+{"period": "15c", "token": "묻ᄌᆞᄫᆞ시니라", "gold_morph": "mwut/V/LEM-coW/OBJ/HON-osi/SUBJ/HON-ni/ASSERT-la/DECL"}
+{"period": "15c", "token": "셤기ᅀᆞᄫᆞ시니라", "gold_morph": "syemki/V/LEM-zoW/OBJ/HON-osi/SUBJ/HON-ni/ASSERT-la/DECL"}
+{"period": "15c", "token": "드리ᅀᆞᄫᆞ시니", "gold_morph": "tuli/V.HON/LEM-zoW/OBJ/HON-osi/SUBJ/HON-ni/C"}
+{"period": "15c", "token": "셰ᅀᆞᄫᆞ시니", "gold_morph": "sye/V/LEM-y/CAUS-zoW/OBJ/HON-osi/SUBJ/HON-ni/C"}
+{"period": "15c", "token": "뵈ᅀᆞᄫᆞ시니", "gold_morph": "pwo/V/LEM-y/CAUS-zoW/OBJ/HON-osi/SUBJ/HON-ni/C"}
