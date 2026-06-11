@@ -636,3 +636,13 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 - Improve xml parsing function
   - There was a bug in which vernacular letter files were filtered from analysis in a wholesale way. 
   - The problem stemmed from `analyze_yale` function's Classical Chinese-filtering line where tokens without `lang` attribute are completely filtered out.  
+
+## 2026-05-08
+
+### What I did today
+- Develop a function to print the list of corpus
+
+## 2026-06-10
+
+### What I did today
+- Try to integrate the Universal Dependencies framework

@@ -12,14 +12,131 @@ pip install -e .
 
 ## Pipeline Overview
 
+The tool processes corpus files through five stages. Below is a worked example using one sentence from an NIKL XML corpus file.
+
+**Input**:
+```xml
+<sent type="main" lang="kor" page="03b-4a" n="8">도라와 어마니ᄆᆞᆯ 濟渡ᄒᆞ야</sent>
 ```
-Hanyang PUA text files (.txt / .xml)
-    ↓ parser.py      → list[Token]  (pua, source_id, token_index, is_note, context, lang)
-    ↓ yale.py        → Token.unicode_form, Token.yale
-    ↓ tagger.py      → Token.tagged_form  (lemma/POS + inflection decomposition)
-    ↓ search.py      → matched hits (monogram or bigram)
-    ↓ report.py      → CLI output + optional UTF-16 LE file save
+The characters inside `<sent>` are Hanyang PUA encoded — they appear as Korean on screen but occupy the Unicode Private Use Area. 
+
+---
+
+### Stage 1 — `parser.py` → `list[Token]`
+
+Splits the sentence on whitespace. Each word becomes a `Token` with metadata extracted from the XML attributes and the document's TEI header. Fields not yet populated are `None`.
+
 ```
+Token(path="HXRW2320000612.xml", source_id="1447_석보상절6:03b-4a:8:kor", token_index=1,
+      pua="도라와",    lang="kor", is_note="main",
+      unicode_form=None, yale=None, context=None, matched_part=None, tagged_form=None)
+
+Token(path="HXRW2320000612.xml", source_id="1447_석보상절6:03b-4a:8:kor", token_index=2,
+      pua="어마니ᄆᆞᆯ", lang="kor", is_note="main",
+      unicode_form=None, yale=None, context=None, matched_part=None, tagged_form=None)
+
+Token(path="HXRW2320000612.xml", source_id="1447_석보상절6:03b-4a:8:kor", token_index=3,
+      pua="濟渡ᄒᆞ야",  lang="kor", is_note="main",
+      unicode_form=None, yale=None, context=None, matched_part=None, tagged_form=None)
+```
+
+`source_id` encodes document name, page, sentence number, and language. `pua` holds the raw Hanyang PUA characters as-is; no normalization is done at this stage.
+
+---
+
+### Stage 2 — `yale.py` → `Token.unicode_form`, `Token.yale`
+
+Converts each `pua` string to Unicode Hangul (`unicode_form`) and then to Yale romanization (`yale`) via the `YaleKorean` package. Tokens with `lang="chi"` are filtered out here unless `--classical-ch` is set.
+
+```
+Token(path="HXRW2320000612.xml", source_id="1447_석보상절6:03b-4a:8:kor", token_index=1,
+      pua="도라와",    lang="kor", is_note="main",
+      unicode_form="도라와", yale="twolawa", # ← new
+      context=None, matched_part=None, tagged_form=None)
+
+Token(path="HXRW2320000612.xml", source_id="1447_석보상절6:03b-4a:8:kor", token_index=2,
+      pua="어마니ᄆᆞᆯ", lang="kor", is_note="main",
+      unicode_form="어마니ᄆᆞᆯ", yale="emanimol",  # ← new
+      context=None, matched_part=None, tagged_form=None)
+
+Token(path="HXRW2320000612.xml", source_id="1447_석보상절6:03b-4a:8:kor", token_index=3,
+      pua="濟渡ᄒᆞ야",  lang="kor", is_note="main",
+      unicode_form="濟渡ᄒᆞ야",  yale="濟渡hoya",   # ← new
+      context=None, matched_part=None, tagged_form=None)
+```
+
+All downstream processing — tagging and search — operates on `yale`.
+
+---
+
+### Stage 3 — `tagger.py` → `Token.tagged_form`
+
+Looks up each `yale` form in the lemma lexicon and inflection suffix table to assign a morphological analysis.
+
+```
+Token(path="HXRW2320000612.xml", source_id="1447_석보상절6:03b-4a:8:kor", token_index=1,
+      pua="도라와",    lang="kor", is_note="main",
+      unicode_form="도라와",    yale="twolawa",
+      context=None, matched_part=None,
+      tagged_form="twolaw(o)/V/LEM-a/CONN")   # ← new
+
+Token(path="HXRW2320000612.xml", source_id="1447_석보상절6:03b-4a:8:kor", token_index=2,
+      pua="어마니ᄆᆞᆯ", lang="kor", is_note="main",
+      unicode_form="어마니ᄆᆞᆯ", yale="emanimol",
+      context=None, matched_part=None,
+      tagged_form="emanim/N/LEM-ol/ACC")       # ← new
+
+Token(path="HXRW2320000612.xml", source_id="1447_석보상절6:03b-4a:8:kor", token_index=3,
+      pua="濟渡ᄒᆞ야",  lang="kor", is_note="main",
+      unicode_form="濟渡ᄒᆞ야",  yale="濟渡hoya",
+      context=None, matched_part=None,
+      tagged_form="濟渡ho/V.CH/LEM-ya/CONN")   # ← new
+```
+
+Tag notation: everything before `/LEM` is the lemma with POS (e.g., `emanim/N`); segments after `/LEM-` are inflectional morphemes with grammatical functions (`/CONN` = connective ending, `/ACC` = accusative case, `/V.CH` = Sino-Korean verb).
+
+---
+
+### Stage 4 — `search.py` → matched hits
+
+Compiles the pattern as a regex and tests it against each token's `tagged_form` (default) or `yale`. Example with `--pattern "emanim"`:
+
+```
+Token(path="HXRW2320000612.xml", source_id="1447_석보상절6:03b-4a:8:kor", token_index=1,
+      pua="도라와",    lang="kor", is_note="main",
+      unicode_form="도라와",    yale="twolawa",
+      context=None, matched_part=None,          # ← no match
+      tagged_form="twolaw(o)/V/LEM-a/CONN")
+
+Token(path="HXRW2320000612.xml", source_id="1447_석보상절6:03b-4a:8:kor", token_index=2,
+      pua="어마니ᄆᆞᆯ", lang="kor", is_note="main",
+      unicode_form="어마니ᄆᆞᆯ", yale="emanimol",
+      context=None, matched_part="emanim",      # ← new: match found
+      tagged_form="emanim/N/LEM-ol/ACC")
+
+Token(path="HXRW2320000612.xml", source_id="1447_석보상절6:03b-4a:8:kor", token_index=3,
+      pua="濟渡ᄒᆞ야",  lang="kor", is_note="main",
+      unicode_form="濟渡ᄒᆞ야",  yale="濟渡hoya",
+      context=None, matched_part=None,          # ← no match
+      tagged_form="濟渡ho/V.CH/LEM-ya/CONN")
+```
+
+A pattern containing a literal space triggers **bigram mode**, which matches the concatenated `tagged_form` of two adjacent tokens.
+
+---
+
+### Stage 5 — `report.py` → CLI output
+
+Token 2 is returned as a hit. `report.py` formats it for display:
+
+```
+1447_석보상절6:03b-4a:8:kor  2  main  [HXRW2320000612.xml]
+    [TOKEN]        어마니ᄆᆞᆯ
+    [TAGGED-FORM]  emanim/N/LEM-ol/ACC
+    [MATCHED-PART] emanim
+```
+
+Results can optionally be saved to a UTF-16 LE tab-delimited file.
 
 ## Execution Modes
 

@@ -37,6 +37,7 @@ class CLIArgs:
     sort: str | None
     encoding: str = "utf-16"
     display_context: bool = False
+    corpus_list: bool = False
     training_mode: bool = False
     training_data: Path | None = None
     classical_ch: bool = False
@@ -91,7 +92,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--sort",
         type=str,
         default=None,
-        choices=["published_year"],
+        choices=["published_year", "published_century"],
         help="XML files only; sort by published year string",
     )
     p.add_argument(
@@ -105,6 +106,11 @@ def build_parser() -> argparse.ArgumentParser:
         "--classical-ch",
         action="store_true",
         help="Train or search also on classical Chinese texts minimally annotated with Korean",
+    )
+    p.add_argument(
+        "--corpus-list",
+        action="store_true",
+        help="Print the full list of corpora.",
     )
     p.add_argument(
         "--exclude-ch",
@@ -122,6 +128,7 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         choices=[
             "letter",
+            "non-letter",
             # To be elaborated
         ],
         help="Train or search on a specific type of documents.",
@@ -151,6 +158,7 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
     print_corpus = ns.print_corpus
     pattern = ns.pattern
     document_type = ns.document_type
+    corpus_list = ns.corpus_list
 
     if document_type:
         print(
@@ -162,10 +170,10 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
         )
 
     # Search mode requires --pattern
-    if not (training_mode or print_corpus):
+    if not (training_mode or print_corpus or corpus_list):
         if pattern is None:
             raise SystemExit(
-                "[Error] --pattern is required unless --training-mode is set."
+                "[ERROR] --pattern is required unless --training-mode is set."
             )
 
     # Guard clause for missing --training-data
@@ -183,7 +191,7 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
 
     # Guard: training data requires explicit period
     if ns.training_data is not None and ns.period is None:
-        raise SystemExit("[Error] --training-data requires --period.")
+        raise SystemExit("[ERROR] --training-data requires --period.")
 
     # Set the default value of repr: "yale" for training-mode and "tagged_form" for search-mode
     if (training_mode) and (ns.token_repr is None):
@@ -199,6 +207,7 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
         purpose=ns.purpose,
         encoding=ns.encoding,
         display_context=ns.display_context,
+        corpus_list=ns.corpus_list,
         period=ns.period,
         sort=ns.sort,
         training_mode=ns.training_mode,
@@ -220,6 +229,7 @@ def collect_input_files(
     *,
     sort: str | None = None,
     document_type: str | None = None,
+    corpus_list: bool | None = None,
 ) -> list[Path]:
 
     if path.is_file():
@@ -240,8 +250,13 @@ def collect_input_files(
             print(f"        error = {e}")
             continue
 
+        # Document selecting field
+
         if document_type == "letter":
             if root.find(".//letter") is None:
+                continue
+        elif document_type == "non-letter":
+            if root.find(".//letter") is not None:
                 continue
 
         published_year = (
@@ -256,11 +271,21 @@ def collect_input_files(
             continue
 
         published_century = convert_to_century(published_year)
-        if published_century == period:
+
+        if corpus_list:
             matched_files.append(file)
 
+        else:
+            if published_century == period:
+                matched_files.append(file)
+            else:
+                continue
+
         if sort is not None:
-            sorting_key[file] = published_year
+            if sort == "published_year":
+                sorting_key[file] = published_year
+            elif sort == "published_century":
+                sorting_key[file] = published_century
 
     if sort is not None:
         return sorted(matched_files, key=lambda f: sorting_key[f])
@@ -287,6 +312,66 @@ def convert_to_century(year: str) -> int | None:
 
 def build_rules(*, training_data: Path | None, period: int | None) -> list[str]:
     return load_infl_suffixes(period=period)
+
+
+def run_corpus_list(args: CLIArgs) -> None:
+
+    period = convert_to_century(args.period)
+    document_type = args.document_type
+    corpus_list = args.corpus_list
+    sort = args.sort
+
+    files = collect_input_files(
+        args.path,
+        period,
+        sort=sort,
+        document_type=document_type,
+        corpus_list=corpus_list,
+    )
+
+    with open("corpus_list.txt", "w", encoding="utf-8") as out:
+
+        out.write("Directory\tFile name\tCentury\tTitle\tVolume\tYear\tauthor\n")
+        for file_path in files:
+            root = ET.parse(file_path).getroot()
+
+            title = (
+                root.findtext(".//teiHeader//titleStmt//title")
+                or root.findtext(".//title")
+            ).strip()
+
+            volume = root.find(".//teiHeader//titleStmt//volume")
+
+            if volume is not None:
+                volume_n = volume.get("n")
+            else:
+                volume_n = ""
+
+            author = root.findtext(".//teiHeader//titleStmt//author")
+
+            if author is None:
+                author = ""
+
+            published_year = (
+                root.findtext(".//teiHeader//titleStmt//date")
+                or root.findtext(".//date")
+                or ""
+            ).strip()
+
+            published_century = convert_to_century(published_year)
+
+            relative_path = file_path.relative_to(Path.cwd())
+
+            m = re.match(r"(^.+?\\)([^\\]+?xml)$", str(relative_path))
+            directory_name = m.group(1)
+            file_name = m.group(2)
+
+            print(
+                f"{directory_name}\t{file_name}\t{published_century}\t{title}\t{volume_n}\t{published_year}\t{author}"
+            )
+            out.write(
+                f"{directory_name}\t{file_name}\t{published_century}\t{title}\t{volume_n}\t{published_year}\t{author}\n"
+            )
 
 
 def run_train(args: CLIArgs) -> None:
@@ -748,6 +833,10 @@ def run_print_corpus(args: CLIArgs) -> None:
 
 
 def run(args: CLIArgs) -> None:
+
+    if args.corpus_list:
+        run_corpus_list(args)
+        return
 
     if args.classical_ch:
         print(
