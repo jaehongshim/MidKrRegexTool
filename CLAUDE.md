@@ -20,11 +20,14 @@ python -m midkrregextool --path /corpus --training-mode --period 15 --training-d
 # Print tagged corpus
 python -m midkrregextool --path /corpus --print-corpus --period 15 --training-data data/
 
+# Corpus list mode — exports metadata for all matched XML files
+python -m midkrregextool --path /corpus --corpus-list --period 15
+
 # Bigram search (pattern with literal space triggers bigram mode)
 python -m midkrregextool --path /corpus --pattern "kwoksik /N"
 ```
 
-No test framework is currently in place (`tests/` directory exists but is empty except for fixtures).
+`tests/test_candidate_generator.py` is a manually-run script (no pytest; invoke with `python tests/test_candidate_generator.py`). It exercises `candidate_generator()` from `training.py` against a set of hand-crafted Yale-string cases and prints results to stdout. No formal test framework is in place.
 
 ## Architecture
 
@@ -45,6 +48,7 @@ Hanyang PUA text files (.txt / .xml)
 - **`run_search()`** — default; interactive multi-round regex loop with within-results narrowing
 - **`run_train()`** — interactive morphological annotation; saves annotations to JSONL
 - **`run_print_corpus()`** — prints `unicode_form: tagged_form` for every token
+- **`run_corpus_list()`** — triggered by `--corpus-list`; iterates matched XML files, extracts TEI header metadata (title, volume, author, year, century), prints tab-delimited rows to stdout, and saves them to `corpus_list.txt` (UTF-8) in the working directory; does not parse token content
 
 ### Key Modules
 

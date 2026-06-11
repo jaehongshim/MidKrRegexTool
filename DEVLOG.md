@@ -646,3 +646,9 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 
 ### What I did today
 - Try to integrate the Universal Dependencies framework
+
+## 2026-06-11
+
+### What I did today
+- Merge the `feature/morph-layer` branch with the main branch. 
+- Initiate a `universal-dependencies` branch
