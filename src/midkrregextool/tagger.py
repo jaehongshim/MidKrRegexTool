@@ -454,6 +454,9 @@ def tag_tokens(
             tokens[i].tagged_form = tokens[i].tagged_form.replace("/DAT", "/GEN")
             # print(f"[DEBUG] New tag: {tokens[i].tagged_form}")
 
+    for token in tokens:
+        token.morphs = parse_tagged_form(token.tagged_form)
+
     return tokens
 
 
@@ -463,3 +466,52 @@ def infl_from_tagged_form(tagged_form: str) -> str | None:
     if "/LEM-" not in tagged_form or "/INFL" not in tagged_form:
         return None
     return tagged_form.split("/LEM-", 1)[1].split("/INFL", 1)[0]
+
+
+def parse_tagged_form(tagged_form: str | None) -> list[tuple[str, str]] | None:
+    """
+    Input: "nilu/V/LEM-si/SUBJ/HON-ni/CONN"
+    Output: [("nilu", "V"), ("si", "SUBJ/HON"), ("ni", "CONN")]
+    """
+
+    def _extract_form_tag(left: str) -> tuple[str, str]:
+        form, tag = left.split("/", 1)
+        return (form, tag)
+
+    # Guard-clause
+    if not tagged_form:
+        return None
+
+    # Token with no tagged_form
+    if "NO-TAGGED-FORM" in tagged_form:
+        form = tagged_form.rstrip("/NO-TAGGED-FORM")
+        morphs = [(form, "UNK")]
+        return morphs
+
+    # Split `tagged_form` by "/LEM"
+    left, sep, right = tagged_form.partition("/LEM")
+
+    if not sep:
+        return None
+
+    morphs = []
+
+    # Process the left-hand part
+    # Token with prefix
+    if "/PREFIX" in left:
+        prefix_left = left.rsplit("/PREFIX-")
+        for part in prefix_left:
+            morphs.append(_extract_form_tag(part))
+    else:
+        morphs = [_extract_form_tag(left)]
+
+    # Process the right-hand part
+    if not right:
+        return morphs
+
+    infl_suf = right.lstrip("-")
+
+    for suf in infl_suf.rsplit("-"):
+        morphs.append(_extract_form_tag(suf))
+
+    return morphs

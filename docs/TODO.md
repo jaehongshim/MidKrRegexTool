@@ -18,7 +18,7 @@ Working branch: `universal-dependencies` · Created: 2026-06-11
 
 ## Phase 1 — CoNLL-U converter implementation (UD step 4)
 
-- [ ] **morphs filler**: function parsing the `tagged_form` string into `Token.morphs` (`list[tuple[str, str]]`)
+- [x] **morphs filler**: function parsing the `tagged_form` string into `Token.morphs` (`list[tuple[str, str]]`)
 - [ ] **Create `data/ud_mapping.json` skeleton**: project tags → `{upos, feats, deprel}` lookup table (undecided entries as placeholder `_`)
 - [ ] **Write the `conllu.py` module**: list of `Token` + mapping → CoNLL-U string
   - Assign sequential morpheme IDs within each sentence

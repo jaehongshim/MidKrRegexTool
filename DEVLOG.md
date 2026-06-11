@@ -650,5 +650,7 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 ## 2026-06-11
 
 ### What I did today
-- Merge the `feature/morph-layer` branch with the main branch. 
-- Initiate a `universal-dependencies` branch
+- Merged the `feature/morph-layer` branch with the main branch. 
+- Initiated a `universal-dependencies` branch
+- Implemented a `parse_tagged_form` function in `tagger.py` to fill in `morphs` attribute in `Token`.
+- Implemented `tests\test_parse_tagged_form.py` to test the performance of `parse_tagged_form` function. -> Successful.
