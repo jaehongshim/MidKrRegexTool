@@ -33,6 +33,11 @@ CASES = [
         "ho/V/AUX/LEM-ni/CONN",
         [("ho", "V/AUX"), ("ni", "CONN")],
     ),
+    # Case 7: token without tagged_form whose part is a part of "NO-TAGGED_FORM" flag.
+    (
+        "nom/NO-TAGGED-FORM",
+        [("nom", "UNK")],
+    ),
     # Guard
     (None, None),
     ("", None),

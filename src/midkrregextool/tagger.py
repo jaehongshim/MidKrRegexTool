@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import traceback
 import unicodedata
 from pathlib import Path
 
@@ -12,6 +13,21 @@ from .model import Token
 CATEGORY_CHANGERS = {
     "NMLZ": "N",
 }
+
+
+def debug_input(func):
+    def wrapper(*args, **kwargs):
+        try:
+            return func(*args, **kwargs)
+        except Exception as e:
+            print("ERROR in:", func.__name__)
+            print("args:", args)
+            print("kwargs:", kwargs)
+            print("exception:", repr(e))
+            traceback.print_exc()
+            raise
+
+    return wrapper
 
 
 def default_training_dir() -> Path:
@@ -455,7 +471,18 @@ def tag_tokens(
             # print(f"[DEBUG] New tag: {tokens[i].tagged_form}")
 
     for token in tokens:
-        token.morphs = parse_tagged_form(token.tagged_form)
+        try:
+            token.morphs = parse_tagged_form(token.tagged_form)
+        except Exception as e:
+            print("\n[ERROR while parsing token]")
+            print("source_id:", token.source_id)
+            print("token_index:", token.token_index)
+            print("unicode_form:", repr(token.unicode_form))
+            print("yale:", repr(token.yale))
+            print("tagged_form:", repr(token.tagged_form))
+            print("context:", repr(token.context))
+            print("error:", repr(e))
+            raise
 
     return tokens
 
@@ -484,7 +511,7 @@ def parse_tagged_form(tagged_form: str | None) -> list[tuple[str, str]] | None:
 
     # Token with no tagged_form
     if "NO-TAGGED-FORM" in tagged_form:
-        form = tagged_form.rstrip("/NO-TAGGED-FORM")
+        form, _, _ = tagged_form.partition("/NO-TAGGED-FORM")
         morphs = [(form, "UNK")]
         return morphs
 
