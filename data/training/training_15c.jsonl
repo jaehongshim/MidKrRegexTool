@@ -102,7 +102,7 @@
 {"period": "15c", "token": "ᄂᆞ치로소니", "gold_morph": "noch/N/LEM-i/COP-lwosw/EMO-oni/C"}
 {"period": "15c", "token": "삿기로소니", "gold_morph": "saski/N/LEM-lwosw/EMO-oni/C"}
 {"period": "15c", "token": "敎化ᄒᆞ시노소ᅌᅵ다", "gold_morph": "敎化ho/V/LEM-si/SUBJ/HON-n(o)/PRS-wosw/EMO-o.ngi/ADDR/HON-ta/DECL"}
-{"period": "15c", "token": "몯도다", "gold_morph": "mwot/NEG.V/LEM-/two/EMO-ta/DECL"}
+{"period": "15c", "token": "몯도다", "gold_morph": "mwot/NEG.V/LEM-two/EMO-ta/DECL"}
 {"period": "15c", "token": "몯호ᄃᆡ", "gold_morph": "mwot/NEG/PREFIX-h(o)/V/LEM-wotoy/WOTOY"}
 {"period": "15c", "token": "몯ᄒᆞ니라", "gold_morph": "mwot/NEG/PREFIX-ho/V/LEM-ni/ASS-la/DECL"}
 {"period": "15c", "token": "몯ᄒᆞ야셔", "gold_morph": "mwot/NEG/PREFIX-ho/V/LEM-ya/CONN-sy/AUX-e/CONN"}
@@ -465,7 +465,7 @@
 {"period": "15c", "token": "곪ᄂᆞ니", "gold_morph": "kwolm/V/LEM-no/PRS-ni/C"}
 {"period": "15c", "token": "煩惱ᄅᆞᆯ", "gold_morph": "煩惱/N.CH/LEM-lol/ACC"}
 {"period": "15c", "token": "實엔", "gold_morph": "實/N.CH/LEM-ey/DAT-n/TOP"}
-{"period": "15c", "token": "져근ᄆᆞ리", "gold_morph": "cyekunmol//LEM-i/NOM"}
+{"period": "15c", "token": "져근ᄆᆞ리", "gold_morph": "cyekunmol/LEM-i/NOM"}
 {"period": "15c", "token": "ᄲᅡᅘᅧ려", "gold_morph": ".spahhye/V/LEM-lye/LYE"}
 {"period": "15c", "token": "阿陀那識ᄋᆞᆫ", "gold_morph": "阿陀那識/N.CH/LEM-on/TOP"}
 {"period": "15c", "token": "죽거늘", "gold_morph": "cwuk/V/LEM-kenul/KENUL"}
@@ -508,7 +508,7 @@
 {"period": "15c", "token": "마ᄌᆞᆫ", "gold_morph": "mac/V/LEM-on/NFUT/REL"}
 {"period": "15c", "token": "ᄉᆞᄆᆞ차", "gold_morph": "somoch/V/LEM-a/CONN"}
 {"period": "15c", "token": "즐겁게", "gold_morph": "culkep/A/LEM-key/KEY"}
-{"period": "15c", "token": "지지와", "gold_morph": "cici/n/LEM-wa/COM"}
+{"period": "15c", "token": "지지와", "gold_morph": "cici/N/LEM-wa/COM"}
 {"period": "15c", "token": "乞食ᄒᆞ더시니", "gold_morph": "乞食ho/V.CH/LEM-te/IPFV-si/SUBJ/HON-ni/C"}
 {"period": "15c", "token": "ᄒᆡ", "gold_morph": "hoy/N/LEM"}
 {"period": "15c", "token": "ᄉᆞᆯᄫᆞ샤ᄃᆡ", "gold_morph": "solW/V/LEM-osy/SUBJ/HON-atoy/WOTOY"}
@@ -767,7 +767,7 @@
 {"period": "15c", "token": "八萬四千이", "gold_morph": "八萬四千/N.CH/LEM-i/NOM"}
 {"period": "15c", "token": "聞이", "gold_morph": "聞/N.CH/LEM-i/NOM"}
 {"period": "15c", "token": "가린", "gold_morph": "kali/V/LEM-n/NFUT/REL"}
-{"period": "15c", "token": "아ᄎᆞᆫ아ᄃᆞᄅᆡ", "gold_morph": "achonatol/N/oy/GEN"}
+{"period": "15c", "token": "아ᄎᆞᆫ아ᄃᆞᄅᆡ", "gold_morph": "achonatol/N-oy/GEN"}
 {"period": "15c", "token": "種子ᄅᆞᆯ", "gold_morph": "種子/N.CH/LEM-lol/ACC"}
 {"period": "15c", "token": "노로미며", "gold_morph": "nwol/V/LEM-wom/NMLZ-i/COP-mye/MYE"}
 {"period": "15c", "token": "업스샤", "gold_morph": "eps/V/LEM-usy/SUBJ/HON-a/CONN"}
@@ -873,7 +873,7 @@
 {"period": "15c", "token": "ᄆᆞᆺᄃᆞ록", "gold_morph": "mos/V/LEM-tolwok/TOLWOK"}
 {"period": "15c", "token": "시혹", "gold_morph": "sihwok/ADV/LEM"}
 {"period": "15c", "token": "삿기도", "gold_morph": "saski/N/LEM-two/TWO"}
-{"period": "15c", "token": "마롤디어다", "gold_morph": "mal/V/LEM-wo/WO-l/FUT/REL-t(o)/TO-i/COP-e/PFV-ta/"}
+{"period": "15c", "token": "마롤디어다", "gold_morph": "mal/V/LEM-wo/WO-l/FUT/REL-t(o)/TO-i/COP-e/PFV-ta/DECL"}
 {"period": "15c", "token": "뉘으처", "gold_morph": "nwiuch/V/LEM-e/CONN"}
 {"period": "15c", "token": "시냇ᄀᆞᅀᅢ", "gold_morph": "sinayskoz/N/LEM-ay/DAT"}
 {"period": "15c", "token": "쉬나ᄆᆞᆫ", "gold_morph": "swinamon/NUM/LEM"}
@@ -958,7 +958,7 @@
 {"period": "15c", "token": "그ᄢᅴ", "gold_morph": "ku.pskuy/ADV/LEM"}
 {"period": "15c", "token": "뎌ᄢᅴ", "gold_morph": "tye.pskuy/ADV/LEM"}
 {"period": "15c", "token": "나시논", "gold_morph": "na/V/LEM-si/SUBJ/HON-n(o)/PRS-wo/WO-n/NFUT/REL"}
-{"period": "15c", "token": "詰亂ᄒᆞᆯ시라", "gold_morph": "詰亂ho/V.CH/LEM-lsi/NSOy-la/DECL"}
+{"period": "15c", "token": "詰亂ᄒᆞᆯ시라", "gold_morph": "詰亂ho/V.CH/LEM-lsi/NSOY-la/DECL"}
 {"period": "15c", "token": "디니ᅀᆞᄫᆞ며", "gold_morph": "tini/V/LEM-zoW/OBJ/HON-omye/MYE"}
 {"period": "15c", "token": "得ᄒᆞ샤미", "gold_morph": "得ho/V.CH/LEM-sy/SUBJ/HON-am/NMLZ-i/NOM"}
 {"period": "15c", "token": "發明ᄒᆞ샨", "gold_morph": "發明ho/V.CH/LEM-sy/SUBJ/HON-a/WO-n/NFUT/REL"}
