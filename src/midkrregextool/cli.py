@@ -8,6 +8,7 @@ import sys
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
+from itertools import groupby
 from pathlib import Path  # is_file(), is_dir()
 
 from midkrregextool.parser import parse_file
@@ -894,6 +895,9 @@ def run_export_conllu(args: CLIArgs) -> None:
             infl_decomp=infl_decomp,
             pos_to_allowed_morphemes=pos_to_allowed_morphemes,
         )
+
+    for source_id, group in groupby(tokens, key=lambda t: t.source_id):
+        token_group = list(group)
 
 
 def run(args: CLIArgs) -> None:
