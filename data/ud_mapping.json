@@ -1,0 +1,627 @@
+{
+    "_comment": "XPOS tag → {upos, feats, deprel}. '_' = undecided (Phase 2).",
+    "V": {
+        "upos": "VERB",
+        "feats": {},
+        "deprel": "_"
+    },
+    "V.CH": {
+        "upos": "VERB",
+        "feats": {},
+        "deprel": "_"
+    },
+    "V.HON": {
+        "upos": "VERB",
+        "feats": {
+            "Polite": "Elev"
+        },
+        "deprel": "_"
+    },
+    "V.NEG": {
+        "upos": "VERB",
+        "feats": {},
+        "deprel": "_"
+    },
+    "V.OH": {
+        "upos": "VERB",
+        "feats": {},
+        "deprel": "_"
+    },
+    "V.SH": {
+        "upos": "VERB",
+        "feats": {},
+        "deprel": "_"
+    },
+    "N": {
+        "upos": "NOUN",
+        "feats": {},
+        "deprel": "_"
+    },
+    "N.CH": {
+        "upos": "NOUN",
+        "feats": {},
+        "deprel": "_"
+    },
+    "N.DEP": {
+        "upos": "NOUN",
+        "feats": {},
+        "deprel": "_"
+    },
+    "PN": {
+        "upos": "PRON",
+        "feats": {},
+        "deprel": "_"
+    },
+    "PN.GEN": {
+        "upos": "PRON",
+        "feats": {
+            "Case": "Gen"
+        },
+        "deprel": "_"
+    },
+    "NUM": {
+        "upos": "NUM",
+        "feats": {},
+        "deprel": "_"
+    },
+    "ORD": {
+        "upos": "NUM",
+        "feats": {
+            "NumType": "Ord"
+        },
+        "deprel": "_"
+    },
+    "A": {
+        "upos": "ADJ",
+        "feats": {},
+        "deprel": "_"
+    },
+    "ADV": {
+        "upos": "ADV",
+        "feats": {},
+        "deprel": "_"
+    },
+    "PROP": {
+        "upos": "PROPN",
+        "feats": {},
+        "deprel": "_"
+    },
+    "CH": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "NOM": {
+        "upos": "ADP",
+        "feats": {
+            "Case": "Nom"
+        },
+        "deprel": "case"
+    },
+    "ACC": {
+        "upos": "ADP",
+        "feats": {
+            "Case": "Acc"
+        },
+        "deprel": "case"
+    },
+    "GEN": {
+        "upos": "ADP",
+        "feats": {
+            "Case": "Gen"
+        },
+        "deprel": "case"
+    },
+    "DAT": {
+        "upos": "ADP",
+        "feats": {
+            "Case": "Dat"
+        },
+        "deprel": "case"
+    },
+    "ABL": {
+        "upos": "ADP",
+        "feats": {
+            "Case": "Abl"
+        },
+        "deprel": "case"
+    },
+    "INS": {
+        "upos": "ADP",
+        "feats": {
+            "Case": "Ins"
+        },
+        "deprel": "case"
+    },
+    "VOC": {
+        "upos": "ADP",
+        "feats": {
+            "Case": "Voc"
+        },
+        "deprel": "case"
+    },
+    "VOC.HON": {
+        "upos": "ADP",
+        "feats": {
+            "Case": "Voc",
+            "Polite": "Elev"
+        },
+        "deprel": "case"
+    },
+    "TOP": {
+        "upos": "ADP",
+        "feats": {},
+        "deprel": "case"
+    },
+    "COM": {
+        "upos": "ADP",
+        "feats": {
+            "Case": "Com"
+        },
+        "deprel": "case"
+    },
+    "AD": {
+        "upos": "ADP",
+        "feats": {},
+        "deprel": "case"
+    },
+    "SUBJ/HON": {
+        "upos": "_",
+        "feats": {
+            "Polite": "Elev"
+        },
+        "deprel": "_"
+    },
+    "OBJ/HON": {
+        "upos": "_",
+        "feats": {
+            "Polite": "Humb"
+        },
+        "deprel": "_"
+    },
+    "ADDR/HON": {
+        "upos": "_",
+        "feats": {
+            "Polite": "Form"
+        },
+        "deprel": "_"
+    },
+    "HON": {
+        "upos": "_",
+        "feats": {
+            "Polite": "Elev"
+        },
+        "deprel": "_"
+    },
+    "FUT": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "FUTREL": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "PFV": {
+        "upos": "_",
+        "feats": {
+            "Aspect": "Perf"
+        },
+        "deprel": "_"
+    },
+    "IPFV": {
+        "upos": "_",
+        "feats": {
+            "Aspect": "Imp"
+        },
+        "deprel": "_"
+    },
+    "IPFV.WO": {
+        "upos": "_",
+        "feats": {
+            "Aspect": "Imp"
+        },
+        "deprel": "_"
+    },
+    "AOR": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "PRS": {
+        "upos": "_",
+        "feats": {
+            "Tense": "Pres"
+        },
+        "deprel": "_"
+    },
+    "WO": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "TWO": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "DECL": {
+        "upos": "PART",
+        "feats": {
+            "Mood": "Ind"
+        },
+        "deprel": "_"
+    },
+    "IMP": {
+        "upos": "PART",
+        "feats": {
+            "Mood": "Imp"
+        },
+        "deprel": "_"
+    },
+    "Q": {
+        "upos": "PART",
+        "feats": {
+            "Mood": "Int"
+        },
+        "deprel": "_"
+    },
+    "ASS": {
+        "upos": "PART",
+        "feats": {},
+        "deprel": "_"
+    },
+    "ASSERT": {
+        "upos": "PART",
+        "feats": {},
+        "deprel": "_"
+    },
+    "CONN": {
+        "upos": "PART",
+        "feats": {},
+        "deprel": "mark"
+    },
+    "COND": {
+        "upos": "PART",
+        "feats": {
+            "Mood": "Cnd"
+        },
+        "deprel": "mark"
+    },
+    "CONC": {
+        "upos": "PART",
+        "feats": {},
+        "deprel": "mark"
+    },
+    "CAUS": {
+        "upos": "PART",
+        "feats": {},
+        "deprel": "mark"
+    },
+    "REL": {
+        "upos": "PART",
+        "feats": {},
+        "deprel": "_"
+    },
+    "NF/REL": {
+        "upos": "PART",
+        "feats": {},
+        "deprel": "_"
+    },
+    "NFUT/REL": {
+        "upos": "PART",
+        "feats": {},
+        "deprel": "_"
+    },
+    "FPV": {
+        "upos": "PART",
+        "feats": {},
+        "deprel": "_"
+    },
+    "NMLZ": {
+        "upos": "PART",
+        "feats": {
+            "VerbForm": "Vnoun"
+        },
+        "deprel": "_"
+    },
+    "NLZ": {
+        "upos": "PART",
+        "feats": {
+            "VerbForm": "Vnoun"
+        },
+        "deprel": "_"
+    },
+    "ADVZ": {
+        "upos": "PART",
+        "feats": {
+            "VerbForm": "Conv"
+        },
+        "deprel": "_"
+    },
+    "AUX": {
+        "upos": "AUX",
+        "feats": {},
+        "deprel": "aux"
+    },
+    "COP": {
+        "upos": "AUX",
+        "feats": {},
+        "deprel": "cop"
+    },
+    "COP.NEG": {
+        "upos": "AUX",
+        "feats": {
+            "Polarity": "Neg"
+        },
+        "deprel": "cop"
+    },
+    "NEC": {
+        "upos": "AUX",
+        "feats": {
+            "Mood": "Nec"
+        },
+        "deprel": "aux"
+    },
+    "PASS": {
+        "upos": "AUX",
+        "feats": {
+            "Voice": "Pass"
+        },
+        "deprel": "aux"
+    },
+    "REFL": {
+        "upos": "AUX",
+        "feats": {
+            "Voice": "Rfl"
+        },
+        "deprel": "aux"
+    },
+    "NEG.V": {
+        "upos": "_",
+        "feats": {
+            "Polarity": "Neg"
+        },
+        "deprel": "_"
+    },
+    "EMPH": {
+        "upos": "PART",
+        "feats": {},
+        "deprel": "_"
+    },
+    "PL": {
+        "upos": "PART",
+        "feats": {
+            "Number": "Plur"
+        },
+        "deprel": "_"
+    },
+    "DEM": {
+        "upos": "DET",
+        "feats": {
+            "PronType": "Dem"
+        },
+        "deprel": "det"
+    },
+    "DEM.DAT": {
+        "upos": "DET",
+        "feats": {
+            "PronType": "Dem",
+            "Case": "Dat"
+        },
+        "deprel": "det"
+    },
+    "WH": {
+        "upos": "DET",
+        "feats": {
+            "PronType": "Int"
+        },
+        "deprel": "_"
+    },
+    "C": {
+        "upos": "SCONJ",
+        "feats": {},
+        "deprel": "mark"
+    },
+    "C.EMO": {
+        "upos": "PART",
+        "feats": {},
+        "deprel": "_"
+    },
+    "EMO": {
+        "upos": "PART",
+        "feats": {},
+        "deprel": "_"
+    },
+    "KENA": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "KENI": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "KENIWA": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "KENMALON": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "KENUL": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "KETUN": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "KEY": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "KOTHI": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "KWO": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "KWOCYE": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "KWOK": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "LSI": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "LSOY": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "LYE": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "MAN": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "MATA": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "MAY": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "MYE": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "NA": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "NIWA": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "NOL": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "NSOY": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "NTAY": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "NTOL": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "NU": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "EKWOM": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "ESYE": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "ETAKA": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "TAKA": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "TENI": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "TI": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "TO": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "TOLWOK": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "WAT": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "WOTOY": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "YATWO": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "INFL": {
+        "upos": "_",
+        "feats": {},
+        "deprel": "_"
+    },
+    "UNK": {
+        "upos": "X",
+        "feats": {},
+        "deprel": "_"
+    }
+}

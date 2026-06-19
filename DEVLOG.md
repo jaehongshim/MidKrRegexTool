@@ -654,3 +654,10 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 - Initiated a `universal-dependencies` branch
 - Implemented a `parse_tagged_form` function in `tagger.py` to fill in `morphs` attribute in `Token`.
 - Implemented `tests\test_parse_tagged_form.py` to test the performance of `parse_tagged_form` function. -> Successful.
+
+## 2026-06-18
+
+### What I did today
+- Finalized `parse_tagged_form` function in `tagger.py`
+- Implemented `ud_mapping.json` template.
+- Initiated `conllu.py`
