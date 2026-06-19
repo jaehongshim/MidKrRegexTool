@@ -880,24 +880,34 @@ def run_export_conllu(args: CLIArgs) -> None:
             load_pos_to_allowed_morphemes_inventory_from_training(training_data, period)
         )
 
-    for file_path in files:
-        tokens = attach_yale(
-            parse_file(file_path, encoding=encoding, display_context=display_context),
-            classical_ch,
-            exclude_ch,
-        )
+    output_path = Path.cwd() / "results" / "output.conllu"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(output_path, "w", encoding="utf-8") as out:
 
-        tokens = tag_tokens(
-            tokens,
-            rules,
-            lexicon=lexicon,
-            rest_set=rest_set,
-            infl_decomp=infl_decomp,
-            pos_to_allowed_morphemes=pos_to_allowed_morphemes,
-        )
+        for file_path in files:
+            tokens = attach_yale(
+                parse_file(
+                    file_path, encoding=encoding, display_context=display_context
+                ),
+                classical_ch,
+                exclude_ch,
+            )
 
-    for source_id, group in groupby(tokens, key=lambda t: t.source_id):
-        token_group = list(group)
+            tokens = tag_tokens(
+                tokens,
+                rules,
+                lexicon=lexicon,
+                rest_set=rest_set,
+                infl_decomp=infl_decomp,
+                pos_to_allowed_morphemes=pos_to_allowed_morphemes,
+            )
+
+            for source_id, group in groupby(tokens, key=lambda t: t.source_id):
+                token_group = list(group)
+
+                block = tokens_to_conllu(token_group, sent_id=source_id)
+
+                out.write(block + "\n\n")
 
 
 def run(args: CLIArgs) -> None:
