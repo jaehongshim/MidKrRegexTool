@@ -12,6 +12,7 @@ Pipeline for each token (conceptually):
 
 from __future__ import annotations  # Prevent type errors
 
+import re
 import unicodedata
 from typing import Iterable
 
@@ -26,6 +27,11 @@ except ImportError:  # pragma: no cover
 
 class YaleKoreanNotInstalledError(ImportError):
     """Raised when the YaleKorean package is required but not installed."""
+
+
+def _strip_page_markers(yale: str) -> str:
+    """Remove page/folio markers like -22b, -36a from Yale romanization."""
+    return re.sub(r"-\d+[ab]", "", yale)
 
 
 # Formatting how to report the result either on the command line or in a separate file.
@@ -86,7 +92,7 @@ def convert_token(token: Token) -> Token:
     """
     unicode_form, yale_form = pua_to_yale(token.pua)
     token.unicode_form = normalize_modern_only(unicode_form)
-    token.yale = yale_form
+    token.yale = _strip_page_markers(yale_form)
     if token.context is not None:
         token.context = normalize_modern_only(pua_to_unicode(token.context))
     return token

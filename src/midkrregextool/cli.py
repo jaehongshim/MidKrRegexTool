@@ -11,6 +11,9 @@ from dataclasses import dataclass
 from itertools import groupby
 from pathlib import Path  # is_file(), is_dir()
 
+from tqdm import tqdm
+
+from midkrregextool.conllu import tokens_to_conllu
 from midkrregextool.parser import parse_file
 from midkrregextool.report import maybe_save_hits, report_hits
 from midkrregextool.search import search_tokens
@@ -166,6 +169,7 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
     pattern = ns.pattern
     document_type = ns.document_type
     corpus_list = ns.corpus_list
+    export_conllu = ns.export_conllu
 
     if document_type:
         print(
@@ -177,7 +181,7 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
         )
 
     # Search mode requires --pattern
-    if not (training_mode or print_corpus or corpus_list):
+    if not (training_mode or print_corpus or corpus_list or export_conllu):
         if pattern is None:
             raise SystemExit(
                 "[ERROR] --pattern is required unless --training-mode is set."
@@ -224,7 +228,7 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
         exclude_ch=ns.exclude_ch,
         print_corpus=ns.print_corpus,
         document_type=ns.document_type,
-        export_conllu=ns.export_conllu,
+        export_conllu=export_conllu,
     )
 
 
@@ -884,7 +888,7 @@ def run_export_conllu(args: CLIArgs) -> None:
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", encoding="utf-8") as out:
 
-        for file_path in files:
+        for file_path in tqdm(files, desc="Processing files"):
             tokens = attach_yale(
                 parse_file(
                     file_path, encoding=encoding, display_context=display_context
@@ -953,6 +957,7 @@ def run(args: CLIArgs) -> None:
             "[INFO] export_conllu mode is on. A Universal-Dependencies analysis will be performed."
         )
         run_export_conllu(args)
+        return
 
     run_search(args)
 

@@ -34,7 +34,7 @@ def tokens_to_conllu(
     sent_id: str,
     text: Optional[str] = None,
 ) -> str:
-    mapping = load_mapping
+    mapping = load_mapping()
 
     lines = []
     lines.append(f"# sent_id = {sent_id}")
@@ -46,3 +46,77 @@ def tokens_to_conllu(
         lines.append(rows)
 
     return "\n".join(lines)
+
+
+def token_to_conllu(
+    token: Token,
+    start_id: int,
+    mapping: dict,
+) -> tuple[str, int]:
+
+    # Guard clause for token without any morphemes
+    if not token.morphs:
+        form = token.yale or token.pua
+        row = _morph_to_row(start_id, form, "NO-TAGGED-FORM", token.yale, mapping)
+        return row, start_id + 1
+
+    morphs = token.morphs
+
+    # tokens with one morpheme
+
+    if len(morphs) == 1:
+        form, tag = morphs[0]
+        row = _morph_to_row(start_id, form, tag, token.yale, mapping)
+        return row, start_id + 1
+
+    # tokens with more than one morpheme
+    end_id = start_id + len(morphs) - 1
+    mwt_row = "\t".join(
+        [
+            f"{start_id}-{end_id}",
+            token.yale or token.pua,
+            "_",
+            "_",
+            "_",
+            "_",
+            "_",
+            "_",
+            "_",
+            "_",
+        ]
+    )
+    rows = [mwt_row]
+    for i, (form, tag) in enumerate(morphs):
+        rows.append(_morph_to_row(start_id + 1, form, tag, None, mapping))
+
+        return "\n".join(rows), end_id + 1
+
+
+def _morph_to_row(
+    token_id: int,
+    form: str,
+    tag: str,
+    yale: Optional[str],
+    mapping: dict,
+) -> str:
+    entry = mapping.get(tag, {})
+    upos = entry.get("upos", "_")
+    feats = _build_feats(entry.get("feats", {}))
+    deprel = entry.get("deprel", "_")
+
+    misc = f"Yale={yale}" if yale else "_"
+
+    return "\t".join(
+        [
+            str(token_id),
+            form,
+            form,
+            upos,
+            tag,
+            feats,
+            "_",
+            deprel,
+            "_",
+            misc,
+        ]
+    )

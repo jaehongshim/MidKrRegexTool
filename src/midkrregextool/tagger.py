@@ -539,6 +539,9 @@ def parse_tagged_form(tagged_form: str | None) -> list[tuple[str, str]] | None:
     infl_suf = right.lstrip("-")
 
     for suf in infl_suf.rsplit("-"):
+        if "/" not in suf:
+            print(f"[DEBUG] suf={suf!r} in {tagged_form!r}")
+            continue
         morphs.append(_extract_form_tag(suf))
 
     return morphs
