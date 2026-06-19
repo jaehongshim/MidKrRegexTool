@@ -45,6 +45,7 @@ class CLIArgs:
     exclude_ch: bool = False
     print_corpus: bool = False
     document_type: str | None = None
+    export_conllu: bool = False
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -133,6 +134,11 @@ def build_parser() -> argparse.ArgumentParser:
         ],
         help="Train or search on a specific type of documents.",
     )
+    p.add_argument(
+        "--export-conllu",
+        action="store_true",
+        help="Perform a Universal-Dependencies analysis",
+    )
 
     return p
 
@@ -217,6 +223,7 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
         exclude_ch=ns.exclude_ch,
         print_corpus=ns.print_corpus,
         document_type=ns.document_type,
+        export_conllu=ns.export_conllu,
     )
 
 
@@ -832,6 +839,63 @@ def run_print_corpus(args: CLIArgs) -> None:
             print(f"{token.unicode_form}: {token.tagged_form}")
 
 
+def run_export_conllu(args: CLIArgs) -> None:
+
+    # Assigning objects to arguments
+    encoding = args.encoding
+    period = convert_to_century(args.period)
+    training_data = args.training_data
+    sort = args.sort
+    document_type = args.document_type
+    files = collect_input_files(
+        args.path, period, sort=sort, document_type=document_type
+    )
+    display_context = args.display_context
+    classical_ch = args.classical_ch
+    exclude_ch = False
+
+    # No input files found
+    if not files:
+        print(
+            f"[INFO] No supported files found under: {args.path} (expected: .txt, .xml)"
+        )
+        return
+
+    # Print loop
+
+    rules = build_rules(training_data=training_data, period=period)
+    lexicon = load_lemma_lexicon(period, training_data=training_data)
+
+    infl_decomp = None
+    rest_set = set()
+    pos_to_allowed_morphemes: dict[str, set[str]] = {}
+
+    if training_data is not None:
+        infl_decomp = load_infl_decomp_from_training(
+            training_data / f"training_{period}c.jsonl"
+        )
+        rest_set = load_rest_surfaces_from_training(training_data, period)
+        pos_to_allowed_morphemes = (
+            load_pos_to_allowed_morphemes_inventory_from_training(training_data, period)
+        )
+
+    for file_path in files:
+        tokens = attach_yale(
+            parse_file(file_path, encoding=encoding, display_context=display_context),
+            classical_ch,
+            exclude_ch,
+        )
+
+        tokens = tag_tokens(
+            tokens,
+            rules,
+            lexicon=lexicon,
+            rest_set=rest_set,
+            infl_decomp=infl_decomp,
+            pos_to_allowed_morphemes=pos_to_allowed_morphemes,
+        )
+
+
 def run(args: CLIArgs) -> None:
 
     if args.corpus_list:
@@ -867,6 +931,14 @@ def run(args: CLIArgs) -> None:
         )
         run_print_corpus(args)
         return
+
+    # ConLLU mode
+
+    if args.export_conllu:
+        print(
+            "[INFO] export_conllu mode is on. A Universal-Dependencies analysis will be performed."
+        )
+        run_export_conllu(args)
 
     run_search(args)
 

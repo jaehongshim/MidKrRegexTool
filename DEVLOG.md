@@ -661,3 +661,8 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 - Finalized `parse_tagged_form` function in `tagger.py`
 - Implemented `ud_mapping.json` template.
 - Initiated `conllu.py`
+
+## 2026년-06-19
+
+### What I did today
+- Continue developing `conllu.py`
