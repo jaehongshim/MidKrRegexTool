@@ -87,9 +87,9 @@ def token_to_conllu(
     )
     rows = [mwt_row]
     for i, (form, tag) in enumerate(morphs):
-        rows.append(_morph_to_row(start_id + 1, form, tag, None, mapping))
+        rows.append(_morph_to_row(start_id + i, form, tag, None, mapping))
 
-        return "\n".join(rows), end_id + 1
+    return "\n".join(rows), end_id + 1
 
 
 def _morph_to_row(

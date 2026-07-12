@@ -911,6 +911,8 @@ def run_export_conllu(args: CLIArgs) -> None:
 
                 block = tokens_to_conllu(token_group, sent_id=source_id)
 
+                print(f"{block}")
+
                 out.write(block + "\n\n")
 
 
