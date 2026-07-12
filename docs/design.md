@@ -104,8 +104,6 @@ When training data is available, inflectional suffixes are further decomposed in
 
 | File | Role |
 |---|---|
-| `data/{period}/lemma_whitelist.txt` | Known lemmas with POS |
-| `data/{period}/infl_suffixes.txt` | Base inflectional suffixes |
 | `data/training/training_{period}c.jsonl` | Gold-annotated training data (not committed) |
 
 ### Period awareness

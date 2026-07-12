@@ -13,11 +13,7 @@ from pathlib import Path  # is_file(), is_dir()
 from midkrregextool.parser import parse_file
 from midkrregextool.report import maybe_save_hits, report_hits
 from midkrregextool.search import search_tokens
-from midkrregextool.tagger import (
-    load_infl_suffixes,
-    load_lemma_lexicon,
-    tag_tokens,
-)
+from midkrregextool.tagger import load_lemma_lexicon, tag_tokens
 from midkrregextool.training import (
     load_infl_decomp_from_training,
     load_pos_to_allowed_morphemes_inventory_from_training,
@@ -310,8 +306,8 @@ def convert_to_century(year: str) -> int | None:
     return (y - 1) // 100 + 1
 
 
-def build_rules(*, training_data: Path | None, period: int | None) -> list[str]:
-    return load_infl_suffixes(period=period)
+def build_rules() -> list[str]:
+    return []
 
 
 def run_corpus_list(args: CLIArgs) -> None:
@@ -423,7 +419,7 @@ def run_train(args: CLIArgs) -> None:
         return
 
     # Import the existing rules
-    rules = build_rules(training_data=training_data, period=period)
+    rules = build_rules()
 
     # Collect tokens.
     all_tokens = []
@@ -578,7 +574,7 @@ def run_search(args: CLIArgs) -> None:
 
     # Search loop
 
-    rules = build_rules(training_data=training_data, period=period)
+    rules = build_rules()
     lexicon = load_lemma_lexicon(period, training_data=training_data)
 
     within_result_search = "n"
@@ -594,7 +590,7 @@ def run_search(args: CLIArgs) -> None:
                 args.path, period, sort=sort, document_type=document_type
             )
             last_period = period
-            rules = build_rules(training_data=training_data, period=period)
+            rules = build_rules()
             lexicon = load_lemma_lexicon(period, training_data=training_data)
 
             if not files:
@@ -796,7 +792,7 @@ def run_print_corpus(args: CLIArgs) -> None:
 
     # Print loop
 
-    rules = build_rules(training_data=training_data, period=period)
+    rules = build_rules()
     lexicon = load_lemma_lexicon(period, training_data=training_data)
 
     infl_decomp = None

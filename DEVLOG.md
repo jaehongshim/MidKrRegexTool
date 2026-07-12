@@ -660,3 +660,33 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
   - `bilstm-disambiguation` (new, from updated `main`) starts BiLSTM work
   - once both are rebased on the refactored `tagger.py`, they proceed independently
 - Created `tagger-candidates` branch from `main`
+
+- Reassessed `infl_suffixes.txt` and `lemma_whitelist.txt`
+  - Both were hand-written, incomplete placeholder data — not authoritative
+    linguistic references. `infl_suffixes.txt` in particular is a flat atomic
+    suffix list with no morpheme-ordering constraints, so any code path relying
+    on it alone is structurally prone to overgeneration.
+  - Empirically confirmed the files are already dead weight for 16th–18th
+    century periods (placeholder/empty, tool runs fine) because
+    `rest_set` (`load_rest_surfaces_from_training`, from training jsonl gold
+    data) already covers the same role with higher-quality, ordering-aware
+    information.
+  - Decision: remove both files. This is a data-quality judgment call, made
+    directly by me based on domain knowledge of the corpus — not something
+    verifiable from the code alone.
+
+- Planned next step
+  - Use Claude Code to execute the mechanical refactor: delete
+    `infl_suffixes.txt` and `lemma_whitelist.txt`, remove `load_infl_suffixes()`
+    and the file-reading branch of `load_lemma_lexicon()`, adjust `build_rules()`
+    accordingly, and check call sites in `cli.py`.
+  - This is intentionally scoped as a separate, atomic commit — no other
+    changes mixed in — so the `Co-Authored-By: Claude` trailer on that commit
+    reflects mechanical execution only. The actual decision and its reasoning
+    are recorded here, authored by me.
+
+    ### Plan for Mon–Tue (before Wed AM meeting with Prof. Sangah Lee)
+
+  - Mon: finish tagger-candidates review + merge to main only. No BiLSTM work.
+  - Tue: bilstm-disambiguation branch, minimal baseline run — goal is "it runs
+    end to end", not accuracy. Bring whatever comes out to the Wed meeting.

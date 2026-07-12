@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from midkrregextool.model import Token
-from midkrregextool.tagger import load_infl_suffixes, load_lemma_lexicon
+from midkrregextool.tagger import load_lemma_lexicon
 from midkrregextool.training import candidate_generator, load_infl_decomp_from_training
 
 
@@ -105,7 +105,7 @@ def run_tests():
     repo_root = Path(__file__).resolve().parents[2]
     training_data = repo_root / "data" / "training"
 
-    rules = load_infl_suffixes(period=period)
+    rules = []
     lexicon = load_lemma_lexicon(period, training_data=training_data)
     infl_decomp = load_infl_decomp_from_training(
         training_data / f"training_{period}c.jsonl"

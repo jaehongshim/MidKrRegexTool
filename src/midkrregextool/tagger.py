@@ -40,37 +40,6 @@ def _period_tag(period: int | str | None) -> str | None:
     return p if p.endswith("c") else f"{p}c"
 
 
-def _resolve_data_file(filename: str, *, period: int | str | None = None) -> Path:
-    """
-    Preferred: <repo_root>/data/<period_tag>/<filename>
-    Fallback: <this_module_dir>/<filename>
-    """
-    period_tag = _period_tag(period)
-    if period_tag is not None:
-        repo_root = Path(__file__).resolve().parents[2]
-        cand = repo_root / "data" / period_tag / filename
-        if cand.exists():
-            return cand
-    return Path(__file__).with_name(filename)
-
-
-def load_infl_suffixes(period: int | str | None = None) -> list[str]:
-    path = _resolve_data_file("infl_suffixes.txt", period=period)
-    with open(path, encoding="utf-8") as f:
-        lines = f.readlines()
-
-    suffixes = []
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        if line.startswith("#"):
-            continue
-        suffixes.append(line)
-
-    return sorted(suffixes, key=len, reverse=True)
-
-
 def load_lemma_lexicon(
     period: int | str | None = None, *, training_data: Path
 ) -> dict[str, str]:
@@ -125,24 +94,7 @@ def load_lemma_lexicon(
             return
         lex[lem] = pos
 
-    path = _resolve_data_file("lemma_whitelist.txt", period=period)
     lex: dict[str, str] = {}
-    current_pos: str | None = None
-    with open(path, encoding="utf-8") as f:
-        for raw in f:
-            line = raw.strip()
-            if not line:
-                continue
-            if line.startswith("#"):  # Setting POS tag if line starts with #
-                header = line.lstrip("#").strip()
-                current_pos = header.split()[0].upper() if header else None
-                continue
-            if current_pos is None:
-                raise ValueError(
-                    f"Lemma '{line}' appears before any POS header in {path}"
-                )
-            pos = line + "/" + current_pos
-            lex[line] = pos
 
     if training_data is not None:
         training_file = _resolve_training_data(training_data, period)
