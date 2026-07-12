@@ -17,7 +17,6 @@ from midkrregextool.tagger import load_lemma_lexicon, tag_tokens
 from midkrregextool.training import (
     load_infl_decomp_from_training,
     load_pos_to_allowed_morphemes_inventory_from_training,
-    load_rest_surfaces_from_training,
     train,
     training_priority,
 )
@@ -306,10 +305,6 @@ def convert_to_century(year: str) -> int | None:
     return (y - 1) // 100 + 1
 
 
-def build_rules() -> list[str]:
-    return []
-
-
 def run_corpus_list(args: CLIArgs) -> None:
 
     period = convert_to_century(args.period)
@@ -418,9 +413,6 @@ def run_train(args: CLIArgs) -> None:
         print("[INFO] Training aborted.")
         return
 
-    # Import the existing rules
-    rules = build_rules()
-
     # Collect tokens.
     all_tokens = []
     bigram_hits = []  # Collect per-file bigram hits only when needed.
@@ -440,14 +432,12 @@ def run_train(args: CLIArgs) -> None:
 
     # Load
     infl_decomp = None
-    rest_set = set()
     pos_to_allowed_morphemes: dict[str, set[str]] = {}
 
     if training_data is not None:
         infl_decomp = load_infl_decomp_from_training(
             training_data / f"training_{period}c.jsonl"
         )
-        rest_set = load_rest_surfaces_from_training(training_data, period)
         pos_to_allowed_morphemes = (
             load_pos_to_allowed_morphemes_inventory_from_training(training_data, period)
         )
@@ -463,9 +453,7 @@ def run_train(args: CLIArgs) -> None:
 
         tokens = tag_tokens(
             tokens,
-            rules,
             lexicon=lexicon,
-            rest_set=rest_set,
             infl_decomp=infl_decomp,
             pos_to_allowed_morphemes=pos_to_allowed_morphemes,
         )
@@ -516,7 +504,7 @@ def run_train(args: CLIArgs) -> None:
         train_targets = all_tokens
     print(f"[TIMING] target selection: {time.perf_counter() - t_select:.3f}s")
 
-    known_rests = rest_set
+    known_rests = set(infl_decomp) if infl_decomp else set()
 
     t_sort = time.perf_counter()
     train_targets = sorted(
@@ -532,7 +520,6 @@ def run_train(args: CLIArgs) -> None:
     t_train = time.perf_counter()
     train(
         train_targets,
-        rules,
         period=period,
         training_data=training_data,
         lexicon=lexicon,
@@ -574,7 +561,6 @@ def run_search(args: CLIArgs) -> None:
 
     # Search loop
 
-    rules = build_rules()
     lexicon = load_lemma_lexicon(period, training_data=training_data)
 
     within_result_search = "n"
@@ -590,7 +576,6 @@ def run_search(args: CLIArgs) -> None:
                 args.path, period, sort=sort, document_type=document_type
             )
             last_period = period
-            rules = build_rules()
             lexicon = load_lemma_lexicon(period, training_data=training_data)
 
             if not files:
@@ -603,14 +588,12 @@ def run_search(args: CLIArgs) -> None:
             all_hits = []
 
             infl_decomp = None
-            rest_set = set()
             pos_to_allowed_morphemes: dict[str, set[str]] = {}
 
             if training_data is not None:
                 infl_decomp = load_infl_decomp_from_training(
                     training_data / f"training_{period}c.jsonl"
                 )
-                rest_set = load_rest_surfaces_from_training(training_data, period)
                 pos_to_allowed_morphemes = (
                     load_pos_to_allowed_morphemes_inventory_from_training(
                         training_data, period
@@ -628,9 +611,7 @@ def run_search(args: CLIArgs) -> None:
 
                 tokens = tag_tokens(
                     tokens,
-                    rules,
                     lexicon=lexicon,
-                    rest_set=rest_set,
                     infl_decomp=infl_decomp,
                     pos_to_allowed_morphemes=pos_to_allowed_morphemes,
                 )
@@ -792,18 +773,15 @@ def run_print_corpus(args: CLIArgs) -> None:
 
     # Print loop
 
-    rules = build_rules()
     lexicon = load_lemma_lexicon(period, training_data=training_data)
 
     infl_decomp = None
-    rest_set = set()
     pos_to_allowed_morphemes: dict[str, set[str]] = {}
 
     if training_data is not None:
         infl_decomp = load_infl_decomp_from_training(
             training_data / f"training_{period}c.jsonl"
         )
-        rest_set = load_rest_surfaces_from_training(training_data, period)
         pos_to_allowed_morphemes = (
             load_pos_to_allowed_morphemes_inventory_from_training(training_data, period)
         )
@@ -817,9 +795,7 @@ def run_print_corpus(args: CLIArgs) -> None:
 
         tokens = tag_tokens(
             tokens,
-            rules,
             lexicon=lexicon,
-            rest_set=rest_set,
             infl_decomp=infl_decomp,
             pos_to_allowed_morphemes=pos_to_allowed_morphemes,
         )

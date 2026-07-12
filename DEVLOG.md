@@ -649,44 +649,49 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 
 ## 2026-07-12
 
-### What I did today
-- Ensured a clean working tree on `universal-dependencies` before cutting a new branch
-- Reassessed `tagger.py`: it currently picks one candidate per token and discards
-  the rest; this needs to change before BiLSTM disambiguation can be applied
-- Revised the overall branch roadmap:
-  - `tagger-candidates` (new, from `main`) — refactor `tagger.py` to expose all candidates
-  - merge into `main`
-  - `universal-dependencies` merges `main` afterward to pick up the refactor
-  - `bilstm-disambiguation` (new, from updated `main`) starts BiLSTM work
-  - once both are rebased on the refactored `tagger.py`, they proceed independently
-- Created `tagger-candidates` branch from `main`
+### 한 일
 
-- Reassessed `infl_suffixes.txt` and `lemma_whitelist.txt`
-  - Both were hand-written, incomplete placeholder data — not authoritative
-    linguistic references. `infl_suffixes.txt` in particular is a flat atomic
-    suffix list with no morpheme-ordering constraints, so any code path relying
-    on it alone is structurally prone to overgeneration.
-  - Empirically confirmed the files are already dead weight for 16th–18th
-    century periods (placeholder/empty, tool runs fine) because
-    `rest_set` (`load_rest_surfaces_from_training`, from training jsonl gold
-    data) already covers the same role with higher-quality, ordering-aware
-    information.
-  - Decision: remove both files. This is a data-quality judgment call, made
-    directly by me based on domain knowledge of the corpus — not something
-    verifiable from the code alone.
+- 새 브랜치를 파기 전에 `universal-dependencies`의 working tree를 정리(커밋)해둠
+- `tagger.py` 재점검: 지금은 토큰마다 후보 하나만 고르고 나머지는 버리는 구조.
+  BiLSTM 기반 disambiguation을 적용하려면 이 구조부터 바꿔야 함
+- 브랜치 로드맵 정리:
+  - `tagger-candidates`(main에서 새로 분기) — `tagger.py`가 후보를 전부
+    노출하도록 리팩토링
+  - 완료되면 `main`에 merge
+  - `universal-dependencies`는 그 뒤에 `main`을 merge해서 리팩토링 결과를 받아옴
+  - `bilstm-disambiguation`(갱신된 `main`에서 새로 분기)에서 BiLSTM 작업 시작
+  - 두 브랜치 모두 리팩토링된 `tagger.py` 위에 올라간 뒤에는 서로 독립적으로 진행
+- `tagger-candidates` 브랜치 생성
 
-- Planned next step
-  - Use Claude Code to execute the mechanical refactor: delete
-    `infl_suffixes.txt` and `lemma_whitelist.txt`, remove `load_infl_suffixes()`
-    and the file-reading branch of `load_lemma_lexicon()`, adjust `build_rules()`
-    accordingly, and check call sites in `cli.py`.
-  - This is intentionally scoped as a separate, atomic commit — no other
-    changes mixed in — so the `Co-Authored-By: Claude` trailer on that commit
-    reflects mechanical execution only. The actual decision and its reasoning
-    are recorded here, authored by me.
+- `infl_suffixes.txt`, `lemma_whitelist.txt` 재평가
+  - 둘 다 손으로 되는대로 적어둔 불완전한 placeholder였지, 신뢰할 수 있는
+    언어학적 참고자료가 아니었음. 특히 `infl_suffixes.txt`는 형태소 배열
+    제약이 전혀 없는 원자 단위 목록이라, 이걸 그대로 쓰는 코드 경로는
+    구조적으로 overgeneration에 취약함
+  - 16~18세기 구간은 이미 파일 내용이 비어있는 상태로도 도구가 멀쩡히
+    돌아간다는 걸 실증적으로 확인 — `rest_set`(training jsonl 기반)이
+    이미 같은 역할을 더 나은 형태로 대신하고 있었기 때문
+  - 결정: 두 파일 다 삭제. 이건 코드만 봐서 판단할 수 있는 게 아니라,
+    코퍼스에 대한 도메인 지식에 기반한 내 판단
 
-    ### Plan for Mon–Tue (before Wed AM meeting with Prof. Sangah Lee)
+- 월~화 계획 (수요일 오전 이상아 교수님 미팅 전)
+  - 월: `tagger-candidates` 리뷰 + `main` merge만. BiLSTM은 손대지 않음
+  - 화: `bilstm-disambiguation` 브랜치, 최소 동작 baseline 한 번 — 목표는
+    "정확도"가 아니라 "에러 없이 한 바퀴 도는 것". 뭐가 나오든 수요일
+    미팅에 그대로 들고 가기
 
-  - Mon: finish tagger-candidates review + merge to main only. No BiLSTM work.
-  - Tue: bilstm-disambiguation branch, minimal baseline run — goal is "it runs
-    end to end", not accuracy. Bring whatever comes out to the Wed meeting.
+- Claude Code로 기계적 리팩토링 실행 (판단은 위에서 이미 끝났고, 이 커밋은
+  그걸 코드에 반영한 것뿐 — atomic commit으로 분리)
+  - `infl_suffixes`/`rules` 완전 제거. `infl_suffixes.txt` 삭제 이후
+    `build_rules()`가 이미 무조건 `[]`를 반환하고 있어서, 그 아래 딸린
+    파라미터와 분기(`analyze_yale()`의 `infl_suffixes` 관련 두 분기,
+    `tag_tokens()`의 `rules` 파라미터, `candidate_generator()`의 fallback
+    블록 3–4번)가 전부 죽은 코드였음
+  - `rest_set`을 `infl_decomp`으로 통합. 둘 다 같은 training jsonl의
+    `gold_morph` 필드에서 동일한 파싱 로직으로 만들어지고 있었음
+    (`load_rest_surfaces_from_training()`이 `load_infl_decomp_from_training()`의
+    키 생성 로직을 그대로 중복). `analyze_yale()`의 `suffix in rest_set`은
+    `suffix in infl_decomp`과 동치라서(dict 멤버십 검사는 키만 봄) `rest_set`은
+    중복이었음
+  - `tag_tokens()`를 실제 15세기 training 데이터로 돌려보고
+    `test_candidate_generator.py`로 검증 완료

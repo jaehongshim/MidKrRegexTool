@@ -105,7 +105,6 @@ def run_tests():
     repo_root = Path(__file__).resolve().parents[2]
     training_data = repo_root / "data" / "training"
 
-    rules = []
     lexicon = load_lemma_lexicon(period, training_data=training_data)
     infl_decomp = load_infl_decomp_from_training(
         training_data / f"training_{period}c.jsonl"
@@ -116,7 +115,6 @@ def run_tests():
 
         out = candidate_generator(
             token,
-            rules,
             period=period,
             token_lookup=token_lookup,
             infl_decomp=infl_decomp,

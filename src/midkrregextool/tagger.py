@@ -128,16 +128,15 @@ def contains_han(s: str) -> bool:
 
 def analyze_yale(
     yale: str,
-    infl_suffixes: list[str],
     lexicon: dict[str, str] | None = None,
-    rest_set: set[str] | None = None,
+    infl_decomp: dict[str, list[str]] | None = None,
 ) -> str:
 
     if not yale:
         return ""  # guard against missing yale
 
-    if not rest_set:
-        rest_set = set()
+    if not infl_decomp:
+        infl_decomp = {}
 
     if not lexicon:
         lexicon = dict()
@@ -169,10 +168,7 @@ def analyze_yale(
             if not suffix:
                 # print(f"[DEBUG] {yale} -> {lem_pos}/LEM")
                 return f"{lem_pos}/LEM"
-            if suffix in rest_set:
-                # print(f"[DEBUG] {yale} -> {lem_pos}/LEM-{suffix}/INFL")
-                return f"{lem_pos}/LEM-{suffix}/INFL"
-            if suffix in infl_suffixes:
+            if suffix in infl_decomp:
                 # print(f"[DEBUG] {yale} -> {lem_pos}/LEM-{suffix}/INFL")
                 return f"{lem_pos}/LEM-{suffix}/INFL"
 
@@ -208,25 +204,11 @@ def analyze_yale(
             # print(f"[DEBUG] {yale} -> {yale}/N.CH/LEM")
             return f"{yale}/N.CH/LEM"
 
-    for suf in infl_suffixes:
-        if yale.endswith(suf):
-            stem = yale[: -len(suf)]
-            if not stem:
-                return f"{yale}/LEM"
-            if stem not in lexicon:
-                continue
-
-            lem_pos = lexicon[stem]
-
-            return f"{lem_pos}/LEM-{suf}/INFL"
-
 
 def tag_tokens(
     tokens: list[Token],
-    rules: list[str],
     *,
     lexicon: dict[str, str],
-    rest_set: set[str],
     infl_decomp: dict[str, str] | None = None,
     pos_to_allowed_morphemes: dict[str, set[str]] | None = None,
     debug_suffixes: bool = False,
@@ -284,9 +266,8 @@ def tag_tokens(
 
         analyzed = analyze_yale(
             token.yale,
-            rules,
             lexicon,
-            rest_set,
+            infl_decomp,
         )
         # print(f"[DEBUG] {token.yale} -> {analyzed}.")
 

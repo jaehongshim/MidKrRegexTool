@@ -87,12 +87,10 @@ Assigns a `tagged_form` to each token.
 Decision order:
 
 1. **Exact lexicon match** → `{lem}/{pos}/LEM`
-2. **Lexicon prefix + known rest** (from `rest_set`) → `{lem}/{pos}/LEM-{rest}/INFL`
-3. **Lexicon prefix + base suffix rule** → `{lem}/{pos}/LEM-{suf}/INFL`
-4. **Sino-Korean verbalizer pattern** (`CH+ho`) → `{lem}/V.CH/LEM-{suf}/INFL`
-5. **Sino-Korean noun pattern** (CH + Roman letters) → `{lem}/N.CH/LEM-{suf}/INFL`
-6. **Pure Sino-Korean noun** → `{lem}/N.CH/LEM`
-7. **Base suffix rules** (suffix-first) → `{lem}/{pos}/LEM-{suf}/INFL`
+2. **Lexicon prefix + known rest** (from `infl_decomp`) → `{lem}/{pos}/LEM-{rest}/INFL`
+3. **Sino-Korean verbalizer pattern** (`CH+ho`) → `{lem}/V.CH/LEM-{suf}/INFL`
+4. **Sino-Korean noun pattern** (CH + Roman letters) → `{lem}/N.CH/LEM-{suf}/INFL`
+5. **Pure Sino-Korean noun** → `{lem}/N.CH/LEM`
 
 Tokens that cannot be analyzed receive `NO-TAGGED-FORM`.
 
@@ -140,8 +138,6 @@ The training loop presents candidate morphological analyses for each token and r
 
 1. Lexicon prefix + learned `infl_decomp` suffix
 2. Learned suffix + lexicon stem
-3. Lexicon prefix + base suffix rules (fallback)
-4. Base suffix rules + lexicon stem (fallback)
 
 ### Skip logic
 
