@@ -662,7 +662,25 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 - Implemented `ud_mapping.json` template.
 - Initiated `conllu.py`
 
-## 2026년-06-19
+## 2026-06-19
 
 ### What I did today
 - Continue developing `conllu.py`
+
+## 2026-07-12
+
+### What I did today
+- Reassessed `tagger.py`
+  - Currently, `tagger.py` picks up only one candidate for the given token and abandon everything else. 
+  - In order to apply the `BiLSTM model`, `tagger.py` should be able to use all the candidates. 
+  - Thus, `tagger.py` should be refactored accordingly.
+
+- Modified the overall roadmap
+  - Initiate `tagger-candidates` branch for a quick `tagger.py` refactoring.
+  - Once `tagger.py` is refactored, `tagger-candidates` branch will be merged into the main branch. 
+  - Then, `bilstm-disambiguation` branch will be initiated for `BiLSTM` model implementation.
+  - After `tagger-candidates` is merged into main, `universal-dependencies` branch
+  should merge `main` (`git merge origin/main`) to receive the refactored `tagger.py`.
+  - Once the `tagger.py` refactoring is successfully done, `bilstm-disambiguation` and `universal-dependencies` branches can be implemented independently of each other. 
+
+- Clean working tree before initiating `tagger-candidates` branch
