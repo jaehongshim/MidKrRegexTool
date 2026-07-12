@@ -646,3 +646,17 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 
 ### What I did today
 - Try to integrate the Universal Dependencies framework
+
+## 2026-07-12
+
+### What I did today
+- Ensured a clean working tree on `universal-dependencies` before cutting a new branch
+- Reassessed `tagger.py`: it currently picks one candidate per token and discards
+  the rest; this needs to change before BiLSTM disambiguation can be applied
+- Revised the overall branch roadmap:
+  - `tagger-candidates` (new, from `main`) — refactor `tagger.py` to expose all candidates
+  - merge into `main`
+  - `universal-dependencies` merges `main` afterward to pick up the refactor
+  - `bilstm-disambiguation` (new, from updated `main`) starts BiLSTM work
+  - once both are rebased on the refactored `tagger.py`, they proceed independently
+- Created `tagger-candidates` branch from `main`
