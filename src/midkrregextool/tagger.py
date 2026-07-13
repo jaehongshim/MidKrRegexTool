@@ -130,10 +130,12 @@ def analyze_yale(
     yale: str,
     lexicon: dict[str, str] | None = None,
     infl_decomp: dict[str, list[str]] | None = None,
-) -> str:
+) -> list[str]:
+
+    candidates = []
 
     if not yale:
-        return ""  # guard against missing yale
+        return []  # guard against missing yale
 
     if not infl_decomp:
         infl_decomp = {}
@@ -145,8 +147,7 @@ def analyze_yale(
 
     # First, prefer exact surface lemma matches already present in the lexicon.
     if yale in lexicon:
-        # print(f"[DEBUG] {yale} -> {lexicon[yale]}/LEM")
-        return f"{lexicon[yale]}/LEM"
+        candidates.append(f"{lexicon[yale]}/LEM")
 
     # Then check lemmas with restored material in parentheses.
     # Ignore the parenthesized part only for surface matching.
@@ -167,10 +168,10 @@ def analyze_yale(
 
             if not suffix:
                 # print(f"[DEBUG] {yale} -> {lem_pos}/LEM")
-                return f"{lem_pos}/LEM"
+                candidates.append(f"{lem_pos}/LEM")
             if suffix in infl_decomp:
                 # print(f"[DEBUG] {yale} -> {lem_pos}/LEM-{suffix}/INFL")
-                return f"{lem_pos}/LEM-{suffix}/INFL"
+                candidates.append(f"{lem_pos}/LEM-{suffix}/INFL")
 
     has_han = contains_han(yale)
 
@@ -190,19 +191,21 @@ def analyze_yale(
             lem = m1.group(1)
             suf = m1.group(2)
             # print(f"[DEBUG] {yale} -> {lem}/V.CH/LEM-{suf}/INFL")
-            return f"{lem}/V.CH/LEM-{suf}/INFL"
+            candidates.append(f"{lem}/V.CH/LEM-{suf}/INFL")
 
         # 1-2. If yale contains any non-Chinese characters, parse a boundary between CH/LEM-...
         elif m2:
             lem = m2.group(1)
             suf = m2.group(2)
             # print(f"[DEBUG] {yale} -> {lem}/N.CH/LEM-{suf}/INFL")
-            return f"{lem}/N.CH/LEM-{suf}/INFL"
+            candidates.append(f"{lem}/N.CH/LEM-{suf}/INFL")
 
         # 1-3. else, yale is lemma.
         else:
             # print(f"[DEBUG] {yale} -> {yale}/N.CH/LEM")
-            return f"{yale}/N.CH/LEM"
+            candidates.append(f"{yale}/N.CH/LEM")
+
+    return list(dict.fromkeys(candidates))
 
 
 def tag_tokens(
