@@ -214,7 +214,6 @@ def tag_tokens(
     lexicon: dict[str, str],
     infl_decomp: dict[str, str] | None = None,
     pos_to_allowed_morphemes: dict[str, set[str]] | None = None,
-    debug_suffixes: bool = False,
 ) -> list[Token]:
     """Enrich tokens with morphological tagging for downstream processing."""
 
@@ -267,15 +266,16 @@ def tag_tokens(
     for i, token in enumerate(tokens):
         prev_token = tokens[i - 1] if i > 0 else None
 
-        analyzed = analyze_yale(
+        analyzed_list = analyze_yale(
             token.yale,
             lexicon,
             infl_decomp,
         )
         # print(f"[DEBUG] {token.yale} -> {analyzed}.")
 
-        if not analyzed:
-            token.tagged_form = token.yale + "/" + "NO-TAGGED-FORM"
+        if not analyzed_list:
+            token.tagged_candidates = [token.yale + "/" + "NO-TAGGED-FORM"]
+            token.tagged_form = token.tagged_candidates[0]
             continue
 
         aux_context = False
@@ -292,48 +292,48 @@ def tag_tokens(
             ):
                 aux_context = True
 
-        if "/INFL" not in analyzed:
-            if analyzed.endswith("/LEM"):
-                if "/" in analyzed.split("/LEM")[0]:
-                    token.tagged_form = analyzed
+        candidates: list[str] = []
+
+        for analyzed in analyzed_list:
+            if "/INFL" not in analyzed:
+                if analyzed.endswith("/LEM"):
+                    if "/" in analyzed.split("/LEM")[0]:
+                        candidates.append(analyzed)
+                        continue
+                else:
                     continue
-            else:
-                token.tagged_form = token.yale + "/" + "NO-TAGGED-FORM"
-                continue
 
-        if infl_decomp is not None:
-            infl = infl_from_tagged_form(analyzed)
-            segmented_list = infl_decomp.get(infl)
-            if not segmented_list:
-                # print(f"[DEBUG] TEST is assigned as token.tagged_form for {analyzed}")
-                token.tagged_form = analyzed
-                continue
+            if infl_decomp is not None:
+                infl = infl_from_tagged_form(analyzed)
+                segmented_list = infl_decomp.get(infl)
+                if not segmented_list:
+                    candidates.append(analyzed)
+                    continue
 
-            filtered_segmented = [
-                segmented
-                for segmented in segmented_list
-                if _segmented_chain_allowed(analyzed, segmented)
-            ]
-            if not filtered_segmented:
-                continue
+                filtered_segmented = [
+                    segmented
+                    for segmented in segmented_list
+                    if _segmented_chain_allowed(analyzed, segmented)
+                ]
+                for segmented in filtered_segmented:
+                    if aux_context and "/V" in analyzed and "/AUX" not in analyzed:
+                        candidates.append(
+                            analyzed.split("/LEM", 1)[0] + "/AUX/LEM-" + segmented
+                        )
+                    else:
+                        candidates.append(
+                            analyzed.split("/LEM", 1)[0] + "/LEM-" + segmented
+                        )
 
-            if aux_context and "/V" in analyzed and "/AUX" not in analyzed:
-                token.tagged_form = (
-                    analyzed.split("/LEM", 1)[0] + "/AUX/LEM-" + filtered_segmented[0]
-                )
-                continue
+        if not candidates:
+            token.tagged_candidates = [token.yale + "/NO-TAGGED-FORM"]
+        else:
+            token.tagged_candidates = list(dict.fromkeys(candidates))
 
-            else:
-                token.tagged_form = (
-                    analyzed.split("/LEM", 1)[0] + "/LEM-" + filtered_segmented[0]
-                )
-                if ("/DAT" in token.tagged_form) or ("/GEN" in token.tagged_form):
-                    pending_token_idx.append(i)
-                    # print(
-                    #     f"[DEBUG] index {i} was appended to pending_token_idx for {token.tagged_form}"
-                    # )
+        token.tagged_form = token.tagged_candidates[0]
 
-                continue
+        if ("/DAT" in token.tagged_form) or ("/GEN" in token.tagged_form):
+            pending_token_idx.append(i)
 
     # post-adjustment
 

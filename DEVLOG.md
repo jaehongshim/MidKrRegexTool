@@ -709,5 +709,5 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 - [x] 커맨드 라인 인자 개선
   - `--training-data` 인자 관련 사용성 개선: `--training-data` 인자가 주어지지 않으면 기본 디렉토리로 리디렉트하도록 개선함. 
   - `--display-context` 인자 삭제: 기본적으로 context를 보이도록 함. 
-- `tag_tokens()` 리팩토링
-- `Token` 모델 리팩토링
+- [x] `tag_tokens()` 리팩토링
+- [x] `Token` 모델 리팩토링
