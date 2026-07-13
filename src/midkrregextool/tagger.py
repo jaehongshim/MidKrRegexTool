@@ -56,37 +56,6 @@ def _period_tag(period: int | str | None) -> str | None:
     return p if p.endswith("c") else f"{p}c"
 
 
-def _resolve_data_file(filename: str, *, period: int | str | None = None) -> Path:
-    """
-    Preferred: <repo_root>/data/<period_tag>/<filename>
-    Fallback: <this_module_dir>/<filename>
-    """
-    period_tag = _period_tag(period)
-    if period_tag is not None:
-        repo_root = Path(__file__).resolve().parents[2]
-        cand = repo_root / "data" / period_tag / filename
-        if cand.exists():
-            return cand
-    return Path(__file__).with_name(filename)
-
-
-def load_infl_suffixes(period: int | str | None = None) -> list[str]:
-    path = _resolve_data_file("infl_suffixes.txt", period=period)
-    with open(path, encoding="utf-8") as f:
-        lines = f.readlines()
-
-    suffixes = []
-    for line in lines:
-        line = line.strip()
-        if not line:
-            continue
-        if line.startswith("#"):
-            continue
-        suffixes.append(line)
-
-    return sorted(suffixes, key=len, reverse=True)
-
-
 def load_lemma_lexicon(
     period: int | str | None = None, *, training_data: Path
 ) -> dict[str, str]:
@@ -141,24 +110,7 @@ def load_lemma_lexicon(
             return
         lex[lem] = pos
 
-    path = _resolve_data_file("lemma_whitelist.txt", period=period)
     lex: dict[str, str] = {}
-    current_pos: str | None = None
-    with open(path, encoding="utf-8") as f:
-        for raw in f:
-            line = raw.strip()
-            if not line:
-                continue
-            if line.startswith("#"):  # Setting POS tag if line starts with #
-                header = line.lstrip("#").strip()
-                current_pos = header.split()[0].upper() if header else None
-                continue
-            if current_pos is None:
-                raise ValueError(
-                    f"Lemma '{line}' appears before any POS header in {path}"
-                )
-            pos = line + "/" + current_pos
-            lex[line] = pos
 
     if training_data is not None:
         training_file = _resolve_training_data(training_data, period)
@@ -192,16 +144,17 @@ def contains_han(s: str) -> bool:
 
 def analyze_yale(
     yale: str,
-    infl_suffixes: list[str],
     lexicon: dict[str, str] | None = None,
-    rest_set: set[str] | None = None,
-) -> str:
+    infl_decomp: dict[str, list[str]] | None = None,
+) -> list[str]:
+
+    candidates = []
 
     if not yale:
-        return ""  # guard against missing yale
+        return []  # guard against missing yale
 
-    if not rest_set:
-        rest_set = set()
+    if not infl_decomp:
+        infl_decomp = {}
 
     if not lexicon:
         lexicon = dict()
@@ -210,8 +163,7 @@ def analyze_yale(
 
     # First, prefer exact surface lemma matches already present in the lexicon.
     if yale in lexicon:
-        # print(f"[DEBUG] {yale} -> {lexicon[yale]}/LEM")
-        return f"{lexicon[yale]}/LEM"
+        candidates.append(f"{lexicon[yale]}/LEM")
 
     # Then check lemmas with restored material in parentheses.
     # Ignore the parenthesized part only for surface matching.
@@ -232,13 +184,10 @@ def analyze_yale(
 
             if not suffix:
                 # print(f"[DEBUG] {yale} -> {lem_pos}/LEM")
-                return f"{lem_pos}/LEM"
-            if suffix in rest_set:
+                candidates.append(f"{lem_pos}/LEM")
+            if suffix in infl_decomp:
                 # print(f"[DEBUG] {yale} -> {lem_pos}/LEM-{suffix}/INFL")
-                return f"{lem_pos}/LEM-{suffix}/INFL"
-            if suffix in infl_suffixes:
-                # print(f"[DEBUG] {yale} -> {lem_pos}/LEM-{suffix}/INFL")
-                return f"{lem_pos}/LEM-{suffix}/INFL"
+                candidates.append(f"{lem_pos}/LEM-{suffix}/INFL")
 
     has_han = contains_han(yale)
 
@@ -258,42 +207,29 @@ def analyze_yale(
             lem = m1.group(1)
             suf = m1.group(2)
             # print(f"[DEBUG] {yale} -> {lem}/V.CH/LEM-{suf}/INFL")
-            return f"{lem}/V.CH/LEM-{suf}/INFL"
+            candidates.append(f"{lem}/V.CH/LEM-{suf}/INFL")
 
         # 1-2. If yale contains any non-Chinese characters, parse a boundary between CH/LEM-...
         elif m2:
             lem = m2.group(1)
             suf = m2.group(2)
             # print(f"[DEBUG] {yale} -> {lem}/N.CH/LEM-{suf}/INFL")
-            return f"{lem}/N.CH/LEM-{suf}/INFL"
+            candidates.append(f"{lem}/N.CH/LEM-{suf}/INFL")
 
         # 1-3. else, yale is lemma.
         else:
             # print(f"[DEBUG] {yale} -> {yale}/N.CH/LEM")
-            return f"{yale}/N.CH/LEM"
+            candidates.append(f"{yale}/N.CH/LEM")
 
-    for suf in infl_suffixes:
-        if yale.endswith(suf):
-            stem = yale[: -len(suf)]
-            if not stem:
-                return f"{yale}/LEM"
-            if stem not in lexicon:
-                continue
-
-            lem_pos = lexicon[stem]
-
-            return f"{lem_pos}/LEM-{suf}/INFL"
+    return list(dict.fromkeys(candidates))
 
 
 def tag_tokens(
     tokens: list[Token],
-    rules: list[str],
     *,
     lexicon: dict[str, str],
-    rest_set: set[str],
     infl_decomp: dict[str, str] | None = None,
     pos_to_allowed_morphemes: dict[str, set[str]] | None = None,
-    debug_suffixes: bool = False,
 ) -> list[Token]:
     """Enrich tokens with morphological tagging for downstream processing."""
 
@@ -346,16 +282,16 @@ def tag_tokens(
     for i, token in enumerate(tokens):
         prev_token = tokens[i - 1] if i > 0 else None
 
-        analyzed = analyze_yale(
+        analyzed_list = analyze_yale(
             token.yale,
-            rules,
             lexicon,
-            rest_set,
+            infl_decomp,
         )
         # print(f"[DEBUG] {token.yale} -> {analyzed}.")
 
-        if not analyzed:
-            token.tagged_form = token.yale + "/" + "NO-TAGGED-FORM"
+        if not analyzed_list:
+            token.tagged_candidates = [token.yale + "/" + "NO-TAGGED-FORM"]
+            token.tagged_form = token.tagged_candidates[0]
             continue
 
         aux_context = False
@@ -372,48 +308,48 @@ def tag_tokens(
             ):
                 aux_context = True
 
-        if "/INFL" not in analyzed:
-            if analyzed.endswith("/LEM"):
-                if "/" in analyzed.split("/LEM")[0]:
-                    token.tagged_form = analyzed
+        candidates: list[str] = []
+
+        for analyzed in analyzed_list:
+            if "/INFL" not in analyzed:
+                if analyzed.endswith("/LEM"):
+                    if "/" in analyzed.split("/LEM")[0]:
+                        candidates.append(analyzed)
+                        continue
+                else:
                     continue
-            else:
-                token.tagged_form = token.yale + "/" + "NO-TAGGED-FORM"
-                continue
 
-        if infl_decomp is not None:
-            infl = infl_from_tagged_form(analyzed)
-            segmented_list = infl_decomp.get(infl)
-            if not segmented_list:
-                # print(f"[DEBUG] TEST is assigned as token.tagged_form for {analyzed}")
-                token.tagged_form = analyzed
-                continue
+            if infl_decomp is not None:
+                infl = infl_from_tagged_form(analyzed)
+                segmented_list = infl_decomp.get(infl)
+                if not segmented_list:
+                    candidates.append(analyzed)
+                    continue
 
-            filtered_segmented = [
-                segmented
-                for segmented in segmented_list
-                if _segmented_chain_allowed(analyzed, segmented)
-            ]
-            if not filtered_segmented:
-                continue
+                filtered_segmented = [
+                    segmented
+                    for segmented in segmented_list
+                    if _segmented_chain_allowed(analyzed, segmented)
+                ]
+                for segmented in filtered_segmented:
+                    if aux_context and "/V" in analyzed and "/AUX" not in analyzed:
+                        candidates.append(
+                            analyzed.split("/LEM", 1)[0] + "/AUX/LEM-" + segmented
+                        )
+                    else:
+                        candidates.append(
+                            analyzed.split("/LEM", 1)[0] + "/LEM-" + segmented
+                        )
 
-            if aux_context and "/V" in analyzed and "/AUX" not in analyzed:
-                token.tagged_form = (
-                    analyzed.split("/LEM", 1)[0] + "/AUX/LEM-" + filtered_segmented[0]
-                )
-                continue
+        if not candidates:
+            token.tagged_candidates = [token.yale + "/NO-TAGGED-FORM"]
+        else:
+            token.tagged_candidates = list(dict.fromkeys(candidates))
 
-            else:
-                token.tagged_form = (
-                    analyzed.split("/LEM", 1)[0] + "/LEM-" + filtered_segmented[0]
-                )
-                if ("/DAT" in token.tagged_form) or ("/GEN" in token.tagged_form):
-                    pending_token_idx.append(i)
-                    # print(
-                    #     f"[DEBUG] index {i} was appended to pending_token_idx for {token.tagged_form}"
-                    # )
+        token.tagged_form = token.tagged_candidates[0]
 
-                continue
+        if ("/DAT" in token.tagged_form) or ("/GEN" in token.tagged_form):
+            pending_token_idx.append(i)
 
     # post-adjustment
 

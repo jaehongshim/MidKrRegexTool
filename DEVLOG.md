@@ -669,7 +669,7 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 
 ## 2026-07-12
 
-### What I did today
+### What I did today (universal-dependencies branch)
 - Reassessed `tagger.py`
   - Currently, `tagger.py` picks up only one candidate for the given token and abandon everything else. 
   - In order to apply the `BiLSTM model`, `tagger.py` should be able to use all the candidates. 
@@ -684,3 +684,66 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
   - Once the `tagger.py` refactoring is successfully done, `bilstm-disambiguation` and `universal-dependencies` branches can be implemented independently of each other. 
 
 - Clean working tree before initiating `tagger-candidates` branch
+
+### 한 일(main branch)
+
+- 새 브랜치를 파기 전에 `universal-dependencies`의 working tree를 정리(커밋)해둠
+- `tagger.py` 재점검: 지금은 토큰마다 후보 하나만 고르고 나머지는 버리는 구조.
+  BiLSTM 기반 disambiguation을 적용하려면 이 구조부터 바꿔야 함
+- 브랜치 로드맵 정리:
+  - `tagger-candidates`(main에서 새로 분기) — `tagger.py`가 후보를 전부
+    노출하도록 리팩토링
+  - 완료되면 `main`에 merge
+  - `universal-dependencies`는 그 뒤에 `main`을 merge해서 리팩토링 결과를 받아옴
+  - `bilstm-disambiguation`(갱신된 `main`에서 새로 분기)에서 BiLSTM 작업 시작
+  - 두 브랜치 모두 리팩토링된 `tagger.py` 위에 올라간 뒤에는 서로 독립적으로 진행
+- `tagger-candidates` 브랜치 생성
+
+- `infl_suffixes.txt`, `lemma_whitelist.txt` 재평가
+  - 둘 다 손으로 되는대로 적어둔 불완전한 placeholder였지, 신뢰할 수 있는
+    언어학적 참고자료가 아니었음. 특히 `infl_suffixes.txt`는 형태소 배열
+    제약이 전혀 없는 원자 단위 목록이라, 이걸 그대로 쓰는 코드 경로는
+    구조적으로 overgeneration에 취약함
+  - 16~18세기 구간은 이미 파일 내용이 비어있는 상태로도 도구가 멀쩡히
+    돌아간다는 걸 실증적으로 확인 — `rest_set`(training jsonl 기반)이
+    이미 같은 역할을 더 나은 형태로 대신하고 있었기 때문
+  - 결정: 두 파일 다 삭제. 이건 코드만 봐서 판단할 수 있는 게 아니라,
+    코퍼스에 대한 도메인 지식에 기반한 내 판단
+
+- 월~화 계획 (수요일 오전 이상아 교수님 미팅 전)
+  - 월: `tagger-candidates` 리뷰 + `main` merge만. BiLSTM은 손대지 않음
+  - 화: `bilstm-disambiguation` 브랜치, 최소 동작 baseline 한 번 — 목표는
+    "정확도"가 아니라 "에러 없이 한 바퀴 도는 것". 뭐가 나오든 수요일
+    미팅에 그대로 들고 가기
+
+- Claude Code로 기계적 리팩토링 실행 (판단은 위에서 이미 끝났고, 이 커밋은
+  그걸 코드에 반영한 것뿐 — atomic commit으로 분리)
+  - `infl_suffixes`/`rules` 완전 제거. `infl_suffixes.txt` 삭제 이후
+    `build_rules()`가 이미 무조건 `[]`를 반환하고 있어서, 그 아래 딸린
+    파라미터와 분기(`analyze_yale()`의 `infl_suffixes` 관련 두 분기,
+    `tag_tokens()`의 `rules` 파라미터, `candidate_generator()`의 fallback
+    블록 3–4번)가 전부 죽은 코드였음
+  - `rest_set`을 `infl_decomp`으로 통합. 둘 다 같은 training jsonl의
+    `gold_morph` 필드에서 동일한 파싱 로직으로 만들어지고 있었음
+    (`load_rest_surfaces_from_training()`이 `load_infl_decomp_from_training()`의
+    키 생성 로직을 그대로 중복). `analyze_yale()`의 `suffix in rest_set`은
+    `suffix in infl_decomp`과 동치라서(dict 멤버십 검사는 키만 봄) `rest_set`은
+    중복이었음
+  - `tag_tokens()`를 실제 15세기 training 데이터로 돌려보고
+    `test_candidate_generator.py`로 검증 완료
+
+## 2026-07-13
+
+### 한 일
+
+- [x] `analyze_yale()` 리팩토링
+  - `tagger.py`의 `analyze_yale()` 함수가 이미 매치된 lemma가 있어도 더 짧은 lemma로 분석될 수 있는지 검토하도록 리팩토링. 
+    - `analyze_yale()`의 아웃풋 시그니처를 str에서 list[str]으로 변경
+    - `analyze_yale()`의 시작 지점에 candidates = []로 초기화
+    - 이전에 매치된 어형을 return 시키던 라인을 모두 candidates.append...로 교체
+  - 가능한 모든 분석을 `tag_tokens()`가 뽑아낼 수 있도록 리팩토링해야 함. 
+- [x] 커맨드 라인 인자 개선
+  - `--training-data` 인자 관련 사용성 개선: `--training-data` 인자가 주어지지 않으면 기본 디렉토리로 리디렉트하도록 개선함. 
+  - `--display-context` 인자 삭제: 기본적으로 context를 보이도록 함. 
+- [x] `tag_tokens()` 리팩토링
+- [x] `Token` 모델 리팩토링

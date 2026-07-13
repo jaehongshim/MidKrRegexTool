@@ -17,15 +17,10 @@ from midkrregextool.conllu import tokens_to_conllu
 from midkrregextool.parser import parse_file
 from midkrregextool.report import maybe_save_hits, report_hits
 from midkrregextool.search import search_tokens
-from midkrregextool.tagger import (
-    load_infl_suffixes,
-    load_lemma_lexicon,
-    tag_tokens,
-)
+from midkrregextool.tagger import default_training_dir, load_lemma_lexicon, tag_tokens
 from midkrregextool.training import (
     load_infl_decomp_from_training,
     load_pos_to_allowed_morphemes_inventory_from_training,
-    load_rest_surfaces_from_training,
     train,
     training_priority,
 )
@@ -40,7 +35,7 @@ class CLIArgs:
     period: str | None
     sort: str | None
     encoding: str = "utf-16"
-    display_context: bool = False
+    # display_context: bool = False
     corpus_list: bool = False
     training_mode: bool = False
     training_data: Path | None = None
@@ -74,11 +69,11 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--encoding", type=str, default="utf-16", help="File encoding (default: utf-16)"
     )
-    p.add_argument(
-        "--display-context",
-        action="store_true",
-        help="Enable a context-display function",
-    )
+    # p.add_argument(
+    #     "--display-context",
+    #     action="store_true",
+    #     help="Enable a context-display function",
+    # )
     p.add_argument(
         "--period", type=str, default=None, help="Filter by historical period"
     )
@@ -187,8 +182,6 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
                 "[ERROR] --pattern is required unless --training-mode is set."
             )
 
-    # Guard clause for missing --training-data
-
     training_data: Path | None = None
 
     if ns.training_data is not None:
@@ -199,6 +192,14 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
             training_data = (repo_root / training_data).resolve()
         else:
             training_data = training_data.resolve()
+
+    # If --training-data argument is not provided, set the default training file directory as training_data
+
+    else:
+        training_data = default_training_dir()
+        print(
+            f"[INFO] No --training-data provided. Using the files in the default training file directory: {training_data}"
+        )
 
     # Guard: training data requires explicit period
     if ns.training_data is not None and ns.period is None:
@@ -217,7 +218,7 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
         pattern=ns.pattern,
         purpose=ns.purpose,
         encoding=ns.encoding,
-        display_context=ns.display_context,
+        # display_context=ns.display_context,
         corpus_list=ns.corpus_list,
         period=ns.period,
         sort=ns.sort,
@@ -322,10 +323,6 @@ def convert_to_century(year: str) -> int | None:
     return (y - 1) // 100 + 1
 
 
-def build_rules(*, training_data: Path | None, period: int | None) -> list[str]:
-    return load_infl_suffixes(period=period)
-
-
 def run_corpus_list(args: CLIArgs) -> None:
 
     period = convert_to_century(args.period)
@@ -398,7 +395,7 @@ def run_train(args: CLIArgs) -> None:
     document_type = args.document_type
     pattern = args.pattern
     token_repr = args.token_repr
-    display_context = True
+    # display_context = True
     classical_ch = args.classical_ch
     exclude_ch = args.exclude_ch
 
@@ -434,9 +431,6 @@ def run_train(args: CLIArgs) -> None:
         print("[INFO] Training aborted.")
         return
 
-    # Import the existing rules
-    rules = build_rules(training_data=training_data, period=period)
-
     # Collect tokens.
     all_tokens = []
     bigram_hits = []  # Collect per-file bigram hits only when needed.
@@ -456,14 +450,12 @@ def run_train(args: CLIArgs) -> None:
 
     # Load
     infl_decomp = None
-    rest_set = set()
     pos_to_allowed_morphemes: dict[str, set[str]] = {}
 
     if training_data is not None:
         infl_decomp = load_infl_decomp_from_training(
             training_data / f"training_{period}c.jsonl"
         )
-        rest_set = load_rest_surfaces_from_training(training_data, period)
         pos_to_allowed_morphemes = (
             load_pos_to_allowed_morphemes_inventory_from_training(training_data, period)
         )
@@ -472,16 +464,14 @@ def run_train(args: CLIArgs) -> None:
     for file_path in files:
 
         tokens = attach_yale(
-            parse_file(file_path, encoding=encoding, display_context=display_context),
+            parse_file(file_path, encoding=encoding),
             classical_ch,
             exclude_ch,
         )
 
         tokens = tag_tokens(
             tokens,
-            rules,
             lexicon=lexicon,
-            rest_set=rest_set,
             infl_decomp=infl_decomp,
             pos_to_allowed_morphemes=pos_to_allowed_morphemes,
         )
@@ -532,7 +522,7 @@ def run_train(args: CLIArgs) -> None:
         train_targets = all_tokens
     print(f"[TIMING] target selection: {time.perf_counter() - t_select:.3f}s")
 
-    known_rests = rest_set
+    known_rests = set(infl_decomp) if infl_decomp else set()
 
     t_sort = time.perf_counter()
     train_targets = sorted(
@@ -548,7 +538,6 @@ def run_train(args: CLIArgs) -> None:
     t_train = time.perf_counter()
     train(
         train_targets,
-        rules,
         period=period,
         training_data=training_data,
         lexicon=lexicon,
@@ -567,7 +556,7 @@ def run_search(args: CLIArgs) -> None:
     pattern = args.pattern
     purpose = args.purpose
     encoding = args.encoding
-    display_context = args.display_context
+    # display_context = args.display_context
     period = convert_to_century(args.period)
     training_data = args.training_data
     document_type = args.document_type
@@ -590,7 +579,6 @@ def run_search(args: CLIArgs) -> None:
 
     # Search loop
 
-    rules = build_rules(training_data=training_data, period=period)
     lexicon = load_lemma_lexicon(period, training_data=training_data)
 
     within_result_search = "n"
@@ -606,7 +594,6 @@ def run_search(args: CLIArgs) -> None:
                 args.path, period, sort=sort, document_type=document_type
             )
             last_period = period
-            rules = build_rules(training_data=training_data, period=period)
             lexicon = load_lemma_lexicon(period, training_data=training_data)
 
             if not files:
@@ -619,14 +606,12 @@ def run_search(args: CLIArgs) -> None:
             all_hits = []
 
             infl_decomp = None
-            rest_set = set()
             pos_to_allowed_morphemes: dict[str, set[str]] = {}
 
             if training_data is not None:
                 infl_decomp = load_infl_decomp_from_training(
                     training_data / f"training_{period}c.jsonl"
                 )
-                rest_set = load_rest_surfaces_from_training(training_data, period)
                 pos_to_allowed_morphemes = (
                     load_pos_to_allowed_morphemes_inventory_from_training(
                         training_data, period
@@ -635,18 +620,14 @@ def run_search(args: CLIArgs) -> None:
 
             for file_path in files:
                 tokens = attach_yale(
-                    parse_file(
-                        file_path, encoding=encoding, display_context=display_context
-                    ),
+                    parse_file(file_path, encoding=encoding),
                     classical_ch,
                     exclude_ch,
                 )
 
                 tokens = tag_tokens(
                     tokens,
-                    rules,
                     lexicon=lexicon,
-                    rest_set=rest_set,
                     infl_decomp=infl_decomp,
                     pos_to_allowed_morphemes=pos_to_allowed_morphemes,
                 )
@@ -795,7 +776,7 @@ def run_print_corpus(args: CLIArgs) -> None:
     files = collect_input_files(
         args.path, period, sort=sort, document_type=document_type
     )
-    display_context = args.display_context
+    # display_context = args.display_context
     classical_ch = args.classical_ch
     exclude_ch = False
 
@@ -808,34 +789,29 @@ def run_print_corpus(args: CLIArgs) -> None:
 
     # Print loop
 
-    rules = build_rules(training_data=training_data, period=period)
     lexicon = load_lemma_lexicon(period, training_data=training_data)
 
     infl_decomp = None
-    rest_set = set()
     pos_to_allowed_morphemes: dict[str, set[str]] = {}
 
     if training_data is not None:
         infl_decomp = load_infl_decomp_from_training(
             training_data / f"training_{period}c.jsonl"
         )
-        rest_set = load_rest_surfaces_from_training(training_data, period)
         pos_to_allowed_morphemes = (
             load_pos_to_allowed_morphemes_inventory_from_training(training_data, period)
         )
 
     for file_path in files:
         tokens = attach_yale(
-            parse_file(file_path, encoding=encoding, display_context=display_context),
+            parse_file(file_path, encoding=encoding),
             classical_ch,
             exclude_ch,
         )
 
         tokens = tag_tokens(
             tokens,
-            rules,
             lexicon=lexicon,
-            rest_set=rest_set,
             infl_decomp=infl_decomp,
             pos_to_allowed_morphemes=pos_to_allowed_morphemes,
         )

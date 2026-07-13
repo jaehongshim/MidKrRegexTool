@@ -57,7 +57,7 @@ Hanyang PUA text files (.txt / .xml)
 | `model.py` | `Token` dataclass — canonical data structure across all stages |
 | `parser.py` | Reads PUA-encoded files; detects source markers (`<釋詳3:1a>`), `[note]...[/note]`, `[head]`/`[add]` markup; whitespace-tokenizes |
 | `yale.py` | `attach_yale()` enriches tokens with `unicode_form` and `yale`; handles `--classical-ch` and `--exclude-ch` filters |
-| `tagger.py` | Loads lemma lexicon and inflection suffix rules; assigns `tagged_form` (e.g., `kwoksik/N`); period-aware |
+| `tagger.py` | Loads lemma lexicon; assigns `tagged_form` (e.g., `kwoksik/N`); period-aware |
 | `search.py` | `search_tokens()`: monogram (no space in pattern → matches `token.yale` or `token.tagged_form`) vs. bigram (space → matches concatenation of adjacent token pair) |
 | `training.py` | Interactive annotation loop; priority sorting by frequency/lexicon coverage; persists to `training_{period}c.jsonl` |
 | `report.py` | `report_hits()` for CLI display; `maybe_save_hits()` for UTF-16 LE tab-delimited file output |

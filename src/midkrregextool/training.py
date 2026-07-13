@@ -23,7 +23,6 @@ def prompt_with_default(message: str, default: str) -> str:
 
 def candidate_generator(
     token: Token,
-    rules: list[str],
     period,
     *,
     token_lookup: dict[tuple[str, int], Token] | None = None,
@@ -104,23 +103,6 @@ def candidate_generator(
             if stem and stem in lexicon:
                 for segmented in segmented_list:
                     candidates.append(f"{lexicon[stem]}/LEM-{segmented}")
-
-    # 3. fallback: lexicon-first + base rules
-    for lem, lem_pos in lexicon.items():
-        if yale.startswith(lem):
-            rest = yale[len(lem) :]
-            if not rest:
-                continue
-            for suf in rules:
-                if rest == suf:
-                    candidates.append(f"{lem_pos}/LEM-{suf}/INFL")
-
-    # 4. fallback: suffix-first + base rules
-    for suf in rules:
-        if yale.endswith(suf):
-            stem = yale[: -len(suf)]
-            if stem and stem in lexicon:
-                candidates.append(f"{lexicon[stem]}/LEM-{suf}/INFL")
 
     return list(dict.fromkeys(candidates))
 
@@ -256,7 +238,6 @@ def training_priority(
 
 def train(
     tokens: list[Token] | list[tuple[Token, Token]],
-    rules: list[str],
     period: int,
     training_data: Path | None,
     lexicon: dict[str, str] | None = None,
@@ -328,7 +309,6 @@ def train(
                 else:
                     candidates = candidate_generator(
                         token,
-                        rules,
                         period,
                         token_lookup=token_lookup,
                         infl_decomp=infl_decomp,
@@ -414,7 +394,6 @@ def train(
                         else:
                             candidates = candidate_generator(
                                 token,
-                                rules,
                                 period,
                                 token_lookup=token_lookup,
                                 infl_decomp=infl_decomp,
@@ -538,38 +517,6 @@ def load_infl_decomp_from_training(training_path: Path) -> dict[str, list[str]]:
         print(f"[ERROR] {e}. infl_decomp has not been created.")
 
     return d
-
-
-def load_rest_surfaces_from_training(
-    training_data: Path, period: int | str | None = None
-) -> set[str]:
-    rest_set: set[str] = set()
-
-    def _add_from_gold_morph(m: str) -> None:
-        if "/LEM-" not in m:
-            return
-
-        segmented = m.split("/LEM-", 1)[1]
-        parts = segmented.split("-")
-        surfaces = [seg.split("/", 1)[0] for seg in parts if "/" in seg]
-        if surfaces:
-            rest_set.add("".join(surfaces))
-
-    training_file = _resolve_training_data(training_data, period)
-
-    try:
-        with open(training_file, encoding="utf-8") as f:
-            for raw in f:
-                obj = json.loads(raw)
-
-                for k in ("gold_morph", "gold_morph_a", "gold_morph_b"):
-                    m = obj.get(k)
-                    if m:
-                        _add_from_gold_morph(m)
-    except (OSError, json.JSONDecodeError):
-        return rest_set
-
-    return rest_set
 
 
 def load_pos_to_allowed_morphemes_inventory_from_training(

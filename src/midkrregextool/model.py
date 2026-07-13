@@ -19,4 +19,5 @@ class Token:
     matched_part: Optional[str] = None
     # Morph-layer (optional; filled only when available)
     tagged_form: str | None = None
+    tagged_candidates: list[str] | None = None
     morphs: list[tuple[str, str]] | None = None
