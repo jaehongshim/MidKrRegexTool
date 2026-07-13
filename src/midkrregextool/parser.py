@@ -24,14 +24,17 @@ ADD_CLOSE_RE = re.compile(r"\[/add\]")
 
 
 def parse_file(
-    path: str | Path, *, encoding: str = "utf-16", display_context: bool = False
+    path: str | Path,
+    *,
+    encoding: str = "utf-16",
+    # display_context: bool = False,
 ) -> List[Token]:
     # Guard: XML inputs are collected by the CLI, but XML parsing/extraction is not implemented yet.
     if path.suffix.lower() == ".xml":
-        return parse_xml_file(path, encoding=encoding, display_context=display_context)
+        return parse_xml_file(path, encoding=encoding)
 
     # Flag for displaying context
-    want_ctx = display_context
+    # want_ctx = display_context
     """
     Parse a Middle Korean text file encoded in Hanyang PUA and return a list of tokens.
     
@@ -141,10 +144,7 @@ def parse_file(
                 ]
             """
 
-            context = None
-
-            if want_ctx:
-                context = " ".join(p for p in parts if p and p not in NOTE_TAGS)
+            context = " ".join(p for p in parts if p and p not in NOTE_TAGS)
 
             inside_note = "MAIN"  # The beginning is always the main body text, so set the flag as "MAIN"
 
@@ -194,7 +194,7 @@ def parse_xml_file(
     path: str | Path,
     *,
     encoding: str = "utf-8",
-    display_context: bool = False,
+    # display_context: bool = False,
     classical_ch: bool = False,
 ) -> List[Token]:
     """
@@ -236,8 +236,7 @@ def parse_xml_file(
         if not text:
             continue
 
-        if display_context:
-            context = text
+        context = text
 
         # Build a stable source_id from attributes if available.
         page = sent.get("page")
@@ -254,10 +253,11 @@ def parse_xml_file(
 
         for word in text.split():
             token_index += 1
-            if display_context:
-                contextwords = context.split()
-                contextwords[token_index - 1] = f"<<{contextwords[token_index-1]}>>"
-                current_context = " ".join(contextwords)
+
+            contextwords = context.split()
+            contextwords[token_index - 1] = f"<<{contextwords[token_index-1]}>>"
+            current_context = " ".join(contextwords)
+
             tokens.append(
                 Token(
                     path=path,
@@ -265,7 +265,7 @@ def parse_xml_file(
                     token_index=token_index,
                     pua=word,
                     is_note=stype,
-                    context=current_context if display_context else None,
+                    context=current_context,
                     lang=lang,
                 )
             )

@@ -700,11 +700,14 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 
 ### 한 일
 
-- `analyze_yale()` 리팩토링
+- [x] `analyze_yale()` 리팩토링
   - `tagger.py`의 `analyze_yale()` 함수가 이미 매치된 lemma가 있어도 더 짧은 lemma로 분석될 수 있는지 검토하도록 리팩토링. 
     - `analyze_yale()`의 아웃풋 시그니처를 str에서 list[str]으로 변경
     - `analyze_yale()`의 시작 지점에 candidates = []로 초기화
     - 이전에 매치된 어형을 return 시키던 라인을 모두 candidates.append...로 교체
   - 가능한 모든 분석을 `tag_tokens()`가 뽑아낼 수 있도록 리팩토링해야 함. 
+- [x] 커맨드 라인 인자 개선
+  - `--training-data` 인자 관련 사용성 개선: `--training-data` 인자가 주어지지 않으면 기본 디렉토리로 리디렉트하도록 개선함. 
+  - `--display-context` 인자 삭제: 기본적으로 context를 보이도록 함. 
 - `tag_tokens()` 리팩토링
 - `Token` 모델 리팩토링
