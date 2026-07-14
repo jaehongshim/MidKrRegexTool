@@ -103,3 +103,112 @@ def build_training_examples(
         training_examples.append(training_example)
 
     return training_examples
+
+
+def build_char_vocab(training_examples: list[dict]) -> dict[str, int]:
+    """
+    입력:
+        training_examples: build_training_examples()가 만든 딕셔너리 리스트.
+            각 원소는 "candidates" 키에 문자열 리스트(후보 tagged_form들)를
+            담고 있다.
+
+            예) 아래 두 개짜리 training_examples가 있다고 하자:
+                [
+                    {"candidates": ["ho/V/LEM", "hon/V/LEM"], ...},
+                    {"candidates": ["al/V/LEM-a/CONN"], ...},
+                ]
+
+    출력:
+        모든 training_example의 모든 candidates 문자열에 등장하는 글자를
+        전부 모아 중복 제거한 뒤, 각 글자에 고유 번호를 매긴 사전.
+        "<PAD>"(0번)와 "<UNK>"(1번)는 실제 글자가 아니라 다음 단계
+        (길이 맞추기, 미등록 글자 처리)에서 쓸 예약된 특수 기호이며,
+        항상 고정된 번호를 갖는다.
+
+        위 예시에 대한 실제 출력 (등장한 글자: h,o,n,/,V,L,E,M,a,l,-,C,O,N —
+        set이라 순서는 실행마다 달라질 수 있으므로 번호 배정 순서는
+        예시일 뿐이다):
+            {
+                "<PAD>": 0,
+                "<UNK>": 1,
+                "h": 2,
+                "o": 3,
+                "n": 4,
+                "/": 5,
+                "V": 6,
+                "L": 7,
+                "E": 8,
+                "M": 9,
+                "a": 10,
+                "l": 11,
+                "-": 12,
+                "C": 13,
+                "N": 14,
+            }
+
+        주의: 이 사전은 training_examples 전체를 한 번에 훑어서 만드는
+        "하나의" 사전이다. 이후 encode_string()이 이 사전을 그대로 재사용
+        해야, 같은 글자가 항상 같은 번호로 일관되게 인코딩된다.
+    """
+
+    chars = []
+
+    for training_example in training_examples:
+
+        candidates = training_example.get("candidates")
+
+        for candidate in candidates:
+            for c in candidate:
+                chars.append(c)
+
+    unique_chars = set(chars)
+
+    c_dict = {
+        "<PAD>": 0,
+        "<UNK>": 1,
+    }
+    idx = 2
+
+    for c in unique_chars:
+        c_dict[c] = idx
+        idx += 1
+
+    return c_dict
+
+
+def encode_string(
+    vocab: dict[str, int],
+    string: str | None = None,
+) -> list[int]:
+    """
+    입력:
+        string: 인코딩할 문자열 하나 (예: 후보 tagged_form 문자열
+            "ho/V/LEM"). None이 들어올 수도 있다 (예: 해당 후보가 없는 경우).
+        vocab: build_char_vocab()이 만든 {글자: 번호} 사전.
+            예) {"<PAD>": 0, "<UNK>": 1, "h": 2, "o": 3, "/": 5, ...}
+
+    출력:
+        string의 각 글자를 vocab에서 찾은 번호로 치환한 정수 리스트.
+        vocab에 없는 글자는 "<UNK>" 번호로 대체한다 (에러를 내지 않는다).
+        string이 None이면 빈 리스트를 반환한다.
+
+        예) string = "ho/V/LEM", vocab이 위 예시와 같다면:
+            encode_string("ho/V/LEM", vocab)
+            -> [2, 3, 5, 6, 5, 7, 8, 9]
+            (h=2, o=3, /=5, V=6, /=5, L=7, E=8, M=9)
+    """
+
+    char_ids = []
+
+    if string is None:
+        return []
+
+    unk_id = vocab.get("<UNK>")
+
+    for s in string:
+
+        id = vocab.get(s, unk_id)
+
+        char_ids.append(id)
+
+    return encode_string
