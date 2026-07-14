@@ -748,7 +748,7 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 	- [x] PyTorch Dataset으로 포장
 
 - 모델과 학습
-	- [ ] BiLSTM 모델 뼈대
+	- [x] BiLSTM 모델 뼈대
 	- [ ] 학습 루프 작성
 	- [ ] 테스트
 

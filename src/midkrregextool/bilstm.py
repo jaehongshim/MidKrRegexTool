@@ -10,6 +10,8 @@ tagger.py의 tag_tokens()가 규칙 기반으로 생성한 여러 분석 후보(
 
 from __future__ import annotations
 
+import torch
+import torch.nn as nn
 from torch.utils.data import Dataset
 
 from .model import Token
@@ -213,7 +215,7 @@ def encode_string(
 
         char_ids.append(id)
 
-    return encode_string
+    return char_ids
 
 
 class DisambiguationDataset(Dataset):
@@ -237,7 +239,7 @@ class DisambiguationDataset(Dataset):
         encoded_candidates = []
 
         for candidate in candidates:
-            encoded_candidates.append(encode_string(candidate, self.vocab))
+            encoded_candidates.append(encode_string(self.vocab, candidate))
 
         gold_index = training_example["gold_index"]
 
@@ -245,3 +247,34 @@ class DisambiguationDataset(Dataset):
             "candidates": encoded_candidates,
             "gold_index": gold_index,
         }
+
+
+class CandidateScorer(nn.Module):
+    def __init__(self, vocab_size: int, embed_dim: int = 16, hidden_dim: int = 32):
+        super().__init__()
+
+        self.embedding = nn.Embedding(
+            num_embeddings=vocab_size,
+            embedding_dim=embed_dim,
+            padding_idx=0,
+        )
+
+        self.lstm = nn.LSTM(
+            input_size=embed_dim,
+            hidden_size=hidden_dim,
+            bidirectional=True,
+            batch_first=True,
+        )
+
+        self.fc = nn.Linear(hidden_dim * 2, 1)
+
+    def forward(self, char_ids: torch.Tensor) -> torch.Tensor:
+        embedded = self.embedding(char_ids)
+
+        lstm_out, (h_n, c_n) = self.lstm(embedded)
+
+        final_hidden = torch.cat([h_n[0], h_n[1]], dim=-1)
+
+        score = self.fc(final_hidden)
+
+        return score
