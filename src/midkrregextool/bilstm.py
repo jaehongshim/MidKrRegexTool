@@ -10,6 +10,8 @@ tagger.py의 tag_tokens()가 규칙 기반으로 생성한 여러 분석 후보(
 
 from __future__ import annotations
 
+from torch.utils.data import Dataset
+
 from .model import Token
 
 
@@ -212,3 +214,34 @@ def encode_string(
         char_ids.append(id)
 
     return encode_string
+
+
+class DisambiguationDataset(Dataset):
+    def __init__(
+        self,
+        training_examples: list[dict],
+        vocab: dict[str, int],
+    ):
+        self.training_examples = training_examples
+        self.vocab = vocab
+
+    def __len__(self) -> int:
+        return len(self.training_examples)
+
+    def __getitem__(self, idx: int) -> dict:
+
+        training_example = self.training_examples[idx]
+
+        candidates = training_example["candidates"]
+
+        encoded_candidates = []
+
+        for candidate in candidates:
+            encoded_candidates.append(encode_string(candidate, self.vocab))
+
+        gold_index = training_example["gold_index"]
+
+        return {
+            "candidates": encoded_candidates,
+            "gold_index": gold_index,
+        }

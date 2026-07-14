@@ -745,7 +745,7 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 - BiLSTM 학습 데이터 변환
 	- [x] 학습 예시 뽑아내기
 	- [x] 문자를 숫자로 바꾸기
-	- [ ] PyTorch Dataset으로 포장
+	- [x] PyTorch Dataset으로 포장
 
 - 모델과 학습
 	- [ ] BiLSTM 모델 뼈대
