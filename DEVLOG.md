@@ -711,3 +711,23 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
   - `--display-context` 인자 삭제: 기본적으로 context를 보이도록 함. 
 - [x] `tag_tokens()` 리팩토링
 - [x] `Token` 모델 리팩토링
+
+## 2026-07-14
+
+### 한 일
+
+- BiLSTM Model 적용 구현 시작
+  - [ ] 학습 예시 뽑아내기
+    - 현 상황 진단
+      - PyTorch가 활용할 수 있는 `형태 분석형 후보 목록` -- `정답` 매치가 필요함. 
+      - 현재 트레이닝 JSONL 파일에는 토큰의 gold 어형이 있지만 각 토큰의 앞 뒤 맥락이 주어져 있지 않다는 문제가 있어 이를 먼저 해결.
+    - 중요 결정 사항: 
+      - **BiLSTM 모델링 목적으로는 기존 트레이닝 파일 폐기 및 트레이닝 방식 변경**
+      - 기존 JSONL 파일은 
+      - [ ] 애매한 토큰 밀도가 높은 anno 청크 찾기
+      - [ ] 추천된 chunk를 직접 태깅
+  - [ ] 문자를 숫자로 바꾸기
+  - [ ] PyTorch가 이해하도록 Dataset 만들기
+  - [ ] BiLSTM 모델 뼈대 만들기
+  - [ ] 학습 루프 작성
+  - [ ] 테스트
