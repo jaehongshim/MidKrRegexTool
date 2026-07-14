@@ -10,6 +10,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path  # is_file(), is_dir()
 
+from midkrregextool.model import Token
 from midkrregextool.parser import parse_file
 from midkrregextool.report import maybe_save_hits, report_hits
 from midkrregextool.search import search_tokens
@@ -40,6 +41,7 @@ class CLIArgs:
     exclude_ch: bool = False
     print_corpus: bool = False
     document_type: str | None = None
+    chunk_start: str | None = None
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -128,6 +130,12 @@ def build_parser() -> argparse.ArgumentParser:
         ],
         help="Train or search on a specific type of documents.",
     )
+    p.add_argument(
+        "--chunk-start",
+        type=str,
+        default=None,
+        help="Train or search on a specific chunk, based on `source_id` field",
+    )
 
     return p
 
@@ -143,8 +151,20 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
     # If --path argument is not provided, set the current working directory as path
     path = ns.path if ns.path is not None else Path.cwd()
 
+    training_mode = ns.training_mode
+
+    if ns.chunk_start is not None and not training_mode:
+        raise SystemExit(
+            "[ERROR] --chunk-start field is activated only when --training-mode is on."
+        )
+
     if ns.path is None:
         print(f"[INFO] No --path provided. Running on the working directory: {path}")
+
+        if ns.chunk_start is not None:
+            raise SystemExit(
+                "[ERROR] --chunk-start field requires --path argument referring to the specific document."
+            )
 
     # if ns.training-mode is None:
     # if ns.pattern is None: raise SystemExit("[Error] --pattern is required.")
@@ -218,6 +238,7 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
         exclude_ch=ns.exclude_ch,
         print_corpus=ns.print_corpus,
         document_type=ns.document_type,
+        chunk_start=ns.chunk_start,
     )
 
 
@@ -311,6 +332,36 @@ def convert_to_century(year: str) -> int | None:
     return (y - 1) // 100 + 1
 
 
+def build_anno_chunks(
+    tokens: list[Token],
+    *,
+    chunk_start: str | None = None,
+) -> list[list[Token]]:
+    """
+    Group consecutive tokens whose `<sent type="anno">` into chunks, so that
+    within a chunk the original token order (= context) is preserved across
+    sentence (source_id) boundaries. Any non-"anno" token (e.g. "main") ends
+    the current chunk.
+    """
+    chunks: list[list[Token]] = []
+    current: list[Token] = []
+
+    for token in tokens:
+        if token.is_note == "anno":
+            current.append(token)
+        elif current:
+            chunks.append(current)
+            current = []
+
+    if current:
+        chunks.append(current)
+
+    if chunk_start is not None:
+        chunks = [c for c in chunks if chunk_start in c[0].source_id]
+
+    return chunks
+
+
 def run_corpus_list(args: CLIArgs) -> None:
 
     period = convert_to_century(args.period)
@@ -386,6 +437,7 @@ def run_train(args: CLIArgs) -> None:
     # display_context = True
     classical_ch = args.classical_ch
     exclude_ch = args.exclude_ch
+    chunk_start = args.chunk_start
 
     VALID = [15, 16, 17, 18, 19, 20]  # Valid centuries for period filtering
 
@@ -421,6 +473,7 @@ def run_train(args: CLIArgs) -> None:
 
     # Collect tokens.
     all_tokens = []
+    all_chunks: list[list[Token]] = []  # anno chunks, built per file
     bigram_hits = []  # Collect per-file bigram hits only when needed.
 
     rx = None
@@ -465,6 +518,7 @@ def run_train(args: CLIArgs) -> None:
         )
 
         all_tokens.extend(tokens)
+        all_chunks.extend(build_anno_chunks(tokens, chunk_start=chunk_start))
 
         if pattern and is_bigram:
             # Bigram hits must be collected per file (do NOT cross file boundaries).
@@ -496,31 +550,44 @@ def run_train(args: CLIArgs) -> None:
     token_lookup = {(t.source_id, t.token_index): t for t in all_tokens}
 
     # Decide training targets after collecting everything.
+    # Non-bigram targets are chunks (list[list[Token]]) so that anno-sentence
+    # context/order is preserved for train(); a --pattern filter (without
+    # bigram) still selects individual tokens, each wrapped as its own
+    # single-token chunk.
     t_select = time.perf_counter()
     if pattern and is_bigram:
         train_targets = bigram_hits
     elif pattern:
         if token_repr == "tagged_form":
             train_targets = [
-                t for t in all_tokens if t.tagged_form and rx.search(t.tagged_form)
+                [t] for t in all_tokens if t.tagged_form and rx.search(t.tagged_form)
             ]
         else:
-            train_targets = [t for t in all_tokens if t.yale and rx.search(t.yale)]
+            train_targets = [[t] for t in all_tokens if t.yale and rx.search(t.yale)]
     else:
-        train_targets = all_tokens
+        train_targets = all_chunks
     print(f"[TIMING] target selection: {time.perf_counter() - t_select:.3f}s")
 
     known_rests = set(infl_decomp) if infl_decomp else set()
 
     t_sort = time.perf_counter()
-    train_targets = sorted(
-        train_targets,
-        key=lambda tok: training_priority(
-            tok,
-            lexicon=lexicon,
-            known_rests=known_rests,
-        ),
-    )
+    if pattern and is_bigram:
+        # training_priority() operates on a single Token, not a (Token, Token)
+        # bigram pair, so bigram order is left as train() finds it.
+        pass
+    else:
+        # Order chunks (not the tokens within them) by their most-urgent
+        # token, so chunk-internal context order is never disturbed.
+        train_targets = sorted(
+            train_targets,
+            key=lambda chunk: min(
+                (
+                    training_priority(tok, lexicon=lexicon, known_rests=known_rests)
+                    for tok in chunk
+                ),
+                default=(3, ""),
+            ),
+        )
     print(f"[TIMING] target sorting: {time.perf_counter() - t_sort:.3f}s")
 
     t_train = time.perf_counter()

@@ -716,18 +716,40 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 
 ### 한 일
 
-- BiLSTM Model 적용 구현 시작
-  - [ ] 학습 예시 뽑아내기
-    - 현 상황 진단
-      - PyTorch가 활용할 수 있는 `형태 분석형 후보 목록` -- `정답` 매치가 필요함. 
-      - 현재 트레이닝 JSONL 파일에는 토큰의 gold 어형이 있지만 각 토큰의 앞 뒤 맥락이 주어져 있지 않다는 문제가 있어 이를 먼저 해결.
-    - 중요 결정 사항: 
-      - **BiLSTM 모델링 목적으로는 기존 트레이닝 파일 폐기 및 트레이닝 방식 변경**
-      - 기존 JSONL 파일은 
-      - [ ] 애매한 토큰 밀도가 높은 anno 청크 찾기
-      - [ ] 추천된 chunk를 직접 태깅
-  - [ ] 문자를 숫자로 바꾸기
-  - [ ] PyTorch가 이해하도록 Dataset 만들기
-  - [ ] BiLSTM 모델 뼈대 만들기
-  - [ ] 학습 루프 작성
-  - [ ] 테스트
+- 현 상황 진단
+	- PyTorch가 활용할 수 있는 `형태 분석형 후보 목록` -- `정답` 매치가 필요함. 
+	- 현재 트레이닝 JSONL 파일에는 토큰의 gold 어형이 있지만 각 토큰의 앞 뒤 맥락이 주어져 있지 않다는 문제가 있어 이를 먼저 해결.
+- 중요 결정 사항: 
+	- **BiLSTM 모델링 목적으로는 기존 트레이닝 파일 폐기 및 트레이닝 방식 변경**
+	- training.py 수정 필요
+		- sent type에 따른 단위별 트레이닝 가능하게 할 것
+		- 청크는 랜덤화하되 각 청크 안에서는 모든 토큰을 순차적으로 트레이닝하게 할 것
+		- 트레이닝 스키마 확장
+
+- 트레이닝 파이프 라인 개편 (CLAUDE 이용)
+	- [x] training_15c.jsonl 레거시 파일로 유지
+	- [x] cii.py: anno 청크 선택 로직 추가
+		<span class="note">나중에 anno가 아닌 다른 sent type도 고려할 가능성??</span>
+	- [x] training.py의 train() 수정
+		- [x] 청크를 입력으로 받도록 변경
+			- [ ] 특정 청크를 --chunk-start 인자로 받도록 추가
+		- [x] random.shuffle(tokens) 제거
+		- [x] 트레이닝 파일 스키마에 `source_id`, `token_index` 필드 추가
+	- [x] 중복 트레이닝 방지 기준 변경
+		- if token.unicode_form in token_gold -> (source_id, token_index) 기준
+	- [x] training_priority() 정렬 로직 처리
+
+- 실제 태깅으로 toy 데이터 만들기
+	- [ ] 애매한 토큰 밀도가 높은 anno 청크를 자동으로 추천하는 기능
+	- [ ] 추천된 청크 --training-mode로 태깅
+
+- BiLSTM 학습 데이터 변환
+	- [ ] 학습 예시 뽑아내기
+	- [ ] 문자를 숫자로 바꾸기
+	- [ ] PyTorch Dataset으로 포장
+
+- 모델과 학습
+	- [ ] BiLSTM 모델 뼈대
+	- [ ] 학습 루프 작성
+	- [ ] 테스트
+

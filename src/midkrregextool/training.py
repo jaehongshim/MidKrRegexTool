@@ -191,7 +191,7 @@ def has_known_parse(
 ) -> bool:
     for lem in lexicon:
         if yale.startswith(lem):
-            rest = yale[len(lem):]
+            rest = yale[len(lem) :]
             if rest in infl_decomp:
                 return True
     for rest in infl_decomp:
@@ -237,7 +237,7 @@ def training_priority(
 
 
 def train(
-    tokens: list[Token] | list[tuple[Token, Token]],
+    chunks: list[list[Token]] | list[tuple[Token, Token]],
     period: int,
     training_data: Path | None,
     lexicon: dict[str, str] | None = None,
@@ -257,89 +257,117 @@ def train(
 
     infl_decomp = load_infl_decomp_from_training(out_path)
 
-    # Load token gold list
-    token_gold_file = load_token_gold_morph(out_path)
-    token_gold = load_token_gold_morph(out_path)
+    # If first item is a tuple, training unit is a bigram: (Token, Token).
+    # Otherwise each item is an anno-chunk: list[Token] (context-ordered).
 
-    # If first item is a tuple, training unit is a bigram: (Token, Token)
-
-    is_bigram = len(tokens) > 0 and isinstance(tokens[0], tuple)
+    is_bigram = len(chunks) > 0 and isinstance(chunks[0], tuple)
 
     with open(out_path, "a", encoding="utf-8") as f:
 
         quit_training = False
 
-        random.shuffle(tokens)
-
         candidate_cache: dict[tuple[str, bool], list[str]] = {}
 
-        # Branch for monogram-training mode
+        # Branch for chunk-based monogram training mode
 
         if not is_bigram:
 
-            for token in tokens:
-                # Guard clause
-                gold_morph: str | None = None
+            # Dedup by (source_id, token_index): the same surface form can
+            # have a different gold analysis depending on context, so
+            # surface-form-only dedup is not appropriate here.
+            trained_keys = load_trained_keys(out_path)
 
-                if token.unicode_form in token_gold:
-                    continue
+            # Shuffle chunk order only; tokens *within* a chunk are tagged
+            # in their original (context-preserving) order.
+            random.shuffle(chunks)
 
-                yale = (token.yale or "").strip()
+            for chunk in chunks:
+                for token in chunk:
+                    # Guard clause
+                    gold_morph: str | None = None
 
-                if has_known_parse(yale, lexicon or {}, infl_decomp):
-                    continue
+                    if (token.source_id, token.token_index) in trained_keys:
+                        continue
 
-                prev_token = None
-                if token_lookup is not None:
-                    prev_token = token_lookup.get(
-                        (token.source_id, token.token_index - 1)
-                    )
+                    yale = (token.yale or "").strip()
 
-                aux_context = False
-                if prev_token and prev_token.tagged_form:
-                    if "/V" in prev_token.tagged_form and (
-                        "/LEM-a/" in prev_token.tagged_form
-                        or "/LEM-e/" in prev_token.tagged_form
-                    ):
-                        aux_context = True
-                cache_key = (yale, aux_context)
+                    prev_token = None
+                    if token_lookup is not None:
+                        prev_token = token_lookup.get(
+                            (token.source_id, token.token_index - 1)
+                        )
 
-                if cache_key in candidate_cache:
-                    candidates = candidate_cache[cache_key]
-                else:
-                    candidates = candidate_generator(
-                        token,
-                        period,
-                        token_lookup=token_lookup,
-                        infl_decomp=infl_decomp,
-                        lexicon=lexicon,
-                    )
-                    candidate_cache[cache_key] = candidates
+                    aux_context = False
+                    if prev_token and prev_token.tagged_form:
+                        if "/V" in prev_token.tagged_form and (
+                            "/LEM-a/" in prev_token.tagged_form
+                            or "/LEM-e/" in prev_token.tagged_form
+                        ):
+                            aux_context = True
+                    cache_key = (yale, aux_context)
 
-                gold_morph, quit_training = _prompt_gold(token, candidates)
+                    if cache_key in candidate_cache:
+                        candidates = candidate_cache[cache_key]
+                    else:
+                        candidates = candidate_generator(
+                            token,
+                            period,
+                            token_lookup=token_lookup,
+                            infl_decomp=infl_decomp,
+                            lexicon=lexicon,
+                        )
+                        candidate_cache[cache_key] = candidates
 
-                if quit_training:
-                    return
+                    gold_morph, quit_training = _prompt_gold(token, candidates)
 
-                if gold_morph is None:
-                    continue
+                    if quit_training:
+                        return
 
-                obj = {
-                    "period": period_tag,
-                    "token": token.unicode_form,
-                    "gold_morph": gold_morph,
-                }
+                    if gold_morph is None:
+                        # User pressed "s" (skip). Record the skip explicitly so
+                        # the token leaves a trace in the file — otherwise a
+                        # skipped token is indistinguishable from a token that
+                        # was never shown at all (source_id/token_index gaps
+                        # then look like silent data loss when the jsonl is
+                        # inspected later). Not added to trained_keys, so the
+                        # token is still re-prompted in a future session.
+                        skip_obj = {
+                            "period": period_tag,
+                            "source_id": token.source_id,
+                            "token_index": token.token_index,
+                            "token": token.unicode_form,
+                            "gold_morph": None,
+                            "skipped": True,
+                        }
+                        f.write(json.dumps(skip_obj, ensure_ascii=False) + "\n")
+                        f.flush()
+                        continue
 
-                f.write(json.dumps(obj, ensure_ascii=False) + "\n")
-                f.flush()
+                    obj = {
+                        "period": period_tag,
+                        "source_id": token.source_id,
+                        "token_index": token.token_index,
+                        "token": token.unicode_form,
+                        "gold_morph": gold_morph,
+                    }
 
-                token_gold[token.unicode_form] = gold_morph
+                    f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+                    f.flush()
+
+                    trained_keys.add((token.source_id, token.token_index))
 
         # Branch for bigram-training mode
 
         else:
 
-            for a, b in tokens:
+            # Load token gold list (surface-form keyed; only used by bigram
+            # training, which is unaffected by the chunk/context rework).
+            token_gold_file = load_token_gold_morph(out_path)
+            token_gold = load_token_gold_morph(out_path)
+
+            random.shuffle(chunks)
+
+            for a, b in chunks:
                 skip_bigram = False
                 # Bigram training: label token A then token B
                 gold_morph_a: str | None = None
@@ -484,6 +512,43 @@ def load_token_gold_morph(training_path: Path) -> dict[str, str]:
                 token_gold_morph[token] = gold_morph
 
     return token_gold_morph
+
+
+def load_trained_keys(training_path: Path) -> set[tuple[str, int]]:
+    """
+    Return the set of (source_id, token_index) already labeled in
+    `training_path`. Used to dedup chunk-based monogram training, since the
+    same surface form can have a different gold analysis depending on
+    context (unlike a surface-form-keyed dedup).
+    """
+    trained_keys: set[tuple[str, int]] = set()
+
+    if not training_path.exists():
+        return trained_keys
+
+    with open(training_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            source_id = obj.get("source_id")
+            token_index = obj.get("token_index")
+            gold_morph = obj.get("gold_morph")
+
+            if (
+                source_id is not None
+                and isinstance(token_index, int)
+                and isinstance(gold_morph, str)
+                and gold_morph
+            ):
+                trained_keys.add((source_id, token_index))
+
+    return trained_keys
 
 
 def load_infl_decomp_from_training(training_path: Path) -> dict[str, list[str]]:
