@@ -732,7 +732,7 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 		<span class="note">나중에 anno가 아닌 다른 sent type도 고려할 가능성??</span>
 	- [x] training.py의 train() 수정
 		- [x] 청크를 입력으로 받도록 변경
-			- [ ] 특정 청크를 --chunk-start 인자로 받도록 추가
+			- [x] 특정 청크를 --chunk-start 인자로 받도록 추가
 		- [x] random.shuffle(tokens) 제거
 		- [x] 트레이닝 파일 스키마에 `source_id`, `token_index` 필드 추가
 	- [x] 중복 트레이닝 방지 기준 변경
@@ -740,11 +740,10 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 	- [x] training_priority() 정렬 로직 처리
 
 - 실제 태깅으로 toy 데이터 만들기
-	- [ ] 애매한 토큰 밀도가 높은 anno 청크를 자동으로 추천하는 기능
-	- [ ] 추천된 청크 --training-mode로 태깅
+	- [x] 추천된 청크 --training-mode로 태깅
 
 - BiLSTM 학습 데이터 변환
-	- [ ] 학습 예시 뽑아내기
+	- [x] 학습 예시 뽑아내기
 	- [ ] 문자를 숫자로 바꾸기
 	- [ ] PyTorch Dataset으로 포장
 

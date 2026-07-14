@@ -112,3 +112,6 @@
 {"period": "15c", "source_id": "1447_석보상절6:02a:2:kor", "token_index": 1, "token": "ᄲᆞᆯ론", "gold_morph": ".spoll/A/LEM-wo/WO-n/NFUT/ADN"}
 {"period": "15c", "source_id": "1447_석보상절6:02a:2:kor", "token_index": 2, "token": "주를", "gold_morph": "cwul/N.DEP/LEM-ul/ACC"}
 {"period": "15c", "source_id": "1447_석보상절6:02a:2:kor", "token_index": 3, "token": "니르니라", "gold_morph": "nilu/V/LEM-ni/ASS-la/DECL"}
+{"period": "15c", "source_id": "1447_석보상절6:30a:3:kor", "token_index": 1, "token": "尼師檀ᄋᆞᆫ", "gold_morph": "尼師檀/N.CH/LEM-on/TOP"}
+{"period": "15c", "source_id": "1447_석보상절6:30a:3:kor", "token_index": 2, "token": "아ᇇᄂᆞᆫ", "gold_morph": "ans/V/LEM-no/PRS-n/NFUT/ADN"}
+{"period": "15c", "source_id": "1447_석보상절6:30a:3:kor", "token_index": 3, "token": "거시라", "gold_morph": "kes/N.DEP/LEM-i/COP-la/DECL"}
