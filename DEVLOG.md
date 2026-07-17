@@ -769,8 +769,10 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 - `annotation` (`training`) 모듈 개선
 	- [x] `training` 관련 용어 모두 `annotation`으로 수정
 		- CLAUDE CODE에 CLAUDE.md만 수정하라고 말하기.
-	- [ ] `annotation` 절차 세분화해서 편의성 증진
-		- `annotation.py` 모듈의 `prompt_gold`에서 segmentation (if ans == "e")
-		- [ ] `_segmentation()` 함수
-		- [ ] `_morpheme_annotation()` 함수
+	- [x] `annotation` 절차 세분화해서 편의성 증진
+		- `annotation.py` 모듈의 `prompt_gold`에서 segmentation (if ans == "")
+		- [x] `_segmentation()` 함수
+		- [x] `_labeling()` 함수
 - annotation 진행
+
+- 나중 과제: 파일이 path로 주어질 때 period 등 필요한 정보 안 주어져도 바로 뽑아쓸 수 있게 구현 필요

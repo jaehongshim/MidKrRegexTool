@@ -128,16 +128,46 @@ def _prompt_gold(
 
     format_candidate(token, candidates)
 
+    def _segmentation(unicode_form: str, yale: str) -> list[str]:
+        """각 토큰의 unicode_form과 yale attribute를 받아 사용자료부터 띄어쓰기 된 형태를 받은 후 띄어쓰기로 구별된 각 부분을 원소로 하는 리스트로 돌려주는 함수"""
+
+        default = yale
+
+        parsed_forms = []
+
+        parsed_forms = prompt_with_default(
+            "Please parse the token for further morpheme tagging: ", default
+        ).split()
+
+        return parsed_forms
+
+    def _labeling(parsed_forms: list[str]) -> str:
+
+        labeled_forms = []
+
+        for parsed_form in parsed_forms:
+
+            labeled_form = prompt_with_default(
+                f"Please label {parsed_form} with an appropriate label:",
+                parsed_form + "/",
+            )
+
+            labeled_forms.append(labeled_form)
+
+            annotated_form = "-".join(labeled_forms)
+
+        return annotated_form
+
     while True:
         if candidates:
             raw_ans = input(
                 f"[annotation] What is the optimal candidate for {token.unicode_form}?\n"
-                f"(1-{len(candidates)} to select / s=skip / m=manual input / q=quit) > ".strip()
+                f"(1-{len(candidates)} to select / s=skip / m=manual input / q=quit / press enter=step-by-step annotation) > ".strip()
             )
         else:
             raw_ans = input(
                 f"[annotation] No candidates for {token.unicode_form} ({token.yale}). "
-                f"(m=manual / s=skip / q=quit) > "
+                f"(m=manual / s=skip / q=quit / press enter=step-by-step annotation) > "
             ).strip()
 
         ans = raw_ans.lower()
@@ -147,6 +177,16 @@ def _prompt_gold(
 
         if ans == "s":
             return None, False
+
+        # step by step annotation
+
+        if ans == "":
+
+            parsed_forms = _segmentation(token.unicode_form, token.yale)
+
+            annotated_form = _labeling(parsed_forms)
+
+            return annotated_form, False
 
         # Manual input
         if ans == "m":
