@@ -276,6 +276,34 @@ def annotation_priority(
     return (3, yale)
 
 
+def apply_session_gold(
+    candidates: list[str], yale: str, session_gold: dict[str, str]
+) -> list[str]:
+    """
+    Surface a gold_morph already chosen for the same yale form earlier in this
+    annotation session as the top candidate. Monogram dedup is keyed by
+    (source_id, token_index), not surface form, so the same yale form can
+    reappear at a different position within one run; this lets the annotator
+    reuse a just-made decision instead of re-deriving it.
+    """
+    gold = session_gold.get(yale)
+    if not gold:
+        return candidates
+    if gold in candidates:
+        return [gold] + [c for c in candidates if c != gold]
+    return [gold] + candidates
+
+
+def _print_progress(done: int, total: int, *, label: str = "targets") -> None:
+    if total <= 0:
+        return
+    pct = done / total
+    remaining = total - done
+    print(
+        f"[PROGRESS] {done}/{total} {label} annotated ({pct:.1%}) | {remaining} remaining"
+    )
+
+
 def annotate(
     chunks: list[list[Token]] | list[tuple[Token, Token]],
     period: int,
@@ -310,6 +338,11 @@ def annotate(
 
         candidate_cache: dict[tuple[str, bool], list[str]] = {}
 
+        # gold_morph values chosen earlier in *this* session, keyed by yale.
+        # Reused to surface a just-made decision as a top candidate when the
+        # same yale form reappears at a different token position.
+        session_gold: dict[str, str] = {}
+
         # Branch for chunk-based monogram annotation mode
 
         if not is_bigram:
@@ -318,6 +351,18 @@ def annotate(
             # have a different gold analysis depending on context, so
             # surface-form-only dedup is not appropriate here.
             annotated_keys = load_annotated_keys(out_path)
+
+            # Progress baseline includes tokens already annotated in prior
+            # sessions, so a resumed session starts mid-way (e.g. 20/100)
+            # instead of resetting to 0 against only the remaining tokens.
+            total_targets = sum(len(chunk) for chunk in chunks)
+            annotated_so_far = sum(
+                1
+                for chunk in chunks
+                for tok in chunk
+                if (tok.source_id, tok.token_index) in annotated_keys
+            )
+            _print_progress(annotated_so_far, total_targets, label="tokens")
 
             # Shuffle chunk order only; tokens *within* a chunk are tagged
             # in their original (context-preserving) order.
@@ -360,6 +405,10 @@ def annotate(
                         )
                         candidate_cache[cache_key] = candidates
 
+                    candidates = apply_session_gold(candidates, yale, session_gold)
+
+                    _print_progress(annotated_so_far, total_targets, label="tokens")
+
                     gold_morph, quit_annotation = _prompt_gold(token, candidates)
 
                     if quit_annotation:
@@ -397,6 +446,9 @@ def annotate(
                     f.flush()
 
                     annotated_keys.add((token.source_id, token.token_index))
+                    annotated_so_far += 1
+                    if yale:
+                        session_gold[yale] = gold_morph
 
         # Branch for bigram-annotation mode
 
@@ -407,6 +459,18 @@ def annotate(
             token_gold_file = load_token_gold_morph(out_path)
             token_gold = load_token_gold_morph(out_path)
 
+            # Progress baseline includes bigrams already annotated in prior
+            # sessions, so a resumed session starts mid-way instead of
+            # resetting to 0 against only the remaining bigrams.
+            annotated_bigrams = load_annotated_bigrams(out_path)
+            total_targets = len(chunks)
+            annotated_so_far = sum(
+                1
+                for a, b in chunks
+                if f"{a.unicode_form} {b.unicode_form}" in annotated_bigrams
+            )
+            _print_progress(annotated_so_far, total_targets, label="bigrams")
+
             random.shuffle(chunks)
 
             for a, b in chunks:
@@ -414,6 +478,8 @@ def annotate(
                 # Bigram annotation: label token A then token B
                 gold_morph_a: str | None = None
                 gold_morph_b: str | None = None
+
+                _print_progress(annotated_so_far, total_targets, label="bigrams")
 
                 # Let the user know that we are entering the bigram loop
                 print(f"[BIGRAM] {a.unicode_form} {b.unicode_form}")
@@ -471,6 +537,8 @@ def annotate(
                             )
                             candidate_cache[cache_key] = candidates
 
+                        candidates = apply_session_gold(candidates, yale, session_gold)
+
                         gold_morph, quit_annotation = _prompt_gold(token, candidates)
 
                         if quit_annotation:
@@ -480,6 +548,8 @@ def annotate(
                             break
 
                         token_gold[token.unicode_form] = gold_morph
+                        if yale:
+                            session_gold[yale] = gold_morph
 
                         if side == "a":
                             gold_morph_a = gold_morph
@@ -499,6 +569,10 @@ def annotate(
                 }
 
                 f.write(json.dumps(obj, ensure_ascii=False) + "\n")
+
+                if obj["bigram"] not in annotated_bigrams:
+                    annotated_bigrams.add(obj["bigram"])
+                    annotated_so_far += 1
 
                 # If dict does not have the gold of each token, save it as a monogram result as well.
 
@@ -554,6 +628,43 @@ def load_token_gold_morph(annotation_path: Path) -> dict[str, str]:
                 token_gold_morph[token] = gold_morph
 
     return token_gold_morph
+
+
+def load_annotated_bigrams(annotation_path: Path) -> set[str]:
+    """
+    Return the set of `"{a.unicode_form} {b.unicode_form}"` bigram strings
+    already fully annotated (both gold_morph_a and gold_morph_b present) in
+    `annotation_path`. Used for bigram-mode progress baselines.
+    """
+    annotated: set[str] = set()
+
+    if not annotation_path.exists():
+        return annotated
+
+    with open(annotation_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                obj = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+
+            bigram = obj.get("bigram")
+            gold_a = obj.get("gold_morph_a")
+            gold_b = obj.get("gold_morph_b")
+
+            if (
+                bigram
+                and isinstance(gold_a, str)
+                and gold_a
+                and isinstance(gold_b, str)
+                and gold_b
+            ):
+                annotated.add(bigram)
+
+    return annotated
 
 
 def load_annotated_keys(annotation_path: Path) -> set[tuple[str, int]]:
