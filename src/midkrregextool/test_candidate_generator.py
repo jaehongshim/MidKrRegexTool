@@ -2,9 +2,12 @@
 
 from pathlib import Path
 
+from midkrregextool.annotation import (
+    candidate_generator,
+    load_infl_decomp_from_annotation,
+)
 from midkrregextool.model import Token
 from midkrregextool.tagger import load_lemma_lexicon
-from midkrregextool.training import candidate_generator, load_infl_decomp_from_training
 
 
 def make_token(
@@ -103,11 +106,11 @@ TEST_CASES = [
 def run_tests():
     period = 15
     repo_root = Path(__file__).resolve().parents[2]
-    training_data = repo_root / "data" / "training"
+    annotation_data = repo_root / "data" / "annotation"
 
-    lexicon = load_lemma_lexicon(period, training_data=training_data)
-    infl_decomp = load_infl_decomp_from_training(
-        training_data / f"training_{period}c.jsonl"
+    lexicon = load_lemma_lexicon(period, annotation_data=annotation_data)
+    infl_decomp = load_infl_decomp_from_annotation(
+        annotation_data / f"annotation_{period}c.jsonl"
     )
 
     for case in TEST_CASES:

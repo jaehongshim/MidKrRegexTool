@@ -749,6 +749,28 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 
 - 모델과 학습
 	- [x] BiLSTM 모델 뼈대
-	- [ ] 학습 루프 작성
-	- [ ] 테스트
+	- [x] 학습 루프 작성: **이해는 일단 포기**
+	- [x] 테스트
 
+## 2026-07-15
+
+### 미팅 결과 할 일 
+
+- `training` 관련 용어 수정: `annotation`으로
+- `annotation` 파이프라인 개선
+	- segmentation과 annotation 분리
+- 다음 미팅까지 BiLSTM 구현 목표
+	- 컨택스트가 주어졌을 때 후보 각각의 존재 확률을 구하는 방식으로 최적형 판단하게 구현.
+
+## 2026-07-17
+
+### 오늘 할 일
+
+- `annotation` (`training`) 모듈 개선
+	- [x] `training` 관련 용어 모두 `annotation`으로 수정
+		- CLAUDE CODE에 CLAUDE.md만 수정하라고 말하기.
+	- [ ] `annotation` 절차 세분화해서 편의성 증진
+		- `annotation.py` 모듈의 `prompt_gold`에서 segmentation (if ans == "e")
+		- [ ] `_segmentation()` 함수
+		- [ ] `_morpheme_annotation()` 함수
+- annotation 진행

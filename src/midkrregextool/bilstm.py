@@ -2,7 +2,7 @@
 
 BiLSTM 기반 형태소 분석 후보 disambiguation을 위한 모듈.
 
-tagger.py의 tag_tokens()가 규칙 기반으로 생성한 여러 분석 후보(Token.tagged_candidates)와, training-mode로 문맥 순서를 보존해 태깅한 골드 데이터(training_{period}c.jsonl의 source_id/token_index 기반 항목)를 짝지어 학습 예시를 만들고, 이를 바탕으로 문맥을 보고 올바른 후보를 고르는 BiLSTM 모델을 학습/적용한다.
+tagger.py의 tag_tokens()가 규칙 기반으로 생성한 여러 분석 후보(Token.tagged_candidates)와, annotation-mode로 문맥 순서를 보존해 태깅한 골드 데이터(annotation_{period}c.jsonl의 source_id/token_index 기반 항목)를 짝지어 학습 예시를 만들고, 이를 바탕으로 문맥을 보고 올바른 후보를 고르는 BiLSTM 모델을 학습/적용한다.
 
 주의: 주어진 토큰의 위치 정보 없이 표면형만으로 태깅을 시도하는 것은 **절대** 지양한다.
 
@@ -17,7 +17,7 @@ from torch.utils.data import Dataset
 from .model import Token
 
 
-def build_training_examples(
+def build_annotated_examples(
     tokens: list[Token],
     gold_lookup: dict[tuple[str, int], str],
 ) -> list[dict]:
@@ -47,7 +47,7 @@ def build_training_examples(
                     ],
                 )
 
-        gold_lookup: training_{period}c.jsonl을 미리 읽어서 만든
+        gold_lookup: annotation_{period}c.jsonl을 미리 읽어서 만든
             {(source_id, token_index): gold_morph} 사전.
 
             예) 위 골드 라인으로부터 만들어지는 항목:
@@ -78,10 +78,10 @@ def build_training_examples(
             ]
     """
 
-    training_examples = []
+    annotated_examples = []
 
     if tokens is None:
-        return training_examples
+        return annotated_examples
 
     for token in tokens:
 
@@ -96,34 +96,34 @@ def build_training_examples(
 
         gold_idx = token.tagged_candidates.index(gold_morph)
 
-        training_example = dict()
+        annotated_example = dict()
 
-        training_example["source_id"] = token.source_id
-        training_example["token_index"] = token.token_index
-        training_example["surface"] = token.unicode_form
-        training_example["candidates"] = token.tagged_candidates
-        training_example["gold_index"] = gold_idx
+        annotated_example["source_id"] = token.source_id
+        annotated_example["token_index"] = token.token_index
+        annotated_example["surface"] = token.unicode_form
+        annotated_example["candidates"] = token.tagged_candidates
+        annotated_example["gold_index"] = gold_idx
 
-        training_examples.append(training_example)
+        annotated_examples.append(annotated_example)
 
-    return training_examples
+    return annotated_examples
 
 
-def build_char_vocab(training_examples: list[dict]) -> dict[str, int]:
+def build_char_vocab(annotated_examples: list[dict]) -> dict[str, int]:
     """
     입력:
-        training_examples: build_training_examples()가 만든 딕셔너리 리스트.
+        annotated_examples: build_annotated_examples()가 만든 딕셔너리 리스트.
             각 원소는 "candidates" 키에 문자열 리스트(후보 tagged_form들)를
             담고 있다.
 
-            예) 아래 두 개짜리 training_examples가 있다고 하자:
+            예) 아래 두 개짜리 annotated_examples가 있다고 하자:
                 [
                     {"candidates": ["ho/V/LEM", "hon/V/LEM"], ...},
                     {"candidates": ["al/V/LEM-a/CONN"], ...},
                 ]
 
     출력:
-        모든 training_example의 모든 candidates 문자열에 등장하는 글자를
+        모든 annotated_example의 모든 candidates 문자열에 등장하는 글자를
         전부 모아 중복 제거한 뒤, 각 글자에 고유 번호를 매긴 사전.
         "<PAD>"(0번)와 "<UNK>"(1번)는 실제 글자가 아니라 다음 단계
         (길이 맞추기, 미등록 글자 처리)에서 쓸 예약된 특수 기호이며,
@@ -150,16 +150,16 @@ def build_char_vocab(training_examples: list[dict]) -> dict[str, int]:
                 "N": 14,
             }
 
-        주의: 이 사전은 training_examples 전체를 한 번에 훑어서 만드는
+        주의: 이 사전은 annotated_examples 전체를 한 번에 훑어서 만드는
         "하나의" 사전이다. 이후 encode_string()이 이 사전을 그대로 재사용
         해야, 같은 글자가 항상 같은 번호로 일관되게 인코딩된다.
     """
 
     chars = []
 
-    for training_example in training_examples:
+    for annotated_example in annotated_examples:
 
-        candidates = training_example.get("candidates")
+        candidates = annotated_example.get("candidates")
 
         for candidate in candidates:
             for c in candidate:
@@ -221,27 +221,27 @@ def encode_string(
 class DisambiguationDataset(Dataset):
     def __init__(
         self,
-        training_examples: list[dict],
+        annotated_examples: list[dict],
         vocab: dict[str, int],
     ):
-        self.training_examples = training_examples
+        self.annotated_examples = annotated_examples
         self.vocab = vocab
 
     def __len__(self) -> int:
-        return len(self.training_examples)
+        return len(self.annotated_examples)
 
     def __getitem__(self, idx: int) -> dict:
 
-        training_example = self.training_examples[idx]
+        annotated_example = self.annotated_examples[idx]
 
-        candidates = training_example["candidates"]
+        candidates = annotated_example["candidates"]
 
         encoded_candidates = []
 
         for candidate in candidates:
             encoded_candidates.append(encode_string(self.vocab, candidate))
 
-        gold_index = training_example["gold_index"]
+        gold_index = annotated_example["gold_index"]
 
         return {
             "candidates": encoded_candidates,
@@ -278,3 +278,88 @@ class CandidateScorer(nn.Module):
         score = self.fc(final_hidden)
 
         return score
+
+
+def train_bilstm(
+    dataset: DisambiguationDataset,
+    model: CandidateScorer,
+    epochs: int = 3,
+) -> None:
+
+    # "손실을 보고 모델을 실제로 고쳐주는 도구"를 준비한다.
+    # model.parameters()는 이 모델 안에 있는, 고칠 수 있는 모든 숫자를
+    # 자동으로 다 긁어모아 준다. Adam은 그 숫자들을 어떻게 조금씩
+    # 고쳐나갈지 계산해주는 알고리즘 이름이다.
+    optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
+
+    # "여러 개의 점수와 정답 인덱스를 비교해서, 얼마나 틀렸는지"를
+    # 숫자 하나로 계산해주는 도구를 준비한다.
+    loss_fn = nn.CrossEntropyLoss()
+
+    # 전체 데이터를 처음부터 끝까지 몇 번 반복해서 공부시킬지 정한다.
+    # (한 번 다 보는 것을 "1 epoch"라고 부른다.)
+    for epoch in range(epochs):
+
+        # 이번 한 바퀴(epoch) 동안 얼마나 틀렸는지 합계를 저장할 변수.
+        # 나중에 이 값이 점점 줄어드는지 보려고 만든다.
+        total_loss = 0.0
+
+        # 데이터(토큰들)를 하나씩 순서대로 꺼낸다.
+        for i in range(len(dataset)):
+
+            # i번째 토큰 하나를 꺼낸다.
+            # (안에는 후보들 candidates, 그리고 정답 번호 gold_index가 들어있다)
+            example = dataset[i]
+            candidates = example["candidates"]
+            gold_index = example["gold_index"]
+
+            # 이 토큰의 각 후보마다 점수를 매겨서 담아둘 빈 상자.
+            scores = []
+
+            # 후보를 하나씩 꺼내서, 모델에게 "이거 몇 점이야?"라고 물어본다.
+            for candidate_ids in candidates:
+
+                # 후보 하나(숫자 리스트)를, 모델이 알아먹는 정확한
+                # 텐서 모양으로 바꾼다. (이 모양 맞추는 절차는 PyTorch가
+                # 항상 요구하는 정해진 형식이라, 그냥 이렇게 쓴다고
+                # 생각해도 된다)
+                char_tensor = torch.tensor(candidate_ids, dtype=torch.long).unsqueeze(0)
+
+                # 모델에게 이 후보를 보여주고 점수를 하나 받는다.
+                score = model(char_tensor)
+
+                # 받은 점수를 상자에 담아둔다.
+                scores.append(score)
+
+            # 후보별 점수들을 한 줄로 나란히 이어붙인다.
+            # (CrossEntropyLoss가 "후보들의 점수 한 줄"이라는 모양을
+            # 원하기 때문에 모양을 맞춰주는 것이다)
+            scores_tensor = torch.cat(scores, dim=0).view(1, -1)
+
+            # 정답 번호도 같은 방식(텐서)으로 바꿔준다.
+            gold_tensor = torch.tensor([gold_index], dtype=torch.long)
+
+            # "이 점수들 중에서, 정답이 몇 번째였는데 실제로 얼마나
+            # 잘 맞혔는지(혹은 못 맞혔는지)"를 숫자 하나(loss)로 계산한다.
+            loss = loss_fn(scores_tensor, gold_tensor)
+
+            # 아래 세 줄은 "모델을 실제로 조금 더 똑똑하게 고치는 절차"다.
+            # 항상 이 순서, 이 세 줄로 쓴다고 생각하면 된다.
+
+            # 1) 이전에 계산해뒀던 "고칠 방향" 기록을 깨끗이 지운다.
+            optimizer.zero_grad()
+
+            # 2) "이번엔 어느 방향으로, 얼마나 고쳐야 덜 틀리는지" 계산한다.
+            loss.backward()
+
+            # 3) 계산된 방향대로 모델의 숫자들을 실제로 아주 조금 고친다.
+            optimizer.step()
+
+            # 이번 토큰에서 얼마나 틀렸는지를 누적 합계에 더한다.
+            # (.item()은 "텐서 안에 든 숫자 하나만 순수하게 꺼내라"는 뜻)
+            total_loss += loss.item()
+
+        # 이번 한 바퀴(epoch)가 끝날 때마다, 전체적으로 얼마나
+        # 틀렸는지 화면에 찍어서 확인한다. 이 숫자가 뒤로 갈수록
+        # 점점 작아지면 "모델이 배우고 있다"는 뜻이다.
+        print(f"[Epoch {epoch+1}/{epochs}] total_loss = {total_loss:.4f}")

@@ -14,19 +14,19 @@ CATEGORY_CHANGERS = {
 }
 
 
-def default_training_dir() -> Path:
+def default_annotation_dir() -> Path:
     repo_root = Path(__file__).resolve().parents[2]
-    return repo_root / "data" / "training"
+    return repo_root / "data" / "annotation"
 
 
-def _resolve_training_data(
-    training_data: Path, period: int | str | None = None
+def _resolve_annotation_data(
+    annotation_data: Path, period: int | str | None = None
 ) -> Path:
     period_tag = _period_tag(period)
-    training_dir = (
-        training_data if training_data is not None else default_training_dir()
+    annotation_dir = (
+        annotation_data if annotation_data is not None else default_annotation_dir()
     )
-    return training_dir / f"training_{period_tag}.jsonl"
+    return annotation_dir / f"annotation_{period_tag}.jsonl"
 
 
 def _period_tag(period: int | str | None) -> str | None:
@@ -41,7 +41,7 @@ def _period_tag(period: int | str | None) -> str | None:
 
 
 def load_lemma_lexicon(
-    period: int | str | None = None, *, training_data: Path
+    period: int | str | None = None, *, annotation_data: Path
 ) -> dict[str, str]:
 
     def _assign_pos(form_pos: str) -> tuple[str, str]:
@@ -96,11 +96,11 @@ def load_lemma_lexicon(
 
     lex: dict[str, str] = {}
 
-    if training_data is not None:
-        training_file = _resolve_training_data(training_data, period)
+    if annotation_data is not None:
+        annotation_file = _resolve_annotation_data(annotation_data, period)
 
         try:
-            with open(training_file, encoding="utf-8") as f:
+            with open(annotation_file, encoding="utf-8") as f:
                 for raw in f:
                     obj = json.loads(raw)
 

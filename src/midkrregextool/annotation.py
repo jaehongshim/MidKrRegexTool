@@ -8,7 +8,7 @@ from pathlib import Path
 from prompt_toolkit import prompt
 
 from .model import Token
-from .tagger import _resolve_training_data, default_training_dir
+from .tagger import _resolve_annotation_data, default_annotation_dir
 
 _GLOSS_RX = re.compile(r"/[A-Za-z][A-Za-z0-9_-]*")
 
@@ -109,7 +109,7 @@ def candidate_generator(
 
 def format_candidate(token: Token, candidates: list[str] | None = None) -> None:
     print(
-        f"[Training] {token.source_id} [{token.path}]\n\t[Token]\t\t{token.unicode_form}\n\t[LANGUAGE]\t{token.lang}\n\t[CONTEXT]\t{token.context}"
+        f"[annotation] {token.source_id} [{token.path}]\n\t[Token]\t\t{token.unicode_form}\n\t[LANGUAGE]\t{token.lang}\n\t[CONTEXT]\t{token.context}"
     )
     if candidates is None:
         return
@@ -124,19 +124,19 @@ def format_candidate(token: Token, candidates: list[str] | None = None) -> None:
 def _prompt_gold(
     token: Token, candidates: list[str] | None = None
 ) -> tuple[str | None, bool]:
-    # Returns (gold_morph, quit_training)
+    # Returns (gold_morph, quit_annotation)
 
     format_candidate(token, candidates)
 
     while True:
         if candidates:
             raw_ans = input(
-                f"[Training] What is the optimal candidate for {token.unicode_form}?\n"
+                f"[annotation] What is the optimal candidate for {token.unicode_form}?\n"
                 f"(1-{len(candidates)} to select / s=skip / m=manual input / q=quit) > ".strip()
             )
         else:
             raw_ans = input(
-                f"[Training] No candidates for {token.unicode_form} ({token.yale}). "
+                f"[annotation] No candidates for {token.unicode_form} ({token.yale}). "
                 f"(m=manual / s=skip / q=quit) > "
             ).strip()
 
@@ -162,7 +162,7 @@ def _prompt_gold(
             ).strip()
 
             if not raw:
-                print("[Training] Empty input. Try again.")
+                print("[annotation] Empty input. Try again.")
                 continue
 
             return raw, False
@@ -178,7 +178,7 @@ def _prompt_gold(
             if 0 <= idx < len(candidates):
                 return candidates[idx], False
             else:
-                print("[Training] Out of range. Try again.")
+                print("[annotation] Out of range. Try again.")
                 continue
 
         print("[ERROR] Invalid input.")
@@ -202,7 +202,7 @@ def has_known_parse(
     return False
 
 
-def training_priority(
+def annotation_priority(
     token: Token,
     *,
     lexicon: dict[str, str],
@@ -236,46 +236,48 @@ def training_priority(
     return (3, yale)
 
 
-def train(
+def annotate(
     chunks: list[list[Token]] | list[tuple[Token, Token]],
     period: int,
-    training_data: Path | None,
+    annotation_data: Path | None,
     lexicon: dict[str, str] | None = None,
     token_lookup: dict[tuple[str, int], Token] | None = None,
 ) -> None:
 
     period_tag = f"{period}c"
 
-    print("[INFO] Training mode is ON.")
+    print("[INFO] annotation mode is ON.")
 
     if not period:
-        raise ValueError("Period must be specified in training mode.")
+        raise ValueError("Period must be specified in annotation mode.")
 
-    out_dir = training_data if training_data is not None else default_training_dir()
+    out_dir = (
+        annotation_data if annotation_data is not None else default_annotation_dir()
+    )
     out_dir.mkdir(parents=True, exist_ok=True)
-    out_path = out_dir / f"training_{period_tag}.jsonl"
+    out_path = out_dir / f"annotation_{period_tag}.jsonl"
 
-    infl_decomp = load_infl_decomp_from_training(out_path)
+    infl_decomp = load_infl_decomp_from_annotation(out_path)
 
-    # If first item is a tuple, training unit is a bigram: (Token, Token).
+    # If first item is a tuple, annotation unit is a bigram: (Token, Token).
     # Otherwise each item is an anno-chunk: list[Token] (context-ordered).
 
     is_bigram = len(chunks) > 0 and isinstance(chunks[0], tuple)
 
     with open(out_path, "a", encoding="utf-8") as f:
 
-        quit_training = False
+        quit_annotation = False
 
         candidate_cache: dict[tuple[str, bool], list[str]] = {}
 
-        # Branch for chunk-based monogram training mode
+        # Branch for chunk-based monogram annotation mode
 
         if not is_bigram:
 
             # Dedup by (source_id, token_index): the same surface form can
             # have a different gold analysis depending on context, so
             # surface-form-only dedup is not appropriate here.
-            trained_keys = load_trained_keys(out_path)
+            annotated_keys = load_annotated_keys(out_path)
 
             # Shuffle chunk order only; tokens *within* a chunk are tagged
             # in their original (context-preserving) order.
@@ -286,7 +288,7 @@ def train(
                     # Guard clause
                     gold_morph: str | None = None
 
-                    if (token.source_id, token.token_index) in trained_keys:
+                    if (token.source_id, token.token_index) in annotated_keys:
                         continue
 
                     yale = (token.yale or "").strip()
@@ -318,9 +320,9 @@ def train(
                         )
                         candidate_cache[cache_key] = candidates
 
-                    gold_morph, quit_training = _prompt_gold(token, candidates)
+                    gold_morph, quit_annotation = _prompt_gold(token, candidates)
 
-                    if quit_training:
+                    if quit_annotation:
                         return
 
                     if gold_morph is None:
@@ -329,7 +331,7 @@ def train(
                         # skipped token is indistinguishable from a token that
                         # was never shown at all (source_id/token_index gaps
                         # then look like silent data loss when the jsonl is
-                        # inspected later). Not added to trained_keys, so the
+                        # inspected later). Not added to annotated_keys, so the
                         # token is still re-prompted in a future session.
                         skip_obj = {
                             "period": period_tag,
@@ -354,14 +356,14 @@ def train(
                     f.write(json.dumps(obj, ensure_ascii=False) + "\n")
                     f.flush()
 
-                    trained_keys.add((token.source_id, token.token_index))
+                    annotated_keys.add((token.source_id, token.token_index))
 
-        # Branch for bigram-training mode
+        # Branch for bigram-annotation mode
 
         else:
 
             # Load token gold list (surface-form keyed; only used by bigram
-            # training, which is unaffected by the chunk/context rework).
+            # annotation, which is unaffected by the chunk/context rework).
             token_gold_file = load_token_gold_morph(out_path)
             token_gold = load_token_gold_morph(out_path)
 
@@ -369,7 +371,7 @@ def train(
 
             for a, b in chunks:
                 skip_bigram = False
-                # Bigram training: label token A then token B
+                # Bigram annotation: label token A then token B
                 gold_morph_a: str | None = None
                 gold_morph_b: str | None = None
 
@@ -429,9 +431,9 @@ def train(
                             )
                             candidate_cache[cache_key] = candidates
 
-                        gold_morph, quit_training = _prompt_gold(token, candidates)
+                        gold_morph, quit_annotation = _prompt_gold(token, candidates)
 
-                        if quit_training:
+                        if quit_annotation:
                             return
                         if gold_morph is None:
                             skip_bigram = True
@@ -447,7 +449,7 @@ def train(
                 if skip_bigram:
                     continue
 
-                # Save an instance of bigram as a line in the jsonl training file.
+                # Save an instance of bigram as a line in the jsonl annotation file.
                 # Use bigram as a key to avoid overlapping labeling
                 obj = {
                     "period": period_tag,
@@ -483,19 +485,19 @@ def train(
 
                 f.flush()
 
-                if quit_training:
+                if quit_annotation:
                     break
 
-    print(f"[INFO] Training data saved to {out_path}")
+    print(f"[INFO] annotation data saved to {out_path}")
 
 
-def load_token_gold_morph(training_path: Path) -> dict[str, str]:
+def load_token_gold_morph(annotation_path: Path) -> dict[str, str]:
     token_gold_morph: dict[str, str] = {}
 
-    if not training_path.exists():
+    if not annotation_path.exists():
         return token_gold_morph
 
-    with open(training_path, "r", encoding="utf-8") as f:
+    with open(annotation_path, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -514,19 +516,19 @@ def load_token_gold_morph(training_path: Path) -> dict[str, str]:
     return token_gold_morph
 
 
-def load_trained_keys(training_path: Path) -> set[tuple[str, int]]:
+def load_annotated_keys(annotation_path: Path) -> set[tuple[str, int]]:
     """
     Return the set of (source_id, token_index) already labeled in
-    `training_path`. Used to dedup chunk-based monogram training, since the
+    `annotation_path`. Used to dedup chunk-based monogram annotation, since the
     same surface form can have a different gold analysis depending on
     context (unlike a surface-form-keyed dedup).
     """
-    trained_keys: set[tuple[str, int]] = set()
+    annotated_keys: set[tuple[str, int]] = set()
 
-    if not training_path.exists():
-        return trained_keys
+    if not annotation_path.exists():
+        return annotated_keys
 
-    with open(training_path, "r", encoding="utf-8") as f:
+    with open(annotation_path, "r", encoding="utf-8") as f:
         for line in f:
             line = line.strip()
             if not line:
@@ -546,16 +548,16 @@ def load_trained_keys(training_path: Path) -> set[tuple[str, int]]:
                 and isinstance(gold_morph, str)
                 and gold_morph
             ):
-                trained_keys.add((source_id, token_index))
+                annotated_keys.add((source_id, token_index))
 
-    return trained_keys
+    return annotated_keys
 
 
-def load_infl_decomp_from_training(training_path: Path) -> dict[str, list[str]]:
+def load_infl_decomp_from_annotation(annotation_path: Path) -> dict[str, list[str]]:
     d: dict[str, list[str]] = {}
 
     try:
-        with open(training_path, "r", encoding="utf-8") as f:
+        with open(annotation_path, "r", encoding="utf-8") as f:
             for line in f:
                 obj = json.loads(line)
 
@@ -584,8 +586,8 @@ def load_infl_decomp_from_training(training_path: Path) -> dict[str, list[str]]:
     return d
 
 
-def load_pos_to_allowed_morphemes_inventory_from_training(
-    training_data: Path, period: int | str | None = None
+def load_pos_to_allowed_morphemes_inventory_from_annotation(
+    annotation_data: Path, period: int | str | None = None
 ) -> dict[str, set[str]]:
     pos_to_allowed_morphemes: dict[str, set[str]] = {}
 
@@ -650,10 +652,10 @@ def load_pos_to_allowed_morphemes_inventory_from_training(
             #   -> state = CATEGORY_CHANGERS["NMLZ"] = "N"
             # Then, the subsequent suffixes are added to "N":{}
 
-    training_file = _resolve_training_data(training_data, period)
+    annotation_file = _resolve_annotation_data(annotation_data, period)
 
     try:
-        with open(training_file, encoding="utf-8") as f:
+        with open(annotation_file, encoding="utf-8") as f:
             for raw in f:
                 obj = json.loads(raw)
 

@@ -2,7 +2,7 @@
 
 A regex-based search and morphological annotation tool for Middle Korean texts, designed to support research on morphosyntactic patterns.
 
-The tool operates over Middle Korean texts encoded in the Hanyang PUA format, converts them into Unicode and Yale romanized forms, assigns morphological analyses, and supports regex search over tagged forms. It also provides an interactive training mode for building period-specific gold-annotated morphological data.
+The tool operates over Middle Korean texts encoded in the Hanyang PUA format, converts them into Unicode and Yale romanized forms, assigns morphological analyses, and supports regex search over tagged forms. It also provides an interactive annotation mode for building period-specific gold-annotated morphological data.
 
 ## Installation
 
@@ -145,20 +145,20 @@ Results can optionally be saved to a UTF-16 LE tab-delimited file.
 Requires `--pattern`. Runs an interactive multi-round regex loop; within-results narrowing is supported between rounds.
 
 ```bash
-python -m midkrregextool --path /corpus --pattern "kwoksik" --period 15 --training-data data/
+python -m midkrregextool --path /corpus --pattern "kwoksik" --period 15 --annotation-data data/
 ```
 
 ```bash
 # Bigram search (literal space in pattern)
-python -m midkrregextool --path /corpus --pattern "kwoksik /N" --period 15 --training-data data/
+python -m midkrregextool --path /corpus --pattern "kwoksik /N" --period 15 --annotation-data data/
 ```
 
-### Training mode
+### Annotation mode
 
 Interactive morphological annotation. Presents candidate analyses per token and saves confirmed gold labels to a period-specific JSONL file.
 
 ```bash
-python -m midkrregextool --path /corpus --training-mode --period 15 --training-data data/
+python -m midkrregextool --path /corpus --annotation-mode --period 15 --annotation-data data/
 ```
 
 - `--pattern` is optional: when provided, only matching tokens are shown.
@@ -170,7 +170,7 @@ python -m midkrregextool --path /corpus --training-mode --period 15 --training-d
 Prints `unicode_form: tagged_form` for every token, useful for reviewing tagging coverage.
 
 ```bash
-python -m midkrregextool --path /corpus --print-corpus --period 15 --training-data data/
+python -m midkrregextool --path /corpus --print-corpus --period 15 --annotation-data data/
 ```
 
 ## Search Behavior
@@ -190,8 +190,8 @@ python -m midkrregextool --path /corpus --print-corpus --period 15 --training-da
 | `--path` | Input file or directory (defaults to CWD) |
 | `--pattern` | Regex pattern |
 | `--period` | Century filter: `15`–`20` or year (e.g., `1459`) |
-| `--training-mode` | Enable training mode |
-| `--training-data` | Path to training data directory |
+| `--annotation-mode` | Enable annotation mode |
+| `--annotation-data` | Path to annotation data directory |
 | `--print-corpus` | Enable print-corpus mode |
 | `--token-repr` | `yale` or `tagged_form` (default varies by mode) |
 | `--classical-ch` | Include minimally-annotated classical Chinese tokens |
@@ -201,21 +201,21 @@ python -m midkrregextool --path /corpus --print-corpus --period 15 --training-da
 | `--encoding` | Input file encoding (default: `utf-16`) |
 | `--purpose` | Free-form label saved with search results |
 
-## Training Data
+## Annotation Data
 
-Gold annotations are stored in `data/training/training_{period}c.jsonl` (not committed to the repository). Each record contains the token's Unicode form and its morphological analysis, e.g.:
+Gold annotations are stored in `data/annotation/annotation_{period}c.jsonl` (not committed to the repository). Each record contains the token's Unicode form and its morphological analysis, e.g.:
 
 ```json
 {"period": "15c", "token": "가져시리러니라", "gold_morph": "kacy/V/LEM-e/CONN-si/AUX-li/FUT-le/IPFV-ni/ASS-la/DECL"}
 ```
 
-The training file is used to:
+The annotation file is used to:
 - extend the lemma lexicon with attested POS information,
 - learn inflectional suffix decompositions (`infl_decomp`) for richer candidate generation,
-- skip already-annotated and fully-parseable tokens in subsequent training sessions.
+- skip already-annotated and fully-parseable tokens in subsequent annotation sessions.
 
 ## Notes
 
 - Corpus files are **not** included in this repository.
-- The tool resolves relative `--training-data` paths from the repository root.
-- Classical Chinese segments (`lang="chi"`) are excluded from search and training by default.
+- The tool resolves relative `--annotation-data` paths from the repository root.
+- Classical Chinese segments (`lang="chi"`) are excluded from search and annotation by default.

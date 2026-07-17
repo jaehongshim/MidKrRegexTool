@@ -9,4 +9,4 @@ __pycache__/
 results.txt
 
 # legacy file
-data/training/legacy/
+data/annotation/legacy/

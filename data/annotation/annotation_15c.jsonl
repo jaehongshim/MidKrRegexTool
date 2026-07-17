@@ -115,3 +115,10 @@
 {"period": "15c", "source_id": "1447_석보상절6:30a:3:kor", "token_index": 1, "token": "尼師檀ᄋᆞᆫ", "gold_morph": "尼師檀/N.CH/LEM-on/TOP"}
 {"period": "15c", "source_id": "1447_석보상절6:30a:3:kor", "token_index": 2, "token": "아ᇇᄂᆞᆫ", "gold_morph": "ans/V/LEM-no/PRS-n/NFUT/ADN"}
 {"period": "15c", "source_id": "1447_석보상절6:30a:3:kor", "token_index": 3, "token": "거시라", "gold_morph": "kes/N.DEP/LEM-i/COP-la/DECL"}
+{"period": "15c", "source_id": "1447_석보상절6:07a:4:kor", "token_index": 1, "token": "奇ᄂᆞᆫ", "gold_morph": "奇/N.CH/LEM-non/TOP"}
+{"period": "15c", "source_id": "1447_석보상절6:07a:4:kor", "token_index": 2, "token": "神奇ᄒᆞᆯ씨오", "gold_morph": "神奇ho/V.CH/LEM-l/FUT/ADN-ss(o)/N.DEP-i/COP-wo/CONN"}
+{"period": "15c", "source_id": "1447_석보상절6:07a:4:kor", "token_index": 3, "token": "特은", "gold_morph": "特/N.CH/LEM-un/TOP"}
+{"period": "15c", "source_id": "1447_석보상절6:07a:4:kor", "token_index": 4, "token": "ᄂᆞᄆᆡ", "gold_morph": "nom/N/LEM-oy/GEN"}
+{"period": "15c", "source_id": "1447_석보상절6:07a:4:kor", "token_index": 5, "token": "므리예", "gold_morph": "muli/N/LEM-yey/DAT"}
+{"period": "15c", "source_id": "1447_석보상절6:07a:4:kor", "token_index": 6, "token": "ᄠᆞ로", "gold_morph": ".ptolwo/ADV/LEM"}
+{"period": "15c", "source_id": "1447_석보상절6:07a:4:kor", "token_index": 7, "token": "다ᄅᆞᆯ씨라", "gold_morph": "talo/A/LEM-l/FUT/ADN-ss(o)/N.DEP-i/COP-la/DECL"}

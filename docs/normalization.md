@@ -16,5 +16,5 @@ These conversions are read-only enrichments attached to each `Token` as `unicode
 ## Implications
 
 - The parser (`parser.py`) produces tokens without any character transformation.
-- Search and training operate over `yale` or `tagged_form`, never over normalized Unicode directly.
+- Search and annotation operate over `yale` or `tagged_form`, never over normalized Unicode directly.
 - Mixed hanja/MK tokens produce mixed Yale output (hanja unconverted); this is intentional and consistent with how the corpus represents such tokens.

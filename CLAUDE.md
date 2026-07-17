@@ -14,11 +14,11 @@ python -m midkrregextool --path <file_or_dir> --pattern <regex>
 # Search mode (default) — requires --pattern
 python -m midkrregextool --path /corpus --pattern "kwoksik" --period 15
 
-# Training mode — requires --period; --pattern is optional filter
-python -m midkrregextool --path /corpus --training-mode --period 15 --training-data data/
+# Annotation mode — requires --period; --pattern is optional filter
+python -m midkrregextool --path /corpus --annotation-mode --period 15 --annotation-data data/
 
 # Print tagged corpus
-python -m midkrregextool --path /corpus --print-corpus --period 15 --training-data data/
+python -m midkrregextool --path /corpus --print-corpus --period 15 --annotation-data data/
 
 # Bigram search (pattern with literal space triggers bigram mode)
 python -m midkrregextool --path /corpus --pattern "kwoksik /N"
@@ -43,7 +43,7 @@ Hanyang PUA text files (.txt / .xml)
 
 `main()` → `parse_cli_args()` → `run()` dispatches to one of:
 - **`run_search()`** — default; interactive multi-round regex loop with within-results narrowing
-- **`run_train()`** — interactive morphological annotation; saves annotations to JSONL
+- **`run_annotation()`** — interactive morphological annotation (enabled via `--annotation-mode`); saves annotations to JSONL
 - **`run_print_corpus()`** — prints `unicode_form: tagged_form` for every token
 
 ### Key Modules
@@ -55,13 +55,13 @@ Hanyang PUA text files (.txt / .xml)
 | `yale.py` | `attach_yale()` enriches tokens with `unicode_form` and `yale`; handles `--classical-ch` and `--exclude-ch` filters |
 | `tagger.py` | Loads lemma lexicon; assigns `tagged_form` (e.g., `kwoksik/N`); period-aware |
 | `search.py` | `search_tokens()`: monogram (no space in pattern → matches `token.yale` or `token.tagged_form`) vs. bigram (space → matches concatenation of adjacent token pair) |
-| `training.py` | Interactive annotation loop; priority sorting by frequency/lexicon coverage; persists to `training_{period}c.jsonl` |
+| `annotation.py` | Interactive annotation loop; priority sorting by frequency/lexicon coverage; persists to `annotation_{period}c.jsonl` |
 | `report.py` | `report_hits()` for CLI display; `maybe_save_hits()` for UTF-16 LE tab-delimited file output |
 
 ### Token Representation (`--token-repr`)
 
 - Default in **search mode**: `tagged_form`
-- Default in **training mode**: `yale`
+- Default in **annotation mode**: `yale`
 - Bigram search joins adjacent tokens' `tagged_form or yale` for matching
 
 ### Period Filtering
@@ -70,7 +70,7 @@ Hanyang PUA text files (.txt / .xml)
 
 ### Data Files (`data/`)
 
-Training data lives in `data/` and is **not committed**. The tool resolves relative `--training-data` paths from the repo root. Per-period JSONL files follow the naming `training_{period}c.jsonl`.
+Annotation data lives in `data/` and is **not committed**. The tool resolves relative `--annotation-data` paths from the repo root. Per-period JSONL files follow the naming `annotation_{period}c.jsonl`.
 
 ### Design Principles (from `docs/design.md`)
 

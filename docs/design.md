@@ -27,7 +27,7 @@ Hanyang PUA text files (.txt / .xml)
 | Mode | Flag | Description |
 |---|---|---|
 | Search | *(default, requires `--pattern`)* | Interactive multi-round regex loop with within-results narrowing |
-| Training | `--training-mode` | Interactive morphological annotation; saves gold analyses to JSONL |
+| annotation | `--annotation-mode` | Interactive morphological annotation; saves gold analyses to JSONL |
 | Print corpus | `--print-corpus` | Prints `unicode_form: tagged_form` for every token in corpus |
 
 ---
@@ -96,13 +96,13 @@ Tokens that cannot be analyzed receive `NO-TAGGED-FORM`.
 
 ### Inflection decomposition (`infl_decomp`)
 
-When training data is available, inflectional suffixes are further decomposed into ordered morpheme chains (e.g., `si/SUBJ/HON-li/FUT-la/DECL`) loaded from the period-specific JSONL file.
+When annotation data is available, inflectional suffixes are further decomposed into ordered morpheme chains (e.g., `si/SUBJ/HON-li/FUT-la/DECL`) loaded from the period-specific JSONL file.
 
 ### Data files
 
 | File | Role |
 |---|---|
-| `data/training/training_{period}c.jsonl` | Gold-annotated training data (not committed) |
+| `data/annotation/annotation_{period}c.jsonl` | Gold-annotated annotation data (not committed) |
 
 ### Period awareness
 
@@ -128,9 +128,9 @@ Returns `list[Token]` (monogram) or `list[tuple[Token, Token]]` (bigram).
 
 ---
 
-## 9. Training Pipeline (`training.py`)
+## 9. Annotation Pipeline (`annotation.py`)
 
-The training loop presents candidate morphological analyses for each token and records confirmed gold labels to a JSONL file.
+The annotation loop presents candidate morphological analyses for each token and records confirmed gold labels to a JSONL file.
 
 ### Candidate generation
 
@@ -146,7 +146,7 @@ Tokens are skipped (not shown to the user) if:
 - Already present in `token_gold` (annotated in a previous session), or
 - `has_known_parse()` returns `True`: the Yale form can be split into a lexicon stem + a known `infl_decomp` suffix (or vice versa). This avoids re-prompting tokens that are already fully parseable from existing data.
 
-### Training priority
+### Annotation priority
 
 Tokens are sorted before the annotation loop:
 
@@ -157,7 +157,7 @@ Tokens are sorted before the annotation loop:
 | 2 | Suffix known, stem unknown |
 | 3 (lowest) | Both stem and suffix are known |
 
-### Bigram training
+### Bigram Annotation
 
 Triggered when `--pattern` contains a space. Each bigram `(Token A, Token B)` is annotated as a pair; individual gold labels are also saved as monogram entries.
 
@@ -168,12 +168,12 @@ Triggered when `--pattern` contains a space. Each bigram `(Token A, Token B)` is
 | Argument | Mode | Description |
 |---|---|---|
 | `--path` | all | Input file or directory (defaults to CWD) |
-| `--pattern` | search, training filter | Regex pattern |
+| `--pattern` | search, annotation filter | Regex pattern |
 | `--period` | all | Century filter (15–20) |
-| `--training-mode` | — | Enable training mode |
-| `--training-data` | all | Path to training data directory |
+| `--annotation-mode` | — | Enable annotation mode |
+| `--annotation-data` | all | Path to annotation data directory |
 | `--print-corpus` | — | Enable print-corpus mode |
-| `--token-repr` | search, training | `yale` or `tagged_form` |
+| `--token-repr` | search, annotation | `yale` or `tagged_form` |
 | `--classical-ch` | all | Include classical Chinese tokens |
 | `--exclude-ch` | all | Exclude tokens with Chinese characters |
 | `--display-context` | all | Show surrounding context for hits |

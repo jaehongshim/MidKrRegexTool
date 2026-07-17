@@ -10,17 +10,17 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path  # is_file(), is_dir()
 
+from midkrregextool.annotation import (
+    annotate,
+    annotation_priority,
+    load_infl_decomp_from_annotation,
+    load_pos_to_allowed_morphemes_inventory_from_annotation,
+)
 from midkrregextool.model import Token
 from midkrregextool.parser import parse_file
 from midkrregextool.report import maybe_save_hits, report_hits
 from midkrregextool.search import search_tokens
-from midkrregextool.tagger import default_training_dir, load_lemma_lexicon, tag_tokens
-from midkrregextool.training import (
-    load_infl_decomp_from_training,
-    load_pos_to_allowed_morphemes_inventory_from_training,
-    train,
-    training_priority,
-)
+from midkrregextool.tagger import default_annotation_dir, load_lemma_lexicon, tag_tokens
 from midkrregextool.yale import attach_yale
 
 
@@ -34,8 +34,8 @@ class CLIArgs:
     encoding: str = "utf-16"
     # display_context: bool = False
     corpus_list: bool = False
-    training_mode: bool = False
-    training_data: Path | None = None
+    annotation_mode: bool = False
+    annotation_data: Path | None = None
     classical_ch: bool = False
     token_repr: str | None = None
     exclude_ch: bool = False
@@ -55,7 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--pattern",
         type=str,
         default=None,
-        help="Regex pattern to search over Yale-romanized Korean texts. When used over a training mode, only matching tokens are shown.",
+        help="Regex pattern to search over Yale-romanized Korean texts. When used in annotation mode, only matching tokens are shown.",
     )
     p.add_argument(
         "--purpose",
@@ -75,15 +75,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--period", type=str, default=None, help="Filter by historical period"
     )
     p.add_argument(
-        "--training-mode",
+        "--annotation-mode",
         action="store_true",
-        help="Enable training mode (interactive labeling)",
+        help="Enable annotation mode (interactive labeling)",
     )
     p.add_argument(
-        "--training-data",
+        "--annotation-data",
         type=Path,
         default=None,
-        help="Path to training data for suffix proposal generation",
+        help="Path to annotation data for suffix proposal generation",
     )
     p.add_argument(
         "--sort",
@@ -97,12 +97,12 @@ def build_parser() -> argparse.ArgumentParser:
         type=str,
         default=None,
         choices=["yale", "tagged_form"],
-        help="Select the token representation used for search or training.",
+        help="Select the token representation used for search or annotation.",
     )
     p.add_argument(
         "--classical-ch",
         action="store_true",
-        help="Train or search also on classical Chinese texts minimally annotated with Korean",
+        help="Annotate or search also on classical Chinese texts minimally annotated with Korean",
     )
     p.add_argument(
         "--corpus-list",
@@ -112,7 +112,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--exclude-ch",
         action="store_true",
-        help="Exclude tokens with Chinese characters when for training or search",
+        help="Exclude tokens with Chinese characters when for annotation or search",
     )
     p.add_argument(
         "--print-corpus",
@@ -128,13 +128,13 @@ def build_parser() -> argparse.ArgumentParser:
             "non-letter",
             # To be elaborated
         ],
-        help="Train or search on a specific type of documents.",
+        help="Annotate or search on a specific type of documents.",
     )
     p.add_argument(
         "--chunk-start",
         type=str,
         default=None,
-        help="Train or search on a specific chunk, based on `source_id` field",
+        help="Annotate or search on a specific chunk, based on `source_id` field",
     )
 
     return p
@@ -151,11 +151,11 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
     # If --path argument is not provided, set the current working directory as path
     path = ns.path if ns.path is not None else Path.cwd()
 
-    training_mode = ns.training_mode
+    annotation_mode = ns.annotation_mode
 
-    if ns.chunk_start is not None and not training_mode:
+    if ns.chunk_start is not None and not annotation_mode:
         raise SystemExit(
-            "[ERROR] --chunk-start field is activated only when --training-mode is on."
+            "[ERROR] --chunk-start field is activated only when --annotation-mode is on."
         )
 
     if ns.path is None:
@@ -166,10 +166,10 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
                 "[ERROR] --chunk-start field requires --path argument referring to the specific document."
             )
 
-    # if ns.training-mode is None:
+    # if ns.annotation-mode is None:
     # if ns.pattern is None: raise SystemExit("[Error] --pattern is required.")
 
-    training_mode = ns.training_mode
+    annotation_mode = ns.annotation_mode
     print_corpus = ns.print_corpus
     pattern = ns.pattern
     document_type = ns.document_type
@@ -185,39 +185,39 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
         )
 
     # Search mode requires --pattern
-    if not (training_mode or print_corpus or corpus_list):
+    if not (annotation_mode or print_corpus or corpus_list):
         if pattern is None:
             raise SystemExit(
-                "[ERROR] --pattern is required unless --training-mode is set."
+                "[ERROR] --pattern is required unless --annotation-mode is set."
             )
 
-    training_data: Path | None = None
+    annotation_data: Path | None = None
 
-    if ns.training_data is not None:
-        training_data = Path(ns.training_data)
+    if ns.annotation_data is not None:
+        annotation_data = Path(ns.annotation_data)
 
-        if not training_data.is_absolute():
+        if not annotation_data.is_absolute():
             repo_root = Path(__file__).resolve().parents[2]
-            training_data = (repo_root / training_data).resolve()
+            annotation_data = (repo_root / annotation_data).resolve()
         else:
-            training_data = training_data.resolve()
+            annotation_data = annotation_data.resolve()
 
-    # If --training-data argument is not provided, set the default training file directory as training_data
+    # If --annotation-data argument is not provided, set the default annotation file directory as annotation_data
 
     else:
-        training_data = default_training_dir()
+        annotation_data = default_annotation_dir()
         print(
-            f"[INFO] No --training-data provided. Using the files in the default training file directory: {training_data}"
+            f"[INFO] No --annotation-data provided. Using the files in the default annotation file directory: {annotation_data}"
         )
 
-    # Guard: training data requires explicit period
-    if ns.training_data is not None and ns.period is None:
-        raise SystemExit("[ERROR] --training-data requires --period.")
+    # Guard: annotation data requires explicit period
+    if ns.annotation_data is not None and ns.period is None:
+        raise SystemExit("[ERROR] --annotation-data requires --period.")
 
-    # Set the default value of repr: "yale" for training-mode and "tagged_form" for search-mode
-    if (training_mode) and (ns.token_repr is None):
+    # Set the default value of repr: "yale" for annotation-mode and "tagged_form" for search-mode
+    if (annotation_mode) and (ns.token_repr is None):
         token_repr = "yale"
-    elif (not training_mode) and (ns.token_repr) is None:
+    elif (not annotation_mode) and (ns.token_repr) is None:
         token_repr = "tagged_form"
     else:
         token_repr = ns.token_repr
@@ -231,9 +231,9 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
         corpus_list=ns.corpus_list,
         period=ns.period,
         sort=ns.sort,
-        training_mode=ns.training_mode,
+        annotation_mode=ns.annotation_mode,
         classical_ch=ns.classical_ch,
-        training_data=training_data,
+        annotation_data=annotation_data,
         token_repr=token_repr,
         exclude_ch=ns.exclude_ch,
         print_corpus=ns.print_corpus,
@@ -422,14 +422,14 @@ def run_corpus_list(args: CLIArgs) -> None:
             )
 
 
-def run_train(args: CLIArgs) -> None:
+def run_annotation(args: CLIArgs) -> None:
 
-    # Training-only mode
+    # annotation-only mode
 
     # Assigning objects to the arguments
     encoding = args.encoding
     period = convert_to_century(args.period)
-    training_data = args.training_data
+    annotation_data = args.annotation_data
     sort = args.sort
     document_type = args.document_type
     pattern = args.pattern
@@ -441,11 +441,11 @@ def run_train(args: CLIArgs) -> None:
 
     VALID = [15, 16, 17, 18, 19, 20]  # Valid centuries for period filtering
 
-    # Guard clause: training mode requires an explicit period argument
+    # Guard clause: annotation mode requires an explicit period argument
 
     while period is None:
         raw = input(
-            "[INFO] Training mode requires period filtering. Enter 15-20: "
+            "[INFO] annotation mode requires period filtering. Enter 15-20: "
         ).strip()
         period = convert_to_century(raw)
 
@@ -455,7 +455,7 @@ def run_train(args: CLIArgs) -> None:
             ).strip()
             period = convert_to_century(raw)
 
-    lexicon = load_lemma_lexicon(period, training_data=training_data)
+    lexicon = load_lemma_lexicon(period, annotation_data=annotation_data)
 
     t0 = time.perf_counter()
     files = collect_input_files(
@@ -465,10 +465,10 @@ def run_train(args: CLIArgs) -> None:
 
     # Period argument has been provided and validated.
 
-    # Guard clause: no files to train on -> exit early
+    # Guard clause: no files to annotate on -> exit early
     if not files:
         print(f"[INFO] No supported files found for period={period}c")
-        print("[INFO] Training aborted.")
+        print("[INFO] annotation aborted.")
         return
 
     # Collect tokens.
@@ -482,23 +482,25 @@ def run_train(args: CLIArgs) -> None:
     if pattern:
         if token_repr == "tagged_form":
             print(
-                f"[INFO] Training-mode pattern filter enabled: {pattern!r} (matched against token.tagged_form)."
+                f"[INFO] annotation-mode pattern filter enabled: {pattern!r} (matched against token.tagged_form)."
             )
         rx = re.compile(pattern)
         is_bigram = (
             " " in pattern
-        )  # If pattern has a space, training unit becomes (Token, Token)
+        )  # If pattern has a space, annotation unit becomes (Token, Token)
 
     # Load
     infl_decomp = None
     pos_to_allowed_morphemes: dict[str, set[str]] = {}
 
-    if training_data is not None:
-        infl_decomp = load_infl_decomp_from_training(
-            training_data / f"training_{period}c.jsonl"
+    if annotation_data is not None:
+        infl_decomp = load_infl_decomp_from_annotation(
+            annotation_data / f"annotation_{period}c.jsonl"
         )
         pos_to_allowed_morphemes = (
-            load_pos_to_allowed_morphemes_inventory_from_training(training_data, period)
+            load_pos_to_allowed_morphemes_inventory_from_annotation(
+                annotation_data, period
+            )
         )
 
     t_tag = time.perf_counter()
@@ -549,40 +551,40 @@ def run_train(args: CLIArgs) -> None:
 
     token_lookup = {(t.source_id, t.token_index): t for t in all_tokens}
 
-    # Decide training targets after collecting everything.
+    # Decide annotation targets after collecting everything.
     # Non-bigram targets are chunks (list[list[Token]]) so that anno-sentence
-    # context/order is preserved for train(); a --pattern filter (without
+    # context/order is preserved for annotate(); a --pattern filter (without
     # bigram) still selects individual tokens, each wrapped as its own
     # single-token chunk.
     t_select = time.perf_counter()
     if pattern and is_bigram:
-        train_targets = bigram_hits
+        annotate_targets = bigram_hits
     elif pattern:
         if token_repr == "tagged_form":
-            train_targets = [
+            annotate_targets = [
                 [t] for t in all_tokens if t.tagged_form and rx.search(t.tagged_form)
             ]
         else:
-            train_targets = [[t] for t in all_tokens if t.yale and rx.search(t.yale)]
+            annotate_targets = [[t] for t in all_tokens if t.yale and rx.search(t.yale)]
     else:
-        train_targets = all_chunks
+        annotate_targets = all_chunks
     print(f"[TIMING] target selection: {time.perf_counter() - t_select:.3f}s")
 
     known_rests = set(infl_decomp) if infl_decomp else set()
 
     t_sort = time.perf_counter()
     if pattern and is_bigram:
-        # training_priority() operates on a single Token, not a (Token, Token)
-        # bigram pair, so bigram order is left as train() finds it.
+        # annotation_priority() operates on a single Token, not a (Token, Token)
+        # bigram pair, so bigram order is left as annotate() finds it.
         pass
     else:
         # Order chunks (not the tokens within them) by their most-urgent
         # token, so chunk-internal context order is never disturbed.
-        train_targets = sorted(
-            train_targets,
+        annotate_targets = sorted(
+            annotate_targets,
             key=lambda chunk: min(
                 (
-                    training_priority(tok, lexicon=lexicon, known_rests=known_rests)
+                    annotation_priority(tok, lexicon=lexicon, known_rests=known_rests)
                     for tok in chunk
                 ),
                 default=(3, ""),
@@ -590,15 +592,15 @@ def run_train(args: CLIArgs) -> None:
         )
     print(f"[TIMING] target sorting: {time.perf_counter() - t_sort:.3f}s")
 
-    t_train = time.perf_counter()
-    train(
-        train_targets,
+    t_annotate = time.perf_counter()
+    annotate(
+        annotate_targets,
         period=period,
-        training_data=training_data,
+        annotation_data=annotation_data,
         lexicon=lexicon,
         token_lookup=token_lookup,
     )
-    print(f"[TIMING] train(): {time.perf_counter() - t_train:.3f}s")
+    print(f"[TIMING] annotate(): {time.perf_counter() - t_annotate:.3f}s")
 
     return
 
@@ -613,7 +615,7 @@ def run_search(args: CLIArgs) -> None:
     encoding = args.encoding
     # display_context = args.display_context
     period = convert_to_century(args.period)
-    training_data = args.training_data
+    annotation_data = args.annotation_data
     document_type = args.document_type
     sort = args.sort
     files = collect_input_files(
@@ -634,7 +636,7 @@ def run_search(args: CLIArgs) -> None:
 
     # Search loop
 
-    lexicon = load_lemma_lexicon(period, training_data=training_data)
+    lexicon = load_lemma_lexicon(period, annotation_data=annotation_data)
 
     within_result_search = "n"
 
@@ -649,7 +651,7 @@ def run_search(args: CLIArgs) -> None:
                 args.path, period, sort=sort, document_type=document_type
             )
             last_period = period
-            lexicon = load_lemma_lexicon(period, training_data=training_data)
+            lexicon = load_lemma_lexicon(period, annotation_data=annotation_data)
 
             if not files:
                 print(f"[INFO] No supported files found for period={period}.")
@@ -663,13 +665,13 @@ def run_search(args: CLIArgs) -> None:
             infl_decomp = None
             pos_to_allowed_morphemes: dict[str, set[str]] = {}
 
-            if training_data is not None:
-                infl_decomp = load_infl_decomp_from_training(
-                    training_data / f"training_{period}c.jsonl"
+            if annotation_data is not None:
+                infl_decomp = load_infl_decomp_from_annotation(
+                    annotation_data / f"annotation_{period}c.jsonl"
                 )
                 pos_to_allowed_morphemes = (
-                    load_pos_to_allowed_morphemes_inventory_from_training(
-                        training_data, period
+                    load_pos_to_allowed_morphemes_inventory_from_annotation(
+                        annotation_data, period
                     )
                 )
 
@@ -825,7 +827,7 @@ def run_print_corpus(args: CLIArgs) -> None:
     # Assigning objects to arguments
     encoding = args.encoding
     period = convert_to_century(args.period)
-    training_data = args.training_data
+    annotation_data = args.annotation_data
     sort = args.sort
     document_type = args.document_type
     files = collect_input_files(
@@ -844,17 +846,19 @@ def run_print_corpus(args: CLIArgs) -> None:
 
     # Print loop
 
-    lexicon = load_lemma_lexicon(period, training_data=training_data)
+    lexicon = load_lemma_lexicon(period, annotation_data=annotation_data)
 
     infl_decomp = None
     pos_to_allowed_morphemes: dict[str, set[str]] = {}
 
-    if training_data is not None:
-        infl_decomp = load_infl_decomp_from_training(
-            training_data / f"training_{period}c.jsonl"
+    if annotation_data is not None:
+        infl_decomp = load_infl_decomp_from_annotation(
+            annotation_data / f"annotation_{period}c.jsonl"
         )
         pos_to_allowed_morphemes = (
-            load_pos_to_allowed_morphemes_inventory_from_training(training_data, period)
+            load_pos_to_allowed_morphemes_inventory_from_annotation(
+                annotation_data, period
+            )
         )
 
     for file_path in files:
@@ -896,17 +900,17 @@ def run(args: CLIArgs) -> None:
                 "[INFO] exclude_ch mode is on. Any tokens containing Chinese characters will not be included in token analysis."
             )
 
-    # Training mode
+    # annotation mode
 
-    if args.training_mode:
-        run_train(args)
+    if args.annotation_mode:
+        run_annotation(args)
         return
 
     # Print corpus mode
 
     if args.print_corpus:
         print(
-            "[INFO] print_corpus mode is on. Corpora will be printed with tagged morphemes based on the current training data."
+            "[INFO] print_corpus mode is on. Corpora will be printed with tagged morphemes based on the current annotation data."
         )
         run_print_corpus(args)
         return
