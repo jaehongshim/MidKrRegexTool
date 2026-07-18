@@ -126,6 +126,45 @@ def contains_han(s: str) -> bool:
     return False
 
 
+def label_han(yale: str) -> list[str, str]:
+
+    labeled_forms = []
+
+    # compiling regex pattern for Chinese characters
+    m1 = re.match(
+        r"^([\u4E00-\u9FFF]+hw?o)(.*?)$", yale
+    )  # verb with a Sino-Korean root
+    m2 = re.match(
+        r"^(.+?)([\.A-Za-z]+)$", yale
+    )  # yale containing a non-Chinese character
+
+    # 1-1. If yale contains a verbalizer, CH+ho/LEM.../INFL
+    if m1:
+        lem = m1.group(1)
+        suf = m1.group(2)
+
+        lem = f"{lem}/V.CH/LEM"
+        suf = f"{suf}/INFL"
+
+    # 1-2. If yale contains any non-Chinese characters, parse a boundary between CH/LEM-...
+    elif m2:
+        lem = m2.group(1)
+        suf = m2.group(2)
+
+        lem = f"{lem}/N.CH/LEM"
+        suf = f"{suf}/INFL"
+
+    # 1-3. else, yale is lemma.
+    else:
+        lem = f"{yale}/N.CH/LEM"
+        suf = ""
+
+    labeled_forms.append(lem)
+    labeled_forms.append(suf)
+
+    return labeled_forms
+
+
 def analyze_yale(
     yale: str,
     lexicon: dict[str, str] | None = None,
@@ -178,32 +217,13 @@ def analyze_yale(
     # 1. check if yale contains Chinese character
     if has_han:
 
-        # compiling regex pattern for Chinse characters
-        m1 = re.match(
-            r"^([\u4E00-\u9FFF]+hw?o)(.+?)$", yale
-        )  # verb with a Sino-Korean root
-        m2 = re.match(
-            r"^(.+?)([\.A-Za-z]+)$", yale
-        )  # yale containing a non-Chinese character
+        labeled_forms = label_han(yale)
 
-        # 1-1. If yale contains a verbalizer, CH+ho/LEM.../INFL
-        if m1:
-            lem = m1.group(1)
-            suf = m1.group(2)
-            # print(f"[DEBUG] {yale} -> {lem}/V.CH/LEM-{suf}/INFL")
-            candidates.append(f"{lem}/V.CH/LEM-{suf}/INFL")
+        labeled_form = "-".join(labeled_forms)
 
-        # 1-2. If yale contains any non-Chinese characters, parse a boundary between CH/LEM-...
-        elif m2:
-            lem = m2.group(1)
-            suf = m2.group(2)
-            # print(f"[DEBUG] {yale} -> {lem}/N.CH/LEM-{suf}/INFL")
-            candidates.append(f"{lem}/N.CH/LEM-{suf}/INFL")
+        labeled_form = labeled_form.strip("-")
 
-        # 1-3. else, yale is lemma.
-        else:
-            # print(f"[DEBUG] {yale} -> {yale}/N.CH/LEM")
-            candidates.append(f"{yale}/N.CH/LEM")
+        candidates.append(labeled_form)
 
     return list(dict.fromkeys(candidates))
 

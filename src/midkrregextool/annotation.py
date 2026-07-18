@@ -8,7 +8,12 @@ from pathlib import Path
 from prompt_toolkit import prompt
 
 from .model import Token
-from .tagger import _resolve_annotation_data, default_annotation_dir
+from .tagger import (
+    _resolve_annotation_data,
+    contains_han,
+    default_annotation_dir,
+    label_han,
+)
 
 _GLOSS_RX = re.compile(r"/[A-Za-z][A-Za-z0-9_-]*")
 
@@ -147,10 +152,21 @@ def _prompt_gold(
 
         for parsed_form in parsed_forms:
 
-            labeled_form = prompt_with_default(
-                f"Please label {parsed_form} with an appropriate label:",
-                parsed_form + "/",
-            )
+            has_han = contains_han(parsed_form)
+
+            if has_han:
+
+                [lem, suf] = label_han(parsed_form)
+
+                labeled_form = prompt_with_default(
+                    f"Please label {parsed_form} with an appropriate label: ", lem
+                )
+
+            else:
+                labeled_form = prompt_with_default(
+                    f"Please label {parsed_form} with an appropriate label: ",
+                    parsed_form + "/",
+                )
 
             labeled_forms.append(labeled_form)
 

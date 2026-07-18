@@ -438,13 +438,15 @@ def run_annotation(args: CLIArgs) -> None:
     classical_ch = args.classical_ch
     exclude_ch = args.exclude_ch
     chunk_start = args.chunk_start
-    path = args.path
 
     VALID = [15, 16, 17, 18, 19, 20]  # Valid centuries for period filtering
 
     # Guard clause: annotation mode requires an explicit period argument
 
-    while period is None and not Path.is_file(path):
+    
+    
+    while period is None:
+
         raw = input(
             "[INFO] annotation mode requires period filtering. Enter 15-20: "
         ).strip()

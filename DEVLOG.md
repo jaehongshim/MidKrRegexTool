@@ -764,7 +764,7 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 
 ## 2026-07-17
 
-### 오늘 할 일
+### 오늘 한 일
 
 - `annotation` (`training`) 모듈 개선
 	- [x] `training` 관련 용어 모두 `annotation`으로 수정
@@ -776,3 +776,19 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 - annotation 진행
 
 - 나중 과제: 파일이 path로 주어질 때 period 등 필요한 정보 안 주어져도 바로 뽑아쓸 수 있게 구현 필요
+
+## 2026-07-18
+
+### 오늘 한 일
+
+- [x] `annotation.py`의 `prompt_gold()` 사용성 개선
+  - `_segmentation()`의 출력 `parsed_forms`의 원소가 한자로 시작하면 사용자 인터페이스에 미리 plausible gold를 제시.
+    
+    - 예: 
+
+      > parsed_form == 巖
+      >
+      > Please label 巖 with an appropriate label: 巖/N.CH/LEM <- 기본 제시
+
+  - 현재 비슷한 기능을 수행하는 부분이 `tagger.py`의 `analyze_yale`에 있으므로 `tagger.py`에 이 부분을 전담하는 함수 `label_han()`을 구현
+    - `candidate_generator()`에도 비슷한 부분이 있어 정리 필요할 수 있음. 
