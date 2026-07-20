@@ -15,6 +15,7 @@ from midkrregextool.annotation import (
     annotation_priority,
     load_infl_decomp_from_annotation,
     load_pos_to_allowed_morphemes_inventory_from_annotation,
+    prompt_with_default,
 )
 from midkrregextool.model import Token
 from midkrregextool.parser import parse_file
@@ -27,9 +28,9 @@ from midkrregextool.yale import attach_yale
 @dataclass(frozen=True)
 class CLIArgs:
     path: Path
+    period: str | None
     pattern: str | None
     purpose: str | None
-    period: str | None
     sort: str | None
     encoding: str = "utf-16"
     # display_context: bool = False
@@ -166,6 +167,9 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
                 "[ERROR] --chunk-start field requires --path argument referring to the specific document."
             )
 
+    else:
+        path = ns.path
+
     # if ns.annotation-mode is None:
     # if ns.pattern is None: raise SystemExit("[Error] --pattern is required.")
 
@@ -210,8 +214,26 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
             f"[INFO] No --annotation-data provided. Using the files in the default annotation file directory: {annotation_data}"
         )
 
+    # Guard clause: no --period; individual file as --path
+
+    if path.is_file() and ns.period is None:
+        root = ET.parse(path).getroot()
+
+        published_year = (
+            root.findtext(".//teiHeader//titleStmt//date") or root.findtext(".//date")
+        ).strip()
+        published_year = (published_year or "").strip()
+
+        period = convert_to_century(published_year)
+
+    elif ns.period is not None:
+        period = ns.period
+
+    else:
+        period = ""
+
     # Guard: annotation data requires explicit period
-    if ns.annotation_data is not None and ns.period is None:
+    if ns.annotation_data is not None and period == "":
         raise SystemExit("[ERROR] --annotation-data requires --period.")
 
     # Set the default value of repr: "yale" for annotation-mode and "tagged_form" for search-mode
@@ -224,12 +246,12 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
 
     return CLIArgs(
         path,
+        period,
         pattern=ns.pattern,
         purpose=ns.purpose,
         encoding=ns.encoding,
         # display_context=ns.display_context,
         corpus_list=ns.corpus_list,
-        period=ns.period,
         sort=ns.sort,
         annotation_mode=ns.annotation_mode,
         classical_ch=ns.classical_ch,
@@ -315,16 +337,23 @@ def collect_input_files(
     return sorted(matched_files)
 
 
-def convert_to_century(year: str) -> int | None:
-    year = (year or "").strip()
+def convert_to_century(year: str | int) -> int | None:
+
     if not year:
         return None
 
-    m = re.search(r"\d+", year)
-    if m is None:
-        return None
+    elif isinstance(year, str):
 
-    y = int(m.group())
+        year = (year or "").strip()
+
+        m = re.search(r"\d+", year)
+        if m is None:
+            return None
+
+        y = int(m.group())
+
+    else:
+        y = year
 
     if y < 20:
         return y
@@ -332,7 +361,7 @@ def convert_to_century(year: str) -> int | None:
     return (y - 1) // 100 + 1
 
 
-def build_anno_chunks(
+def sent_type_selection(
     tokens: list[Token],
     *,
     chunk_start: str | None = None,
@@ -346,8 +375,31 @@ def build_anno_chunks(
     chunks: list[list[Token]] = []
     current: list[Token] = []
 
+    # Collect sent_types
+    sent_types = set()
     for token in tokens:
-        if token.is_note == "anno":
+
+        if token.sent_type not in sent_types:
+            sent_types.add(token.sent_type)
+
+        else:
+            continue
+
+    print(
+        f"[INFO]: This file has tokens with the following sentence types: {sent_types}"
+    )
+    existing_sent_types = ", ".join(sent_types)
+
+    chosen_sent_type = prompt_with_default(
+        "Please provide the sent_type you want to process, separated with commas: ",
+        existing_sent_types,
+    ).strip()
+
+    chosen_sent_types = chosen_sent_type.split(", ")
+
+    for token in tokens:
+
+        if token.sent_type in chosen_sent_types:
             current.append(token)
         elif current:
             chunks.append(current)
@@ -443,8 +495,6 @@ def run_annotation(args: CLIArgs) -> None:
 
     # Guard clause: annotation mode requires an explicit period argument
 
-    
-    
     while period is None:
 
         raw = input(
@@ -523,7 +573,7 @@ def run_annotation(args: CLIArgs) -> None:
         )
 
         all_tokens.extend(tokens)
-        all_chunks.extend(build_anno_chunks(tokens, chunk_start=chunk_start))
+        all_chunks.extend(sent_type_selection(tokens, chunk_start=chunk_start))
 
         if pattern and is_bigram:
             # Bigram hits must be collected per file (do NOT cross file boundaries).

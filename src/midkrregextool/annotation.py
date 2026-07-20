@@ -444,6 +444,7 @@ def annotate(
                             "token_index": token.token_index,
                             "token": token.unicode_form,
                             "gold_morph": None,
+                            "sent_type": token.sent_type,
                             "skipped": True,
                         }
                         f.write(json.dumps(skip_obj, ensure_ascii=False) + "\n")
@@ -456,6 +457,7 @@ def annotate(
                         "token_index": token.token_index,
                         "token": token.unicode_form,
                         "gold_morph": gold_morph,
+                        "sent_type": token.sent_type,
                     }
 
                     f.write(json.dumps(obj, ensure_ascii=False) + "\n")
@@ -708,12 +710,14 @@ def load_annotated_keys(annotation_path: Path) -> set[tuple[str, int]]:
             source_id = obj.get("source_id")
             token_index = obj.get("token_index")
             gold_morph = obj.get("gold_morph")
+            sent_type = obj.get("sent_type")
 
             if (
                 source_id is not None
                 and isinstance(token_index, int)
                 and isinstance(gold_morph, str)
                 and gold_morph
+                and sent_type
             ):
                 annotated_keys.add((source_id, token_index))
 

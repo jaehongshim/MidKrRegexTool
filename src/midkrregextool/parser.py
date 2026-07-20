@@ -242,13 +242,13 @@ def parse_xml_file(
         page = sent.get("page")
         n = sent.get("n")
         lang = sent.get("lang")
-        stype = sent.get("type")
+        sent_type = sent.get("type")
 
         source_id = f"{doc_name}:{page}:{n}:{lang}"
 
         token_index = 0
 
-        if stype == "dharani":
+        if sent_type == "dharani":
             continue
 
         for word in text.split():
@@ -264,9 +264,10 @@ def parse_xml_file(
                     source_id=source_id,
                     token_index=token_index,
                     pua=word,
-                    is_note=stype,
+                    is_note=sent_type,
                     context=current_context,
                     lang=lang,
+                    sent_type=sent_type,
                 )
             )
 

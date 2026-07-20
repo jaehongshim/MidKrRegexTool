@@ -15,6 +15,7 @@ class Token:
     unicode_form: Optional[str] = None
     yale: Optional[str] = None
     is_note: str = "MAIN"
+    sent_type: str = None
     context: Optional[str] = None
     matched_part: Optional[str] = None
     # Morph-layer (optional; filled only when available)

@@ -792,3 +792,27 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 
   - 현재 비슷한 기능을 수행하는 부분이 `tagger.py`의 `analyze_yale`에 있으므로 `tagger.py`에 이 부분을 전담하는 함수 `label_han()`을 구현
     - `candidate_generator()`에도 비슷한 부분이 있어 정리 필요할 수 있음. 
+
+## 2026-07-19
+
+### 오늘 한 일
+
+- 유저 편의성 증진
+  - [x] 개별 파일이 `--path`로 들어오면 `--period` 인자가 주어지지 않아도 그냥 모든 모드를 실행시킬 수 있도록 함.  
+    - `parse_cli()` 초단부에서 `--path`가 개별 파일인 것으로 확인되면 강제로 `--period` 인자를 주는 방식
+
+- [x] `sent type`을 토큰 메타데이터로 받아올 수 있게 `model.py`의 `Token` 자료형j 확장
+  - [x] 이미 훈련한 데이터에 `sent_type` = "anno" 따위의 데이터 추가할 것
+
+- `annotation.py` 확장
+  - gold에 `sent_type` 필드 추가
+  - `anno` 뿐 아니라 모든 sent type을 할 수 있게.
+    - [x] `build_anno_chunks()` 함수 이름을 `sent_type_selection()`으로 변경 
+    - [x] `cli.py`의 `sent_type_selection()` 초단에 해당 코퍼스의 `sent type`이 무엇이 있는지 모두 보여주고 분석 원하는 sent type 선택하게 하기. 
+    - [x] annotation에 포함할 `sent_type` 선택하는 유저 인터페이스 추가
+
+### 아직 못 한 일
+
+- Debug
+  - `出家h(o)`가 자동 태깅 시 N.CH/LEM으로 태깅되는 문제
+  - `般若`가 candidate generate되지 않음.
