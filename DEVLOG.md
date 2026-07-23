@@ -826,7 +826,7 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 ### 오늘 한 일
 
 - gold file 관련
-  - [ ] gold file의 tagged_form이 모두 surface form에 기반하도록 업데이트
+  - [x] gold file의 tagged_form이 모두 surface form에 기반하도록 업데이트
     - 괄호 포함하는 토큰 검색해서 수정
   - 현재 모델 트레이닝 시 context 정보가 직접적으로 들어가고 있지 않다는 문제가 있음. 
     - 앞 뒤 sent chunk를 gold에 정보로 넣어 이후 트레이닝 시 context가 필요하면 바로 활용할 수 있도록 확장
@@ -859,14 +859,25 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
                 context_idx[current_context_idx - 1] /
                 context_idx[current_context_idx + 1]로 조회
           - [x] main과 anno 모두 동일한 방식(sent_type별 사전 + source_id 순서
-                색인)으로 처리 — anno가 연속된 <sent> 사이에서만 참조되는 것도
-                이 방식 하나로 자연스럽게 보장됨 (별도 분기 불필요)
+                색인)으로 처리
           - [ ] lang까지 같이 걸러서 그룹 짓는 것은 아직 미반영 —
                 지금은 sent_type만으로 그룹화 (다음 단계 과제)
 
-      3. [ ] 지금까지 한 annotation 파일에 context 정보(context/prev_context/
-            next_context)를 소급 추가해 줄 방안 고민할 것
-    4. 여기까지 한 후 지금까지 한 annotation 파일에 context 정보 추가해 줄 방안 고민해 볼 것. 
+      3. [x] 지금까지 한 annotation 파일에 context 정보(context/prev_context/
+            next_context)를 소급 추가 -> Claude AI 활용
+
+      4. [x] anno의 prev/next_context가 실제로는 인접하지 않은 경우까지
+            연결되는 버그 수정
+        - 문제: sent_type별로 필터링된 source_id 목록에서만 이웃을 찾다 보니,
+          두 anno 문장 사이에 main 문장이 끼어 있어도(즉, 실제 원문 순서상
+          서로 떨어져 있어도) "같은 sent_type 안에서 가장 가까운 이웃"으로
+          잘못 연결되고 있었음.
+        - 수정: sent_type == "anno"인 토큰에 한해서는, 전체 문서 순서
+          (sent_type 무관, cli.py의 sent_type_by_source_id)상 바로 이전/다음
+          source_id를 확인하고, 그 source_id도 sent_type == "anno"일 때만
+          prev_context/next_context로 사용. main은 기존 방식 그대로 유지.
+        - annotation_15c.jsonl의 기존 anno 항목(659개 중 655개)도 corpus
+          원문(D:\Corpus\NIKL 소재 XML)을 다시 파싱해 소급 수정.
 
 ### 오늘 할 일
 
@@ -880,8 +891,3 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
   - 중기:
     - 트레이닝을 한글 input으로 진행할 가능성
     - 트레이닝에 context 적절히 구현할 방법
-
-- gold file 관련
-  - [ ] gold file의 tagged_form이 모두 surface form에 기반하도록 업데이트
-  - [ ] 현재 모델 트레이닝 시 context 정보가 직접적으로 들어가고 있지 않다는 문제가 있음. 
-  - [ ] 앞 뒤 sent chunk를 gold에 정보로 넣어 이후 트레이닝 시 context가 필요하면 바로 활용할 수 있도록 확장

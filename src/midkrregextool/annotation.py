@@ -327,6 +327,7 @@ def annotate(
     lexicon: dict[str, str] | None = None,
     token_lookup: dict[tuple[str, int], Token] | None = None,
     context_by_sent_type: dict[str, dict] | None = None,
+    sent_type_by_source_id: dict[str, str] | None = None,
 ) -> None:
 
     def _remove_bracket_from_context(raw_context: str | None = None) -> str | None:
@@ -391,6 +392,17 @@ def annotate(
             # in their original (context-preserving) order.
             random.shuffle(chunks)
 
+            # source_id order across the whole document (all sent_types),
+            # used to verify true adjacency for "anno" tokens: two anno
+            # sentences only count as neighbors if nothing else sits
+            # between them in the original document.
+            full_order_ids = (
+                list(sent_type_by_source_id.keys())
+                if sent_type_by_source_id is not None
+                else []
+            )
+            full_order_index = {sid: i for i, sid in enumerate(full_order_ids)}
+
             previous_sent_type = None
 
             for chunk in chunks:
@@ -405,21 +417,53 @@ def annotate(
                         context_by_source_id = context_by_sent_type[token.sent_type]
                         context_idx = list(context_by_source_id.keys())
 
-                    current_context_idx = context_idx.index(token.source_id)
+                    if token.sent_type == "anno" and sent_type_by_source_id is not None:
+                        # "anno" chunks only reference an *immediately*
+                        # adjacent anno sentence in the original document
+                        # order. If a "main" (or any other) sentence sits
+                        # between two anno sentences, they are not
+                        # adjacent, so prev/next_context must be None
+                        # instead of skipping over the gap.
+                        full_idx = full_order_index.get(token.source_id)
 
-                    if current_context_idx > 0:
-                        prev_source_id = context_idx[current_context_idx - 1]
-                        prev_context = context_by_source_id[prev_source_id]
-                    else:
                         prev_source_id = None
-                        prev_context = None
+                        if full_idx is not None and full_idx > 0:
+                            candidate_id = full_order_ids[full_idx - 1]
+                            if sent_type_by_source_id.get(candidate_id) == "anno":
+                                prev_source_id = candidate_id
 
-                    if current_context_idx < len(context_idx) - 1:
-                        next_source_id = context_idx[current_context_idx + 1]
-                        next_context = context_by_source_id[next_source_id]
-                    else:
                         next_source_id = None
-                        next_context = None
+                        if full_idx is not None and full_idx < len(full_order_ids) - 1:
+                            candidate_id = full_order_ids[full_idx + 1]
+                            if sent_type_by_source_id.get(candidate_id) == "anno":
+                                next_source_id = candidate_id
+
+                        prev_context = (
+                            context_by_source_id[prev_source_id]
+                            if prev_source_id is not None
+                            else None
+                        )
+                        next_context = (
+                            context_by_source_id[next_source_id]
+                            if next_source_id is not None
+                            else None
+                        )
+                    else:
+                        current_context_idx = context_idx.index(token.source_id)
+
+                        if current_context_idx > 0:
+                            prev_source_id = context_idx[current_context_idx - 1]
+                            prev_context = context_by_source_id[prev_source_id]
+                        else:
+                            prev_source_id = None
+                            prev_context = None
+
+                        if current_context_idx < len(context_idx) - 1:
+                            next_source_id = context_idx[current_context_idx + 1]
+                            next_context = context_by_source_id[next_source_id]
+                        else:
+                            next_source_id = None
+                            next_context = None
 
                     # Remove brackets from contexts
                     prev_context = _remove_bracket_from_context(prev_context)

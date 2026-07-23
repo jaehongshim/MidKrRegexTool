@@ -595,6 +595,16 @@ def run_annotation(args: CLIArgs) -> None:
             for sent_type in sent_types
         }
 
+        # source_id -> sent_type across the *whole* document (not filtered
+        # by sent_type), in original document order. Lets annotate() check
+        # whether a source_id's true neighbor in the document is also an
+        # "anno" sentence, instead of just its nearest neighbor among
+        # same-sent_type sentences (which can skip over intervening "main"
+        # sentences).
+        sent_type_by_source_id = {
+            token.source_id: token.sent_type for token in all_tokens
+        }
+
         all_chunks.extend(sent_type_selection(tokens, chunk_start=chunk_start))
 
         if pattern and is_bigram:
@@ -675,6 +685,7 @@ def run_annotation(args: CLIArgs) -> None:
         lexicon=lexicon,
         token_lookup=token_lookup,
         context_by_sent_type=context_by_sent_type,
+        sent_type_by_source_id=sent_type_by_source_id,
     )
     print(f"[TIMING] annotate(): {time.perf_counter() - t_annotate:.3f}s")
 
