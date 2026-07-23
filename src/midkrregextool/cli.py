@@ -21,7 +21,12 @@ from midkrregextool.model import Token
 from midkrregextool.parser import parse_file
 from midkrregextool.report import maybe_save_hits, report_hits
 from midkrregextool.search import search_tokens
-from midkrregextool.tagger import default_annotation_dir, load_lemma_lexicon, tag_tokens
+from midkrregextool.tagger import (
+    default_annotation_dir,
+    load_bilstm_artifacts,
+    load_lemma_lexicon,
+    tag_tokens,
+)
 from midkrregextool.yale import attach_yale
 
 
@@ -509,6 +514,7 @@ def run_annotation(args: CLIArgs) -> None:
             period = convert_to_century(raw)
 
     lexicon = load_lemma_lexicon(period, annotation_data=annotation_data)
+    model, vocab = load_bilstm_artifacts()
 
     t0 = time.perf_counter()
     files = collect_input_files(
@@ -570,6 +576,8 @@ def run_annotation(args: CLIArgs) -> None:
             lexicon=lexicon,
             infl_decomp=infl_decomp,
             pos_to_allowed_morphemes=pos_to_allowed_morphemes,
+            model=model,
+            vocab=vocab,
         )
 
         all_tokens.extend(tokens)
@@ -690,6 +698,7 @@ def run_search(args: CLIArgs) -> None:
     # Search loop
 
     lexicon = load_lemma_lexicon(period, annotation_data=annotation_data)
+    model, vocab = load_bilstm_artifacts()
 
     within_result_search = "n"
 
@@ -705,6 +714,7 @@ def run_search(args: CLIArgs) -> None:
             )
             last_period = period
             lexicon = load_lemma_lexicon(period, annotation_data=annotation_data)
+            model, vocab = load_bilstm_artifacts()
 
             if not files:
                 print(f"[INFO] No supported files found for period={period}.")
@@ -740,6 +750,8 @@ def run_search(args: CLIArgs) -> None:
                     lexicon=lexicon,
                     infl_decomp=infl_decomp,
                     pos_to_allowed_morphemes=pos_to_allowed_morphemes,
+                    model=model,
+                    vocab=vocab,
                 )
 
                 hits = search_tokens(tokens, pattern, token_repr)
@@ -900,6 +912,7 @@ def run_print_corpus(args: CLIArgs) -> None:
     # Print loop
 
     lexicon = load_lemma_lexicon(period, annotation_data=annotation_data)
+    model, vocab = load_bilstm_artifacts()
 
     infl_decomp = None
     pos_to_allowed_morphemes: dict[str, set[str]] = {}
@@ -926,6 +939,8 @@ def run_print_corpus(args: CLIArgs) -> None:
             lexicon=lexicon,
             infl_decomp=infl_decomp,
             pos_to_allowed_morphemes=pos_to_allowed_morphemes,
+            model=model,
+            vocab=vocab,
         )
 
         for token in tokens:

@@ -7,6 +7,9 @@ import re
 import unicodedata
 from pathlib import Path
 
+import torch
+
+from .bilstm import CandidateScorer, encode_string
 from .model import Token
 
 CATEGORY_CHANGERS = {
@@ -228,12 +231,57 @@ def analyze_yale(
     return list(dict.fromkeys(candidates))
 
 
+def load_bilstm_artifacts(
+    model_path: Path | None = None,
+    vocab_path: Path | None = None,
+) -> tuple[CandidateScorer | None, dict[str, int] | None]:
+    """
+    학습된 BiLSTM 모델과 그 짝인 vocab을 최선을 다해 불러온다.
+    파일이 없거나 불러오다 실패하면 (None, None)을 반환해서,
+    tag_tokens()이 규칙 기반(candidates[0])으로 자연스럽게 대체되도록 한다.
+    """
+    model_path = model_path or Path("bilstm_model.pt")
+    vocab_path = vocab_path or Path("bilstm_vocab.json")
+
+    if not model_path.exists() or not vocab_path.exists():
+        return None, None
+
+    try:
+        with open(vocab_path, encoding="utf-8") as f:
+            vocab = json.load(f)
+        model = CandidateScorer(vocab_size=len(vocab))
+        model.load_state_dict(torch.load(model_path))
+        model.eval()
+        return model, vocab
+    except Exception as e:
+        print(f"[WARN] BiLSTM 모델/vocab 로딩 실패: {e}. 규칙 기반으로 대체합니다.")
+        return None, None
+
+
+def predict_best_candidate(
+    candidates: list[str],
+    vocab: dict[str, int],
+    model: CandidateScorer,
+) -> str:
+    scores = []
+    for c in candidates:
+        char_ids = encode_string(vocab, c)
+        char_tensor = torch.tensor(char_ids, dtype=torch.long).unsqueeze(0)
+        score = model(char_tensor)
+        scores.append(score.item())
+
+    best_idx = scores.index(max(scores))
+    return candidates[best_idx]
+
+
 def tag_tokens(
     tokens: list[Token],
     *,
     lexicon: dict[str, str],
     infl_decomp: dict[str, str] | None = None,
     pos_to_allowed_morphemes: dict[str, set[str]] | None = None,
+    model: CandidateScorer | None = None,
+    vocab: dict[str, int] | None = None,
 ) -> list[Token]:
     """Enrich tokens with morphological tagging for downstream processing."""
 
@@ -350,7 +398,12 @@ def tag_tokens(
         else:
             token.tagged_candidates = list(dict.fromkeys(candidates))
 
-        token.tagged_form = token.tagged_candidates[0]
+        if model is not None and vocab is not None and len(token.tagged_candidates) > 1:
+            token.tagged_form = predict_best_candidate(
+                token.tagged_candidates, vocab, model
+            )
+        else:
+            token.tagged_form = token.tagged_candidates[0]
 
         if ("/DAT" in token.tagged_form) or ("/GEN" in token.tagged_form):
             pending_token_idx.append(i)

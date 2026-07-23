@@ -811,8 +811,33 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
     - [x] `cli.py`의 `sent_type_selection()` 초단에 해당 코퍼스의 `sent type`이 무엇이 있는지 모두 보여주고 분석 원하는 sent type 선택하게 하기. 
     - [x] annotation에 포함할 `sent_type` 선택하는 유저 인터페이스 추가
 
-### 아직 못 한 일
+## 2026-07-22
+### 오늘 한 일
+- `tagger.py`에 bilstm 이용한 추론 함수 `predict_best_candidate()` 구현
+  - [x] 함수 파이프라인 구현
+  - [x] tag_tokens()의 기존 candidate 선택 라인 대체
+    - [x] tag_tokens()의 input에 다음을 추가
+      - model: CandidateScorer | None = None,
+      - vocab: dict[str, int] | None = None,
+    - [x] tag_tokens()의 기존 candidate selection line은 fallback으로 남겨 둠. 
 
-- Debug
-  - `出家h(o)`가 자동 태깅 시 N.CH/LEM으로 태깅되는 문제
-  - `般若`가 candidate generate되지 않음.
+## 2026-07-23
+
+### 오늘 한 일
+
+
+- BiLSTM 모듈 개선
+  - [ ] 자소가 아닌 형태소 단위로 토큰화해서 encode할 수 있도록 refactoring
+    - 실제 나오는 vocab 확인할 것
+  - [ ] 모델 성능 비교할 수 있도록 시각화
+    - 트레이닝 결과 display 성능 형태로 대상 토큰 n개 중 몇 개가 제대로 되었는지
+  - [ ] training 이루어진 것과 이루어지지 않은 것 사이 즉각 비교 가능하도록 구현
+
+  - 중기:
+    - 트레이닝을 한글 input으로 진행할 가능성
+    - 트레이닝에 context 적절히 구현할 방법
+
+- gold file 관련
+  - [ ] gold file의 tagged_form이 모두 surface form에 기반하도록 업데이트
+  - [ ] 현재 모델 트레이닝 시 context 정보가 직접적으로 들어가고 있지 않다는 문제가 있음. 
+  - [ ] 앞 뒤 sent chunk를 gold에 정보로 넣어 이후 트레이닝 시 context가 필요하면 바로 활용할 수 있도록 확장

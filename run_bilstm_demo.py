@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import torch
+
 from src.midkrregextool.annotation import (
     load_infl_decomp_from_annotation,
     load_pos_to_allowed_morphemes_inventory_from_annotation,
@@ -76,5 +78,9 @@ else:
 
     # 5. 학습 한 바퀴 (에러 없이 도는지 확인이 목표)
     train_bilstm(dataset, model, epochs=3)
+
+    torch.save(model.state_dict(), "bilstm_model.pt")
+    with open("bilstm_vocab.json", "w", encoding="utf-8") as f:
+        json.dump(vocab, f, ensure_ascii=False)
 
     print("[INFO] Done. Pipeline ran end to end.")
