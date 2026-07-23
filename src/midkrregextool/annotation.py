@@ -326,7 +326,14 @@ def annotate(
     annotation_data: Path | None,
     lexicon: dict[str, str] | None = None,
     token_lookup: dict[tuple[str, int], Token] | None = None,
+    context_by_sent_type: dict[str, dict] | None = None,
 ) -> None:
+
+    def _remove_bracket_from_context(raw_context: str | None = None) -> str | None:
+        if raw_context is None:
+            return None
+        context = raw_context.replace("<<", "").replace(">>", "")
+        return context
 
     period_tag = f"{period}c"
 
@@ -384,10 +391,40 @@ def annotate(
             # in their original (context-preserving) order.
             random.shuffle(chunks)
 
+            previous_sent_type = None
+
             for chunk in chunks:
                 for token in chunk:
                     # Guard clause
                     gold_morph: str | None = None
+
+                    if (
+                        previous_sent_type is None
+                        or token.sent_type != previous_sent_type
+                    ):
+                        context_by_source_id = context_by_sent_type[token.sent_type]
+                        context_idx = list(context_by_source_id.keys())
+
+                    current_context_idx = context_idx.index(token.source_id)
+
+                    if current_context_idx > 0:
+                        prev_source_id = context_idx[current_context_idx - 1]
+                        prev_context = context_by_source_id[prev_source_id]
+                    else:
+                        prev_source_id = None
+                        prev_context = None
+
+                    if current_context_idx < len(context_idx) - 1:
+                        next_source_id = context_idx[current_context_idx + 1]
+                        next_context = context_by_source_id[next_source_id]
+                    else:
+                        next_source_id = None
+                        next_context = None
+
+                    # Remove brackets from contexts
+                    prev_context = _remove_bracket_from_context(prev_context)
+                    next_context = _remove_bracket_from_context(next_context)
+                    current_context = _remove_bracket_from_context(token.context)
 
                     if (token.source_id, token.token_index) in annotated_keys:
                         continue
@@ -445,6 +482,9 @@ def annotate(
                             "token": token.unicode_form,
                             "gold_morph": None,
                             "sent_type": token.sent_type,
+                            "context": current_context,
+                            "prev_context": prev_context,
+                            "next_context": next_context,
                             "skipped": True,
                         }
                         f.write(json.dumps(skip_obj, ensure_ascii=False) + "\n")
@@ -458,6 +498,9 @@ def annotate(
                         "token": token.unicode_form,
                         "gold_morph": gold_morph,
                         "sent_type": token.sent_type,
+                        "context": current_context,
+                        "prev_context": prev_context,
+                        "next_context": next_context,
                     }
 
                     f.write(json.dumps(obj, ensure_ascii=False) + "\n")
@@ -467,6 +510,7 @@ def annotate(
                     annotated_so_far += 1
                     if yale:
                         session_gold[yale] = gold_morph
+                    previous_sent_type = token.sent_type
 
         # Branch for bigram-annotation mode
 

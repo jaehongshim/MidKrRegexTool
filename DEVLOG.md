@@ -825,6 +825,50 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 
 ### 오늘 한 일
 
+- gold file 관련
+  - [ ] gold file의 tagged_form이 모두 surface form에 기반하도록 업데이트
+    - 괄호 포함하는 토큰 검색해서 수정
+  - 현재 모델 트레이닝 시 context 정보가 직접적으로 들어가고 있지 않다는 문제가 있음. 
+    - 앞 뒤 sent chunk를 gold에 정보로 넣어 이후 트레이닝 시 context가 필요하면 바로 활용할 수 있도록 확장
+    - 지금까지 annotation한 토큰에 context 정보 넣을 수 있도록 확장 필요함.
+
+      1. [x] annotate.py의 annotate()에서 저장 코드에 다음 필드를 추가.
+        - "context": token.context
+        - "prev_context": prev_context
+        - "next_context": next_context
+
+      2. [x] prev_context와 next_context 할당
+        - 다음 정보를 기반으로 처리:
+          - 현재 token_index
+          - 현재 sent_type
+        - 이전 컨텍스트와 다음 컨텍스트는 모두 **sent_type**이 같은 것 가운데
+          **source_id**가 가장 가까운 것을 가져온다 (중간에 다른 sent_type이
+          끼어 있어도 건너뛰고, 같은 sent_type 안에서만 가장 가까운 이웃을 찾음).
+        - 구현 방식:
+          - [x] 토큰에 태깅된 직후, sent_type별로 (그 sent_type에 속한 토큰만
+                필터링된) source_id:token.context 사전을 담은
+                context_by_sent_type 생성
+          - [x] sent_type이 바뀔 때만 context_by_source_id / context_idx를
+                새로 계산하고, 그 외에는 직전에 계산해둔 것을 재사용
+                (재계산 여부와 무관하게, 매 토큰은 항상 처리된다)
+          - [x] current_context_idx = context_idx.index(token.source_id)로
+                현재 위치 확인
+          - [x] prev_context, next_context는 서로 독립적으로 판단 —
+                맨 처음 위치면 prev_context = None, 맨 마지막 위치면
+                next_context = None, 그 외에는 각각
+                context_idx[current_context_idx - 1] /
+                context_idx[current_context_idx + 1]로 조회
+          - [x] main과 anno 모두 동일한 방식(sent_type별 사전 + source_id 순서
+                색인)으로 처리 — anno가 연속된 <sent> 사이에서만 참조되는 것도
+                이 방식 하나로 자연스럽게 보장됨 (별도 분기 불필요)
+          - [ ] lang까지 같이 걸러서 그룹 짓는 것은 아직 미반영 —
+                지금은 sent_type만으로 그룹화 (다음 단계 과제)
+
+      3. [ ] 지금까지 한 annotation 파일에 context 정보(context/prev_context/
+            next_context)를 소급 추가해 줄 방안 고민할 것
+    4. 여기까지 한 후 지금까지 한 annotation 파일에 context 정보 추가해 줄 방안 고민해 볼 것. 
+
+### 오늘 할 일
 
 - BiLSTM 모듈 개선
   - [ ] 자소가 아닌 형태소 단위로 토큰화해서 encode할 수 있도록 refactoring

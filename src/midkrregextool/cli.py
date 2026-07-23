@@ -580,7 +580,21 @@ def run_annotation(args: CLIArgs) -> None:
             vocab=vocab,
         )
 
+        # 각각의 sent_type마다 독립된 처리 가능하도록 sent_type을 key로 하고 해당 token의 오름차순으로 정렬된 source_id 값과 거기에 대응하는 context로 이루어진 dict를 값으로 하는 dict context_by_sent_type
+
         all_tokens.extend(tokens)
+
+        sent_types = {token.sent_type for token in tokens}
+
+        context_by_sent_type = {
+            sent_type: {
+                token.source_id: token.context
+                for token in all_tokens
+                if token.sent_type == sent_type
+            }
+            for sent_type in sent_types
+        }
+
         all_chunks.extend(sent_type_selection(tokens, chunk_start=chunk_start))
 
         if pattern and is_bigram:
@@ -660,6 +674,7 @@ def run_annotation(args: CLIArgs) -> None:
         annotation_data=annotation_data,
         lexicon=lexicon,
         token_lookup=token_lookup,
+        context_by_sent_type=context_by_sent_type,
     )
     print(f"[TIMING] annotate(): {time.perf_counter() - t_annotate:.3f}s")
 
