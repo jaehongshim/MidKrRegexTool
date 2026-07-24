@@ -879,12 +879,50 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
         - annotation_15c.jsonl의 기존 anno 항목(659개 중 655개)도 corpus
           원문(D:\Corpus\NIKL 소재 XML)을 다시 파싱해 소급 수정.
 
+      4. [x] sent_type = "anno"일 경우 인접한 chunk만을 context로 참조하게 리팩토링.
+
+## 2026-07-24
+
+### 오늘 한 일
+
+### 오늘 할 일
+- BiLSTM 모듈 개선
+  - [x] bilstm.py > build_annotated_examples() > annotated_example 확장
+    - 목표: annotated_example에 prev_context, next_context를 추가
+      - 선결 과제: prev_context와 next_context를 bilstm.py에서 참조할 수 있는 방안 마련
+        - 지금은 prev_context와 next_context가 annotation.py > annotate()에서 할당되어 골드로 들어가기 때문에 bilstm 파이프라인에서 이를 직접 참조할 수 없음. 
+        - 해결 방안:
+          - [x] annotate.py > annotate()에서 prev_context와 next_context 및 current_context를 만드는 로직을 build_adjacent_contexts()로 함수화. 
+            - 이 함수는 다음 입력을 필요로 함.
+              - tokens
+              - sent_type_by_source_id
+              - context_by_source_id
+            - 출력은 모든 토큰 각각의 source_id를 키로 하여 (sent_type, prev_context, current_context, next_context)를 값으로 하는 dictionary
+            - 맨 끝단에서 다른 출전에서 나온 것들끼리 context로 잡는 것을 막을 수 있도록 guard clause 넣어줄 것. 
+          - [x] source_id 만을 입력으로 받는 래퍼 함수 get_adjacent_context()도 함수화.
+          - [x] cli.py에 맞추어 리팩토링
+          - [x] sent_type_selection()을 prompt_sent_types()와 filter_chunks_by_sent_type()으로 분리. 
+
+## 2026-07-27
+
+### 오늘 한 일
+- BiLSTM 모듈 개선
+  - [x] 자소가 아닌 형태소 단위로 토큰화해서 encode할 수 있도록 refactoring
+    - 실제 나오는 vocab 확인할 것
+    - [x] build_morph_vocab() 구현
+  - 기반하는 모델을 선택하도록 하는 model_parameter 도입
+    - [x] 자소 단위(접두사 c_)와 형태소 단위(접두사 m_)로 각각 학습
+    - [x] 자소 단위 모델을 쓸지 형태소 기반 모델을 쓸지 결정하도록 하는 인자 model_parameter 도입.
+      - tagger.py > tag_tokens() > predict_best_candidate() > encode_string() 파이프라인에서 encode_string()이 model_parameter()를 필요로 함.
+        - [x] cli.py에서 tag_tokens()에 model_parameter가 전달되어야 함.  
+        - [x] predict_best_candidate()과 encode_string()에 model_parameter 인자 추가
+        - encode_string()이 받는 vocab을 m_vocab으로 할지 c_vocab으로 할지 정해주는 분기
+          - [x] load_bilstm_artifacts()에 model_parameter 분기
+
+- [ ] 모델 성능 비교할 수 있도록 시각화
+
 ### 오늘 할 일
 
-- BiLSTM 모듈 개선
-  - [ ] 자소가 아닌 형태소 단위로 토큰화해서 encode할 수 있도록 refactoring
-    - 실제 나오는 vocab 확인할 것
-  - [ ] 모델 성능 비교할 수 있도록 시각화
     - 트레이닝 결과 display 성능 형태로 대상 토큰 n개 중 몇 개가 제대로 되었는지
   - [ ] training 이루어진 것과 이루어지지 않은 것 사이 즉각 비교 가능하도록 구현
 

@@ -12,6 +12,7 @@ from src.midkrregextool.bilstm import (
     DisambiguationDataset,
     build_annotated_examples,
     build_char_vocab,
+    build_morph_vocab,
     train_bilstm,
 )
 from src.midkrregextool.parser import parse_file
@@ -72,15 +73,41 @@ if not examples:
     )
 else:
     # 4. vocab, Dataset, 모델 준비
-    vocab = build_char_vocab(examples)
-    dataset = DisambiguationDataset(examples, vocab)
-    model = CandidateScorer(vocab_size=len(vocab))
+    # 4-1. 자소 단위 vocab
+    c_vocab = build_char_vocab(examples)
+    c_dataset = DisambiguationDataset(examples, c_vocab, "c")
+    c_model = CandidateScorer(vocab_size=len(c_vocab))
+
+    m_vocab = build_morph_vocab(examples)
+    m_dataset = DisambiguationDataset(examples, m_vocab, "m")
+    m_model = CandidateScorer(vocab_size=len(m_vocab))
 
     # 5. 학습 한 바퀴 (에러 없이 도는지 확인이 목표)
-    train_bilstm(dataset, model, epochs=3)
 
-    torch.save(model.state_dict(), "bilstm_model.pt")
-    with open("bilstm_vocab.json", "w", encoding="utf-8") as f:
-        json.dump(vocab, f, ensure_ascii=False)
+    # 5-0. repo root
+    repo_root = Path(__file__).parents[0].resolve()
+    model_dir = (repo_root / "data" / "model").resolve()
+
+    # 5-1. 자소 단위
+    train_bilstm(c_dataset, c_model, epochs=3)
+    torch.save(c_model.state_dict(), model_dir / "bilstm_c_model.pt")
+
+    with open(model_dir / "bilstm_c_vocab.json", "w", encoding="utf-8") as f:
+        json.dump(c_vocab, f, ensure_ascii=False)
+
+    print(f"[INFO] Character-based model/vocab saved to: {model_dir}")
+    print(f"\t- {model_dir / 'bilstm_c_model.pt'}")
+    print(f"\t- {model_dir / 'bilstm_c_vocab.json'}")
+
+    # 5-2. 형태소 단위
+    train_bilstm(m_dataset, m_model, epochs=3)
+    torch.save(m_model.state_dict(), model_dir / "bilstm_m_model.pt")
+
+    with open(model_dir / "bilstm_m_vocab.json", "w", encoding="utf-8") as f:
+        json.dump(m_vocab, f, ensure_ascii=False)
+
+    print(f"[INFO] Morpheme-based model/vocab saved to: {model_dir}")
+    print(f"\t- {model_dir / 'bilstm_m_model.pt'}")
+    print(f"\t- {model_dir / 'bilstm_m_vocab.json'}")
 
     print("[INFO] Done. Pipeline ran end to end.")

@@ -4,14 +4,12 @@ BiLSTM 기반 형태소 분석 후보 disambiguation을 위한 모듈.
 
 tagger.py의 tag_tokens()가 규칙 기반으로 생성한 여러 분석 후보(Token.tagged_candidates)와, annotation-mode로 문맥 순서를 보존해 태깅한 골드 데이터(annotation_{period}c.jsonl의 source_id/token_index 기반 항목)를 짝지어 학습 예시를 만들고, 이를 바탕으로 문맥을 보고 올바른 후보를 고르는 BiLSTM 모델을 학습/적용한다.
 
-주의: 주어진 토큰의 위치 정보 없이 표면형만으로 태깅을 시도하는 것은 **절대** 지양한다.
-
 """
 
 from __future__ import annotations
 
 import torch
-import torch.nn as nn
+from torch import nn
 from torch.utils.data import Dataset
 
 from .model import Token
@@ -103,10 +101,71 @@ def build_annotated_examples(
         annotated_example["surface"] = token.unicode_form
         annotated_example["candidates"] = token.tagged_candidates
         annotated_example["gold_index"] = gold_idx
+        # annotated_example[]
 
         annotated_examples.append(annotated_example)
 
     return annotated_examples
+
+
+def build_morph_vocab(annotated_examples: list[dict]) -> dict[str, int]:
+    """
+    입력:
+        annotated_examples: build_annotated_examples()가 만든 딕셔너리 리스트.
+            각 원소는 "candidates" 키에 문자열 리스트(후보 tagged_form들)를
+            담고 있다.
+
+            예) 아래 두 개짜리 annotated_examples가 있다고 하자:
+                [
+                    {"candidates": ["ho/V/LEM", "hon/NUM/LEM"], ...},
+                    {"candidates": ["al/V/LEM-a/CONN"], ...},
+                ]
+
+    출력:
+        모든 annotated_example의 모든 candidates 문자열에 등장하는 형태 + 태그 짝을 전부 모아 중복 제거한 뒤, 각 짝에 고유 번호를 매긴 사전.
+        "<PAD>"(0번)와 "<UNK>"(1번)는 실제 글자가 아니라 다음 단계
+        (길이 맞추기, 미등록 글자 처리)에서 쓸 예약된 특수 기호이며,
+        항상 고정된 번호를 갖는다.
+
+        위 예시에 대한 실제 출력 예시:
+            {
+                "<PAD>": 0,
+                "<UNK>": 1,
+                "ho/V/LEM": 2,
+                "hon/NUM/LEM": 3,
+                "al/V/LEM": 4,
+                "a/CONN": 5,
+                ...
+            }
+    """
+
+    morphs = []
+
+    for annotated_example in annotated_examples:
+
+        candidates = annotated_example.get("candidates")
+
+        for candidate in candidates:
+            # Polymorphemic token
+            if "-" in candidate:
+                chunks = candidate.split("-")
+                morphs.extend(chunks)
+            else:
+                morphs.append(candidate)
+
+        unique_morphs = set(morphs)
+
+    m_dict = {
+        "<PAD>": 0,
+        "<UNK>": 1,
+    }
+    idx = 2
+
+    for m in unique_morphs:
+        m_dict[m] = idx
+        idx += 1
+
+    return m_dict
 
 
 def build_char_vocab(annotated_examples: list[dict]) -> dict[str, int]:
@@ -162,8 +221,7 @@ def build_char_vocab(annotated_examples: list[dict]) -> dict[str, int]:
         candidates = annotated_example.get("candidates")
 
         for candidate in candidates:
-            for c in candidate:
-                chars.append(c)
+            chars.extend(candidate)
 
     unique_chars = set(chars)
 
@@ -181,41 +239,52 @@ def build_char_vocab(annotated_examples: list[dict]) -> dict[str, int]:
 
 
 def encode_string(
-    vocab: dict[str, int],
-    string: str | None = None,
+    vocab: dict[str, int], string: str | None = None, model_parameter: str | None = None
 ) -> list[int]:
     """
     입력:
         string: 인코딩할 문자열 하나 (예: 후보 tagged_form 문자열
             "ho/V/LEM"). None이 들어올 수도 있다 (예: 해당 후보가 없는 경우).
-        vocab: build_char_vocab()이 만든 {글자: 번호} 사전.
-            예) {"<PAD>": 0, "<UNK>": 1, "h": 2, "o": 3, "/": 5, ...}
+        vocab: model_parameter에 따라 build_char_vocab() 또는 build_morph_vocab()이 만든 {글자: 번호} 사전.
+            예) model_parameter == "c" / {"<PAD>": 0, "<UNK>": 1, "h": 2, "o": 3, "/": 5, ...}
+            model_parameter == "m" / {"<PAD>": 0, "<UNK>": 1, "ho/V/LEM": 2, ...}
+        model_parameter: 자소 기반 모델 "c" 또는 형태소 기반 모델 "m" 인자. 이후 분기 결정 파라미터로 사용.
 
     출력:
-        string의 각 글자를 vocab에서 찾은 번호로 치환한 정수 리스트.
+        model_parameter에 따라 결정된 string의 각 단위를 vocab에서 찾은 번호로 치환한 정수 리스트.
         vocab에 없는 글자는 "<UNK>" 번호로 대체한다 (에러를 내지 않는다).
         string이 None이면 빈 리스트를 반환한다.
 
-        예) string = "ho/V/LEM", vocab이 위 예시와 같다면:
+        예) string = "ho/V/LEM", vocab이 위 예시와 같고 model_parameter가 "c"이라면:
             encode_string("ho/V/LEM", vocab)
             -> [2, 3, 5, 6, 5, 7, 8, 9]
             (h=2, o=3, /=5, V=6, /=5, L=7, E=8, M=9)
     """
 
-    char_ids = []
+    encoded_ids = []
 
     if string is None:
         return []
 
     unk_id = vocab.get("<UNK>")
 
-    for s in string:
+    # 자소 기반 모델 분기
+    if model_parameter == "c":
 
-        id = vocab.get(s, unk_id)
+        for s in string:
 
-        char_ids.append(id)
+            id = vocab.get(s, unk_id)
 
-    return char_ids
+            encoded_ids.append(id)
+
+    elif model_parameter == "m":
+
+        for m in string.split("-"):
+            id = vocab.get(m, unk_id)
+
+            encoded_ids.append(id)
+
+    return encoded_ids
 
 
 class DisambiguationDataset(Dataset):
@@ -223,9 +292,11 @@ class DisambiguationDataset(Dataset):
         self,
         annotated_examples: list[dict],
         vocab: dict[str, int],
+        model_parameter: str,
     ):
         self.annotated_examples = annotated_examples
         self.vocab = vocab
+        self.model_parameter = model_parameter
 
     def __len__(self) -> int:
         return len(self.annotated_examples)
@@ -239,7 +310,9 @@ class DisambiguationDataset(Dataset):
         encoded_candidates = []
 
         for candidate in candidates:
-            encoded_candidates.append(encode_string(self.vocab, candidate))
+            encoded_candidates.append(
+                encode_string(self.vocab, candidate, self.model_parameter)
+            )
 
         gold_index = annotated_example["gold_index"]
 
@@ -295,6 +368,8 @@ def train_bilstm(
     # "여러 개의 점수와 정답 인덱스를 비교해서, 얼마나 틀렸는지"를
     # 숫자 하나로 계산해주는 도구를 준비한다.
     loss_fn = nn.CrossEntropyLoss()
+
+    print(f"[INFO] dataset: {dataset} / model: {model}")
 
     # 전체 데이터를 처음부터 끝까지 몇 번 반복해서 공부시킬지 정한다.
     # (한 번 다 보는 것을 "1 epoch"라고 부른다.)

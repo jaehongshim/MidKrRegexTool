@@ -13,6 +13,7 @@ from pathlib import Path  # is_file(), is_dir()
 from midkrregextool.annotation import (
     annotate,
     annotation_priority,
+    build_adjacent_contexts,
     load_infl_decomp_from_annotation,
     load_pos_to_allowed_morphemes_inventory_from_annotation,
     prompt_with_default,
@@ -34,6 +35,7 @@ from midkrregextool.yale import attach_yale
 class CLIArgs:
     path: Path
     period: str | None
+    model_parameter: str | None
     pattern: str | None
     purpose: str | None
     sort: str | None
@@ -142,6 +144,13 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Annotate or search on a specific chunk, based on `source_id` field",
     )
+    p.add_argument(
+        "--model-parameter",
+        type=str,
+        default=None,
+        choices=["c", "m"],
+        help="Specify the model unit: 'c' for character-based or 'm' for model-based.",
+    )
 
     return p
 
@@ -241,6 +250,18 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
     if ns.annotation_data is not None and period == "":
         raise SystemExit("[ERROR] --annotation-data requires --period.")
 
+    # Guard for unspecified model_parameter argument.
+
+    model_parameter = ns.model_parameter
+
+    while not model_parameter:
+        model_parameter = input(
+            "Specify the model unit: 'c' for character-based or 'm' for model-based: "
+        )
+
+        if model_parameter not in ["m", "c"]:
+            model_parameter = None
+
     # Set the default value of repr: "yale" for annotation-mode and "tagged_form" for search-mode
     if (annotation_mode) and (ns.token_repr is None):
         token_repr = "yale"
@@ -252,6 +273,7 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
     return CLIArgs(
         path,
         period,
+        model_parameter,
         pattern=ns.pattern,
         purpose=ns.purpose,
         encoding=ns.encoding,
@@ -342,6 +364,14 @@ def collect_input_files(
     return sorted(matched_files)
 
 
+def collect_available_sent_types(files: list[Path], encoding: str) -> set[str]:
+    sent_types: set[str] = set()
+    for file_path in files:
+        tokens = parse_file(file_path, encoding=encoding)
+        sent_types.update(t.sent_type for t in tokens)
+    return sent_types
+
+
 def convert_to_century(year: str | int) -> int | None:
 
     if not year:
@@ -366,44 +396,32 @@ def convert_to_century(year: str | int) -> int | None:
     return (y - 1) // 100 + 1
 
 
-def sent_type_selection(
+def prompt_sent_types(available_sent_types: set[str]) -> list[str]:
+    displayable = sorted(t for t in available_sent_types if t is not None)
+    if None in available_sent_types:
+        print(
+            "[WARN] Some tokens have no sent_type (None) and will be excluded unless explicitly handled."
+        )
+
+    print(f"[INFO]: Available sentence types: {displayable}")
+    existing = ", ".join(displayable)
+    chosen = prompt_with_default(
+        "Please provide the sent_type you want to process, separated with commas: ",
+        existing,
+    ).strip()
+    return chosen.split(", ")
+
+
+def filter_chunks_by_sent_type(
     tokens: list[Token],
+    chosen_sent_types: list[str],
     *,
     chunk_start: str | None = None,
 ) -> list[list[Token]]:
-    """
-    Group consecutive tokens whose `<sent type="anno">` into chunks, so that
-    within a chunk the original token order (= context) is preserved across
-    sentence (source_id) boundaries. Any non-"anno" token (e.g. "main") ends
-    the current chunk.
-    """
     chunks: list[list[Token]] = []
     current: list[Token] = []
 
-    # Collect sent_types
-    sent_types = set()
     for token in tokens:
-
-        if token.sent_type not in sent_types:
-            sent_types.add(token.sent_type)
-
-        else:
-            continue
-
-    print(
-        f"[INFO]: This file has tokens with the following sentence types: {sent_types}"
-    )
-    existing_sent_types = ", ".join(sent_types)
-
-    chosen_sent_type = prompt_with_default(
-        "Please provide the sent_type you want to process, separated with commas: ",
-        existing_sent_types,
-    ).strip()
-
-    chosen_sent_types = chosen_sent_type.split(", ")
-
-    for token in tokens:
-
         if token.sent_type in chosen_sent_types:
             current.append(token)
         elif current:
@@ -495,6 +513,7 @@ def run_annotation(args: CLIArgs) -> None:
     classical_ch = args.classical_ch
     exclude_ch = args.exclude_ch
     chunk_start = args.chunk_start
+    model_parameter = args.model_parameter
 
     VALID = [15, 16, 17, 18, 19, 20]  # Valid centuries for period filtering
 
@@ -514,7 +533,7 @@ def run_annotation(args: CLIArgs) -> None:
             period = convert_to_century(raw)
 
     lexicon = load_lemma_lexicon(period, annotation_data=annotation_data)
-    model, vocab = load_bilstm_artifacts()
+    model, vocab = load_bilstm_artifacts(model_parameter=model_parameter)
 
     t0 = time.perf_counter()
     files = collect_input_files(
@@ -562,6 +581,8 @@ def run_annotation(args: CLIArgs) -> None:
             )
         )
 
+    chosen_sent_types = prompt_sent_types(collect_available_sent_types(files, encoding))
+
     t_tag = time.perf_counter()
     for file_path in files:
 
@@ -578,40 +599,48 @@ def run_annotation(args: CLIArgs) -> None:
             pos_to_allowed_morphemes=pos_to_allowed_morphemes,
             model=model,
             vocab=vocab,
+            model_parameter=model_parameter,
         )
 
         # 각각의 sent_type마다 독립된 처리 가능하도록 sent_type을 key로 하고 해당 token의 오름차순으로 정렬된 source_id 값과 거기에 대응하는 context로 이루어진 dict를 값으로 하는 dict context_by_sent_type
 
+        if chosen_sent_types is None:
+            available = {t.sent_type for t in tokens}
+            chosen_sent_types = prompt_sent_types(available)
+
         all_tokens.extend(tokens)
 
-        sent_types = {token.sent_type for token in tokens}
-
-        context_by_sent_type = {
-            sent_type: {
-                token.source_id: token.context
-                for token in all_tokens
-                if token.sent_type == sent_type
-            }
-            for sent_type in sent_types
-        }
-
-        # source_id -> sent_type across the *whole* document (not filtered
-        # by sent_type), in original document order. Lets annotate() check
-        # whether a source_id's true neighbor in the document is also an
-        # "anno" sentence, instead of just its nearest neighbor among
-        # same-sent_type sentences (which can skip over intervening "main"
-        # sentences).
-        sent_type_by_source_id = {
-            token.source_id: token.sent_type for token in all_tokens
-        }
-
-        all_chunks.extend(sent_type_selection(tokens, chunk_start=chunk_start))
+        all_chunks.extend(
+            filter_chunks_by_sent_type(
+                tokens, chosen_sent_types, chunk_start=chunk_start
+            )
+        )
 
         if pattern and is_bigram:
-            # Bigram hits must be collected per file (do NOT cross file boundaries).
             bigram_hits.extend(search_tokens(tokens, pattern, token_repr))
 
-    print(f"[TIMING] tag_tokens {file_path.name}: {time.perf_counter() - t_tag:.3f}s")
+    print(f"[TIMING] tag_tokens {len(files)} files: {time.perf_counter() - t_tag:.3f}s")
+
+    sent_types = {token.sent_type for token in all_tokens}
+
+    context_by_sent_type = {
+        sent_type: {
+            token.source_id: token.context
+            for token in all_tokens
+            if token.sent_type == sent_type
+        }
+        for sent_type in sent_types
+    }
+
+    sent_type_by_source_id = {token.source_id: token.sent_type for token in all_tokens}
+
+    t_build_adjacent_context = time.perf_counter()
+    adjacent_contexts = build_adjacent_contexts(
+        all_tokens, context_by_sent_type, sent_type_by_source_id
+    )
+    print(
+        f"[TIMING] build_adjacent_contexts {file_path.name}: {time.perf_counter() - t_build_adjacent_context:.3f}s"
+    )
 
     # Coverage measurement
 
@@ -680,12 +709,11 @@ def run_annotation(args: CLIArgs) -> None:
     t_annotate = time.perf_counter()
     annotate(
         annotate_targets,
-        period=period,
+        period,
+        adjacent_contexts,
         annotation_data=annotation_data,
         lexicon=lexicon,
         token_lookup=token_lookup,
-        context_by_sent_type=context_by_sent_type,
-        sent_type_by_source_id=sent_type_by_source_id,
     )
     print(f"[TIMING] annotate(): {time.perf_counter() - t_annotate:.3f}s")
 
@@ -702,6 +730,7 @@ def run_search(args: CLIArgs) -> None:
     encoding = args.encoding
     # display_context = args.display_context
     period = convert_to_century(args.period)
+    model_parameter = args.model_parameter
     annotation_data = args.annotation_data
     document_type = args.document_type
     sort = args.sort
@@ -724,7 +753,7 @@ def run_search(args: CLIArgs) -> None:
     # Search loop
 
     lexicon = load_lemma_lexicon(period, annotation_data=annotation_data)
-    model, vocab = load_bilstm_artifacts()
+    model, vocab = load_bilstm_artifacts(model_parameter=model_parameter)
 
     within_result_search = "n"
 
@@ -740,7 +769,7 @@ def run_search(args: CLIArgs) -> None:
             )
             last_period = period
             lexicon = load_lemma_lexicon(period, annotation_data=annotation_data)
-            model, vocab = load_bilstm_artifacts()
+            model, vocab = load_bilstm_artifacts(model_parameter=model_parameter)
 
             if not files:
                 print(f"[INFO] No supported files found for period={period}.")
@@ -778,6 +807,7 @@ def run_search(args: CLIArgs) -> None:
                     pos_to_allowed_morphemes=pos_to_allowed_morphemes,
                     model=model,
                     vocab=vocab,
+                    model_parameter=model_parameter,
                 )
 
                 hits = search_tokens(tokens, pattern, token_repr)
@@ -927,6 +957,7 @@ def run_print_corpus(args: CLIArgs) -> None:
     # display_context = args.display_context
     classical_ch = args.classical_ch
     exclude_ch = False
+    model_parameter = args.model_parameter
 
     # No input files found
     if not files:
@@ -938,7 +969,7 @@ def run_print_corpus(args: CLIArgs) -> None:
     # Print loop
 
     lexicon = load_lemma_lexicon(period, annotation_data=annotation_data)
-    model, vocab = load_bilstm_artifacts()
+    model, vocab = load_bilstm_artifacts(model_parameter=model_parameter)
 
     infl_decomp = None
     pos_to_allowed_morphemes: dict[str, set[str]] = {}
@@ -967,6 +998,7 @@ def run_print_corpus(args: CLIArgs) -> None:
             pos_to_allowed_morphemes=pos_to_allowed_morphemes,
             model=model,
             vocab=vocab,
+            model_parameter=model_parameter,
         )
 
         for token in tokens:

@@ -320,21 +320,143 @@ def _print_progress(done: int, total: int, *, label: str = "targets") -> None:
     )
 
 
-def annotate(
-    chunks: list[list[Token]] | list[tuple[Token, Token]],
-    period: int,
-    annotation_data: Path | None,
-    lexicon: dict[str, str] | None = None,
-    token_lookup: dict[tuple[str, int], Token] | None = None,
-    context_by_sent_type: dict[str, dict] | None = None,
+def build_adjacent_contexts(
+    tokens: list[Token] | list[tuple[Token, Token]],
+    context_by_sent_type: dict[str:dict] | None = None,
     sent_type_by_source_id: dict[str, str] | None = None,
-) -> None:
+) -> dict[str:(str, str, str, str)]:
 
     def _remove_bracket_from_context(raw_context: str | None = None) -> str | None:
         if raw_context is None:
             return None
         context = raw_context.replace("<<", "").replace(">>", "")
         return context
+
+    adjacent_contexts = dict()
+
+    # source_id order across the whole document (all sent_types),
+    # used to verify true adjacency for "anno" tokens: two anno
+    # sentences only count as neighbors if nothing else sits
+    # between them in the original document.
+    full_order_ids = (
+        list(sent_type_by_source_id.keys())
+        if sent_type_by_source_id is not None
+        else []
+    )
+    full_order_index = {sid: i for i, sid in enumerate(full_order_ids)}
+
+    previous_sent_type = None
+
+    for token in tokens:
+
+        if previous_sent_type is None or token.sent_type != previous_sent_type:
+            context_by_source_id = context_by_sent_type[token.sent_type]
+            context_idx = list(context_by_source_id.keys())
+
+        # 서로 다른 출전에 있는 토큰들끼리는 절대로 context로 잡지 않음.
+
+        if token.sent_type == "anno" and sent_type_by_source_id is not None:
+            # "anno" chunks only reference an *immediately*
+            # adjacent anno sentence in the original document
+            # order. If a "main" (or any other) sentence sits
+            # between two anno sentences, they are not
+            # adjacent, so prev/next_context must be None
+            # instead of skipping over the gap.
+            full_idx = full_order_index.get(token.source_id)
+
+            prev_source_id = None
+            if full_idx is not None and full_idx > 0:
+                candidate_id = full_order_ids[full_idx - 1]
+                if sent_type_by_source_id.get(candidate_id) == "anno":
+                    prev_source_id = candidate_id
+
+            next_source_id = None
+            if full_idx is not None and full_idx < len(full_order_ids) - 1:
+                candidate_id = full_order_ids[full_idx + 1]
+                if sent_type_by_source_id.get(candidate_id) == "anno":
+                    next_source_id = candidate_id
+
+            prev_context = (
+                context_by_source_id[prev_source_id]
+                if prev_source_id is not None
+                else None
+            )
+            next_context = (
+                context_by_source_id[next_source_id]
+                if next_source_id is not None
+                else None
+            )
+        else:
+            current_context_idx = context_idx.index(token.source_id)
+
+            if current_context_idx > 0:
+                prev_source_id = context_idx[current_context_idx - 1]
+                prev_context = context_by_source_id[prev_source_id]
+            else:
+                prev_source_id = None
+                prev_context = None
+
+            if current_context_idx < len(context_idx) - 1:
+                next_source_id = context_idx[current_context_idx + 1]
+                next_context = context_by_source_id[next_source_id]
+            else:
+                next_source_id = None
+                next_context = None
+
+            # 마지막으로 출전이 다른 source에서 나온 context는 걸러냄.
+
+            current_source = token.source_id.split(":", 1)[0]
+            if prev_source_id is not None:
+                prev_source = prev_source_id.split(":", 1)[0]
+            else:
+                prev_source = None
+
+            if next_source_id is not None:
+                next_source = next_source_id.split(":", 1)[0]
+            else:
+                next_source = None
+
+            if current_source != prev_source:
+                prev_context = None
+
+            if current_source != next_source:
+                next_context = None
+
+        # Remove brackets from contexts
+        prev_context = _remove_bracket_from_context(prev_context)
+        next_context = _remove_bracket_from_context(next_context)
+        current_context = _remove_bracket_from_context(token.context)
+
+        adjacent_contexts[token.source_id] = (
+            token.sent_type,
+            prev_context,
+            current_context,
+            next_context,
+        )
+        previous_sent_type = token.sent_type
+
+    return adjacent_contexts
+
+
+def get_adjacent_contexts(
+    source_id: str, adjacent_contexts: dict[str:(str, str, str, str)]
+) -> {str, str, str}:
+
+    sent_type, prev_context, current_context, next_context = adjacent_contexts[
+        source_id
+    ]
+
+    return prev_context, current_context, next_context
+
+
+def annotate(
+    chunks: list[list[Token]] | list[tuple[Token, Token]],
+    period: int,
+    adjacent_contexts: dict[str, tuple[str, str, str, str]] | None,
+    annotation_data: Path | None,
+    lexicon: dict[str, str] | None = None,
+    token_lookup: dict[tuple[str, int], Token] | None = None,
+) -> None:
 
     period_tag = f"{period}c"
 
@@ -392,83 +514,14 @@ def annotate(
             # in their original (context-preserving) order.
             random.shuffle(chunks)
 
-            # source_id order across the whole document (all sent_types),
-            # used to verify true adjacency for "anno" tokens: two anno
-            # sentences only count as neighbors if nothing else sits
-            # between them in the original document.
-            full_order_ids = (
-                list(sent_type_by_source_id.keys())
-                if sent_type_by_source_id is not None
-                else []
-            )
-            full_order_index = {sid: i for i, sid in enumerate(full_order_ids)}
-
-            previous_sent_type = None
-
             for chunk in chunks:
                 for token in chunk:
                     # Guard clause
                     gold_morph: str | None = None
 
-                    if (
-                        previous_sent_type is None
-                        or token.sent_type != previous_sent_type
-                    ):
-                        context_by_source_id = context_by_sent_type[token.sent_type]
-                        context_idx = list(context_by_source_id.keys())
-
-                    if token.sent_type == "anno" and sent_type_by_source_id is not None:
-                        # "anno" chunks only reference an *immediately*
-                        # adjacent anno sentence in the original document
-                        # order. If a "main" (or any other) sentence sits
-                        # between two anno sentences, they are not
-                        # adjacent, so prev/next_context must be None
-                        # instead of skipping over the gap.
-                        full_idx = full_order_index.get(token.source_id)
-
-                        prev_source_id = None
-                        if full_idx is not None and full_idx > 0:
-                            candidate_id = full_order_ids[full_idx - 1]
-                            if sent_type_by_source_id.get(candidate_id) == "anno":
-                                prev_source_id = candidate_id
-
-                        next_source_id = None
-                        if full_idx is not None and full_idx < len(full_order_ids) - 1:
-                            candidate_id = full_order_ids[full_idx + 1]
-                            if sent_type_by_source_id.get(candidate_id) == "anno":
-                                next_source_id = candidate_id
-
-                        prev_context = (
-                            context_by_source_id[prev_source_id]
-                            if prev_source_id is not None
-                            else None
-                        )
-                        next_context = (
-                            context_by_source_id[next_source_id]
-                            if next_source_id is not None
-                            else None
-                        )
-                    else:
-                        current_context_idx = context_idx.index(token.source_id)
-
-                        if current_context_idx > 0:
-                            prev_source_id = context_idx[current_context_idx - 1]
-                            prev_context = context_by_source_id[prev_source_id]
-                        else:
-                            prev_source_id = None
-                            prev_context = None
-
-                        if current_context_idx < len(context_idx) - 1:
-                            next_source_id = context_idx[current_context_idx + 1]
-                            next_context = context_by_source_id[next_source_id]
-                        else:
-                            next_source_id = None
-                            next_context = None
-
-                    # Remove brackets from contexts
-                    prev_context = _remove_bracket_from_context(prev_context)
-                    next_context = _remove_bracket_from_context(next_context)
-                    current_context = _remove_bracket_from_context(token.context)
+                    prev_context, current_context, next_context = get_adjacent_contexts(
+                        token.source_id, adjacent_contexts
+                    )
 
                     if (token.source_id, token.token_index) in annotated_keys:
                         continue
@@ -554,7 +607,6 @@ def annotate(
                     annotated_so_far += 1
                     if yale:
                         session_gold[yale] = gold_morph
-                    previous_sent_type = token.sent_type
 
         # Branch for bigram-annotation mode
 

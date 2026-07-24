@@ -9,7 +9,10 @@ from pathlib import Path
 
 import torch
 
-from .bilstm import CandidateScorer, encode_string
+from .bilstm import (
+    CandidateScorer,
+    encode_string,
+)
 from .model import Token
 
 CATEGORY_CHANGERS = {
@@ -93,7 +96,7 @@ def load_lemma_lexicon(
 
         [lem, pos] = _assign_pos(m1)
 
-        if lem in lex.keys():
+        if lem in lex:
             return
         lex[lem] = pos
 
@@ -234,14 +237,27 @@ def analyze_yale(
 def load_bilstm_artifacts(
     model_path: Path | None = None,
     vocab_path: Path | None = None,
+    *,
+    model_parameter: str | None = None,
 ) -> tuple[CandidateScorer | None, dict[str, int] | None]:
     """
     학습된 BiLSTM 모델과 그 짝인 vocab을 최선을 다해 불러온다.
+    model_parameter 값이 "c"냐 "m"이냐에 따라 각각 bilstm_c_model.pt, bilstm_c_vocab.json / bilstm_m_model.pt, bilstm_c_vocab.json을 model_path, vocab_path를 불러오게 된다.
     파일이 없거나 불러오다 실패하면 (None, None)을 반환해서,
     tag_tokens()이 규칙 기반(candidates[0])으로 자연스럽게 대체되도록 한다.
     """
-    model_path = model_path or Path("bilstm_model.pt")
-    vocab_path = vocab_path or Path("bilstm_vocab.json")
+    if (not model_path) or (not vocab_path):
+
+        repo_root = Path(__file__).parents[2].resolve()
+        model_dir = (repo_root / "data" / "model").resolve()
+
+        if model_parameter == "c":
+            model_path = model_dir / "bilstm_c_model.pt"
+            vocab_path = model_dir / "bilstm_c_vocab.json"
+
+        elif model_parameter == "m":
+            model_path = model_dir / "bilstm_m_model.pt"
+            vocab_path = model_dir / "bilstm_m_vocab.json"
 
     if not model_path.exists() or not vocab_path.exists():
         return None, None
@@ -252,9 +268,12 @@ def load_bilstm_artifacts(
         model = CandidateScorer(vocab_size=len(vocab))
         model.load_state_dict(torch.load(model_path))
         model.eval()
+        input(
+            f"[INFO] BiLSTM 모델/vocab 로딩 성공:\n\tmodel_parameter: {model_parameter}\n\t{model_path}\n\t{vocab_path}"
+        )
         return model, vocab
     except Exception as e:
-        print(f"[WARN] BiLSTM 모델/vocab 로딩 실패: {e}. 규칙 기반으로 대체합니다.")
+        input(f"[WARN] BiLSTM 모델/vocab 로딩 실패: {e}. 규칙 기반으로 대체합니다.")
         return None, None
 
 
@@ -262,12 +281,13 @@ def predict_best_candidate(
     candidates: list[str],
     vocab: dict[str, int],
     model: CandidateScorer,
+    model_parameter: str | None = None,
 ) -> str:
     scores = []
     for c in candidates:
-        char_ids = encode_string(vocab, c)
-        char_tensor = torch.tensor(char_ids, dtype=torch.long).unsqueeze(0)
-        score = model(char_tensor)
+        unit_ids = encode_string(vocab, c, model_parameter)
+        unit_tensor = torch.tensor(unit_ids, dtype=torch.long).unsqueeze(0)
+        score = model(unit_tensor)
         scores.append(score.item())
 
     best_idx = scores.index(max(scores))
@@ -282,6 +302,7 @@ def tag_tokens(
     pos_to_allowed_morphemes: dict[str, set[str]] | None = None,
     model: CandidateScorer | None = None,
     vocab: dict[str, int] | None = None,
+    model_parameter: str | None = None,
 ) -> list[Token]:
     """Enrich tokens with morphological tagging for downstream processing."""
 
@@ -399,10 +420,12 @@ def tag_tokens(
             token.tagged_candidates = list(dict.fromkeys(candidates))
 
         if model is not None and vocab is not None and len(token.tagged_candidates) > 1:
+
             token.tagged_form = predict_best_candidate(
-                token.tagged_candidates, vocab, model
+                token.tagged_candidates, vocab, model, model_parameter
             )
         else:
+
             token.tagged_form = token.tagged_candidates[0]
 
         if ("/DAT" in token.tagged_form) or ("/GEN" in token.tagged_form):
@@ -432,24 +455,6 @@ def tag_tokens(
 
         if _has_nominal_tag(tokens[i + 1].tagged_form):
             gen_context = True
-            # print(
-            #     f"[DEBUG] gen_context set to {gen_context} for {tokens[i].tagged_form}"
-            # )
-            # print(f"\ttokens[i+1].tagged_form: {tokens[i+1].tagged_form}")
-
-        # if tokens[i].unicode_form == "알ᄑᆡᆺ":
-        #     print("[DEBUG A] i =", i)
-        #     print("[DEBUG B] current =", tokens[i].tagged_form)
-        #     print("[DEBUG C] next    =", tokens[i + 1].tagged_form)
-        #     print("[DEBUG D] gen_context =", gen_context)
-        #     print(
-        #         "[DEBUG E] oy/DAT in current =",
-        #         "oy/DAT" in tokens[i].tagged_form if tokens[i].tagged_form else None,
-        #     )
-        #     print(
-        #         "[DEBUG F] uy/DAT in current =",
-        #         "uy/DAT" in tokens[i].tagged_form if tokens[i].tagged_form else None,
-        #     )
 
         if (
             gen_context
