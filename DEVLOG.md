@@ -919,6 +919,11 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
         - encode_string()이 받는 vocab을 m_vocab으로 할지 c_vocab으로 할지 정해주는 분기
           - [x] load_bilstm_artifacts()에 model_parameter 분기
 
+- xml 파일 처리시 연도 처리 기능 개선
+  - xml에서 읽은 원시 연도 데이터 raw_published_year에서 노이즈를 제거하는 cli.py > trimming_date() 구현하고 collect_input_files()에 적용
+  - run_corpus_list() 구현 시 출판 세기 정보가 아예 없는 것들 제외하고는 모두 출판 세기 정보를 뽑아 정렬 가능해짐. 
+    - 언간처럼 연대가 여러 세기에 걸치는 자료형은 아직 완전하게 처리하지 못 함.
+
 - [ ] 모델 성능 비교할 수 있도록 시각화
 
 ### 오늘 할 일

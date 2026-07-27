@@ -254,7 +254,7 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
 
     model_parameter = ns.model_parameter
 
-    while not model_parameter:
+    while not model_parameter and not corpus_list:
         model_parameter = input(
             "Specify the model unit: 'c' for character-based or 'm' for model-based: "
         )
@@ -330,16 +330,22 @@ def collect_input_files(
             if root.find(".//letter") is not None:
                 continue
 
-        published_year = (
+        raw_published_year = (
             root.findtext(".//teiHeader//titleStmt//date")
             or root.findtext(".//date")
             or ""
         ).strip()
 
-        if not published_year:
+        if not raw_published_year:
+
             print("[WARN] No <date> found; skipped:")
             print(f"       file = {file}")
             continue
+
+        published_year = trimming_date(raw_published_year)
+
+        if not published_year:
+            published_year = raw_published_year
 
         published_century = convert_to_century(published_year)
 
@@ -354,7 +360,24 @@ def collect_input_files(
 
         if sort is not None:
             if sort == "published_year":
-                sorting_key[file] = published_year
+                sorting_key[file] = (
+                    (
+                        (
+                            0,
+                            published_century,
+                        )
+                        if isinstance(published_century, int)
+                        else (1, str(published_century))
+                    ),
+                    (
+                        (
+                            0,
+                            published_year,
+                        )
+                        if isinstance(published_year, int)
+                        else (1, str(published_year))
+                    ),
+                )
             elif sort == "published_century":
                 sorting_key[file] = published_century
 
@@ -370,6 +393,51 @@ def collect_available_sent_types(files: list[Path], encoding: str) -> set[str]:
         tokens = parse_file(file_path, encoding=encoding)
         sent_types.update(t.sent_type for t in tokens)
     return sent_types
+
+
+def trimming_date(raw_year: str | int) -> int | None:
+
+    if not raw_year:
+        return None
+
+    elif isinstance(raw_year, int):
+        return raw_year
+
+    elif raw_year.isdigit():
+        return int(raw_year)
+
+    m1 = re.match(r"(\d{4})[년年]", raw_year)
+
+    if m1:
+        year = int(m1.group(1))
+        return year
+
+    # year specified only for century
+    m2 = re.match(r"(^\d{2})[Cc]$", raw_year)
+    m3 = re.match(r"(^\d{2})세기$", raw_year)
+
+    if "미상" in raw_year or "알 수 없음" in raw_year:
+        m4 = re.match(r".+(\d{2}).+", raw_year)
+        if m4:
+            year = int(m4.group(1)) * 100 - 100
+            year = f"{year}s"
+            return year
+
+        return "<UNK>"
+
+    # 17c
+    if m2:
+        year = int(m2.group(1)) * 100 - 100
+        year = f"{year}s"
+        return year
+    # 17세기
+    elif m3:
+        year = int(m3.group(1)) * 100 - 100
+        year = f"{year}s"
+        return year
+
+    else:
+        return None
 
 
 def convert_to_century(year: str | int) -> int | None:
@@ -390,7 +458,7 @@ def convert_to_century(year: str | int) -> int | None:
     else:
         y = year
 
-    if y < 20:
+    if y <= 20:
         return y
 
     return (y - 1) // 100 + 1
@@ -454,7 +522,9 @@ def run_corpus_list(args: CLIArgs) -> None:
 
     with open("corpus_list.txt", "w", encoding="utf-8") as out:
 
-        out.write("Directory\tFile name\tCentury\tTitle\tVolume\tYear\tauthor\n")
+        out.write(
+            "Directory\tFile name\tCentury\tTitle\tVolume\tYear\tRaw Year\tauthor\n"
+        )
         for file_path in files:
             root = ET.parse(file_path).getroot()
 
@@ -475,11 +545,16 @@ def run_corpus_list(args: CLIArgs) -> None:
             if author is None:
                 author = ""
 
-            published_year = (
+            raw_published_year = (
                 root.findtext(".//teiHeader//titleStmt//date")
                 or root.findtext(".//date")
                 or ""
             ).strip()
+
+            published_year = trimming_date(raw_published_year)
+
+            if not published_year:
+                published_year = raw_published_year
 
             published_century = convert_to_century(published_year)
 
@@ -490,10 +565,10 @@ def run_corpus_list(args: CLIArgs) -> None:
             file_name = m.group(2)
 
             print(
-                f"{directory_name}\t{file_name}\t{published_century}\t{title}\t{volume_n}\t{published_year}\t{author}"
+                f"{directory_name}\t{file_name}\t{published_century}\t{title}\t{volume_n}\t{published_year}\t{raw_published_year}\t{author}"
             )
             out.write(
-                f"{directory_name}\t{file_name}\t{published_century}\t{title}\t{volume_n}\t{published_year}\t{author}\n"
+                f"{directory_name}\t{file_name}\t{published_century}\t{title}\t{volume_n}\t{published_year}\t{raw_published_year}\t{author}\n"
             )
 
 
