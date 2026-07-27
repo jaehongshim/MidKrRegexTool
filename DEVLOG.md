@@ -924,6 +924,23 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
   - run_corpus_list() 구현 시 출판 세기 정보가 아예 없는 것들 제외하고는 모두 출판 세기 정보를 뽑아 정렬 가능해짐. 
     - 언간처럼 연대가 여러 세기에 걸치는 자료형은 아직 완전하게 처리하지 못 함.
 
+- 언간(letter) XML의 letter 단위 처리 구현 (Claude Code 활용, 위에서 남긴 "언간처럼 연대가 여러 세기에 걸치는 자료형" 문제 해결)
+  - `parser.py`
+    - [x] `LetterInfo` dataclass와 `get_info_from_letters()` 추가
+      - `<letter>`의 attribute / 내부 element(`<writer>`, `<addressee>`, `<year>`, `<date>`) / 같은 부모 아래 형제 element, 세 가지 구조 모두에서 sender/receiver/year를 우선순위대로 정규화
+      - 형제 metadata는 인접한 다른 `<letter>`로 경계지어진 구간 안에서만 탐색(`_get_corresponding_sibling_text()`)해 무관한 다른 letter의 정보가 섞이지 않도록 함
+    - [x] `trimming_date()`, `convert_to_century()`를 `cli.py`에서 `parser.py`로 이동
+      - `get_info_from_letters()`가 이 둘을 필요로 하는데 `parser.py`가 `cli.py`를 import하면 순환 참조가 생기기 때문
+      - `trimming_date()`의 반환 타입을 실제 동작(`"1400s"`, `"<UNK>"` 등 문자열도 반환)에 맞춰 `int | str | None`으로 수정
+    - [x] `parse_file()` / `parse_xml_file()`에 `period` 인자 추가, `_parse_letter_xml()` 신설
+      - letter가 있는 xml이면 letter 단위로 세기/연도 필터링·정렬 후 해당 letter의 `<sent>`만 Token화 (다른 세기 letter는 건드리지 않음)
+      - 일반 xml은 기존 동작 그대로 유지
+  - `cli.py`
+    - [x] `collect_input_files()`: letter xml이면 파일 안에 요청한 세기의 letter가 하나라도 있으면 그 파일을 포함하도록 변경, `sorting_key` 타입을 실제 저장값(tuple)에 맞게 수정
+    - [x] `run_annotation()` / `run_search()` / `run_print_corpus()` / `collect_available_sent_types()`가 `parse_file()`에 `period`를 넘기도록 수정
+    - [x] `run_corpus_list()`: letter 하나당 한 행을 출력하도록 변경 (같은 파일 안에 다른 세기 letter가 섞여 있으면 행이 나뉨), 일반/언간 공통 헤더로 통일(Author/Sender/Receiver 컬럼 추가), `--sort published_year`가 행 단위로도 적용되도록 수정
+  - [x] `tests/test_letter_parsing.py` 신규 작성 (13개 테스트, 전부 통과): attribute / writer-attribute / 내부요소 / date-fallback / 형제요소 / 세기혼재 파일 / period 필터링 / corpus-list 다중 행 / 정수·문자열 혼합 연도 정렬 / 연도 누락 / 일반 xml 회귀
+
 - [ ] 모델 성능 비교할 수 있도록 시각화
 
 ### 오늘 할 일

@@ -19,7 +19,14 @@ from midkrregextool.annotation import (
     prompt_with_default,
 )
 from midkrregextool.model import Token
-from midkrregextool.parser import parse_file
+from midkrregextool.parser import (
+    convert_to_century,
+    get_info_from_letters,
+    has_letters,
+    letter_sort_key,
+    parse_file,
+    trimming_date,
+)
 from midkrregextool.report import maybe_save_hits, report_hits
 from midkrregextool.search import search_tokens
 from midkrregextool.tagger import (
@@ -294,6 +301,10 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
 # Input-file-collecting function
 
 
+def _century_sort_key(century: int | str | None) -> tuple:
+    return (0, century) if isinstance(century, int) else (1, str(century))
+
+
 def collect_input_files(
     path: Path,
     period: int | None,
@@ -308,7 +319,7 @@ def collect_input_files(
 
     matched_files: list[Path] = []
 
-    sorting_key: dict[Path, str] = {}
+    sorting_key: dict[Path, tuple] = {}
 
     # period filtering: XML metadata(date) needed
 
@@ -321,14 +332,45 @@ def collect_input_files(
             print(f"        error = {e}")
             continue
 
+        is_letter_file = has_letters(root)
+
         # Document selecting field
 
         if document_type == "letter":
-            if root.find(".//letter") is None:
+            if not is_letter_file:
                 continue
         elif document_type == "non-letter":
-            if root.find(".//letter") is not None:
+            if is_letter_file:
                 continue
+
+        if is_letter_file:
+            # Letter XML: filtering/sorting unit is <letter>, not the file.
+            # get_info_from_letters() normalizes all the structural variants.
+            letters = get_info_from_letters(root)
+
+            if corpus_list:
+                matched_files.append(file)
+                candidates = letters
+            else:
+                candidates = [
+                    info for info in letters if info.published_century == period
+                ]
+                if not candidates:
+                    continue
+                matched_files.append(file)
+
+            if sort is not None:
+                letter_keys = [letter_sort_key(info) for info in candidates]
+                if sort == "published_century":
+                    sorting_key[file] = (
+                        min(k[0] for k in letter_keys) if letter_keys else (1, "None")
+                    )
+                else:  # published_year
+                    sorting_key[file] = (
+                        min(letter_keys) if letter_keys else ((1, "None"), (1, "None"))
+                    )
+
+            continue
 
         raw_published_year = (
             root.findtext(".//teiHeader//titleStmt//date")
@@ -361,25 +403,13 @@ def collect_input_files(
         if sort is not None:
             if sort == "published_year":
                 sorting_key[file] = (
-                    (
-                        (
-                            0,
-                            published_century,
-                        )
-                        if isinstance(published_century, int)
-                        else (1, str(published_century))
-                    ),
-                    (
-                        (
-                            0,
-                            published_year,
-                        )
-                        if isinstance(published_year, int)
-                        else (1, str(published_year))
-                    ),
+                    _century_sort_key(published_century),
+                    (0, published_year)
+                    if isinstance(published_year, int)
+                    else (1, str(published_year)),
                 )
             elif sort == "published_century":
-                sorting_key[file] = published_century
+                sorting_key[file] = _century_sort_key(published_century)
 
     if sort is not None:
         return sorted(matched_files, key=lambda f: sorting_key[f])
@@ -387,81 +417,14 @@ def collect_input_files(
     return sorted(matched_files)
 
 
-def collect_available_sent_types(files: list[Path], encoding: str) -> set[str]:
+def collect_available_sent_types(
+    files: list[Path], encoding: str, period: int | None = None
+) -> set[str]:
     sent_types: set[str] = set()
     for file_path in files:
-        tokens = parse_file(file_path, encoding=encoding)
+        tokens = parse_file(file_path, encoding=encoding, period=period)
         sent_types.update(t.sent_type for t in tokens)
     return sent_types
-
-
-def trimming_date(raw_year: str | int) -> int | None:
-
-    if not raw_year:
-        return None
-
-    elif isinstance(raw_year, int):
-        return raw_year
-
-    elif raw_year.isdigit():
-        return int(raw_year)
-
-    m1 = re.match(r"(\d{4})[년年]", raw_year)
-
-    if m1:
-        year = int(m1.group(1))
-        return year
-
-    # year specified only for century
-    m2 = re.match(r"(^\d{2})[Cc]$", raw_year)
-    m3 = re.match(r"(^\d{2})세기$", raw_year)
-
-    if "미상" in raw_year or "알 수 없음" in raw_year:
-        m4 = re.match(r".+(\d{2}).+", raw_year)
-        if m4:
-            year = int(m4.group(1)) * 100 - 100
-            year = f"{year}s"
-            return year
-
-        return "<UNK>"
-
-    # 17c
-    if m2:
-        year = int(m2.group(1)) * 100 - 100
-        year = f"{year}s"
-        return year
-    # 17세기
-    elif m3:
-        year = int(m3.group(1)) * 100 - 100
-        year = f"{year}s"
-        return year
-
-    else:
-        return None
-
-
-def convert_to_century(year: str | int) -> int | None:
-
-    if not year:
-        return None
-
-    elif isinstance(year, str):
-
-        year = (year or "").strip()
-
-        m = re.search(r"\d+", year)
-        if m is None:
-            return None
-
-        y = int(m.group())
-
-    else:
-        y = year
-
-    if y <= 20:
-        return y
-
-    return (y - 1) // 100 + 1
 
 
 def prompt_sent_types(available_sent_types: set[str]) -> list[str]:
@@ -520,31 +483,61 @@ def run_corpus_list(args: CLIArgs) -> None:
         corpus_list=corpus_list,
     )
 
-    with open("corpus_list.txt", "w", encoding="utf-8") as out:
+    header = (
+        "Directory\tFile name\tLetter #\tCentury\tTitle\tVolume\tYear\tRaw Year\t"
+        "Author\tSender\tReceiver"
+    )
 
-        out.write(
-            "Directory\tFile name\tCentury\tTitle\tVolume\tYear\tRaw Year\tauthor\n"
-        )
-        for file_path in files:
-            root = ET.parse(file_path).getroot()
+    # (sort_key, line) pairs; sort_key is None when --sort is not requested,
+    # in which case rows are emitted in `files` order (file order, then
+    # document order of <letter> within a file).
+    rows: list[tuple[tuple | None, str]] = []
 
-            title = (
-                root.findtext(".//teiHeader//titleStmt//title")
-                or root.findtext(".//title")
-            ).strip()
+    for file_path in files:
+        root = ET.parse(file_path).getroot()
 
-            volume = root.find(".//teiHeader//titleStmt//volume")
+        title = (
+            root.findtext(".//teiHeader//titleStmt//title")
+            or root.findtext(".//title")
+            or ""
+        ).strip()
 
-            if volume is not None:
-                volume_n = volume.get("n")
-            else:
-                volume_n = ""
+        volume = root.find(".//teiHeader//titleStmt//volume")
+        volume_n = volume.get("n") if volume is not None else ""
 
-            author = root.findtext(".//teiHeader//titleStmt//author")
+        author = root.findtext(".//teiHeader//titleStmt//author") or ""
 
-            if author is None:
-                author = ""
+        relative_path = file_path.relative_to(Path.cwd())
+        m = re.match(r"(^.+?\\)([^\\]+?xml)$", str(relative_path))
+        directory_name = m.group(1)
+        file_name = m.group(2)
 
+        if has_letters(root):
+            # One row per <letter>; a single file can contribute rows from
+            # multiple centuries.
+            letters = get_info_from_letters(root)
+            if not corpus_list:
+                letters = [
+                    info for info in letters if info.published_century == period
+                ]
+
+            for info in letters:
+                fields = [
+                    directory_name,
+                    file_name,
+                    info.letter_n,
+                    str(info.published_century),
+                    title,
+                    volume_n,
+                    str(info.published_year),
+                    info.raw_year,
+                    author,
+                    info.sender,
+                    info.receiver,
+                ]
+                rows.append((letter_sort_key(info), "\t".join(fields)))
+
+        else:
             raw_published_year = (
                 root.findtext(".//teiHeader//titleStmt//date")
                 or root.findtext(".//date")
@@ -552,24 +545,43 @@ def run_corpus_list(args: CLIArgs) -> None:
             ).strip()
 
             published_year = trimming_date(raw_published_year)
-
             if not published_year:
                 published_year = raw_published_year
 
             published_century = convert_to_century(published_year)
 
-            relative_path = file_path.relative_to(Path.cwd())
-
-            m = re.match(r"(^.+?\\)([^\\]+?xml)$", str(relative_path))
-            directory_name = m.group(1)
-            file_name = m.group(2)
-
-            print(
-                f"{directory_name}\t{file_name}\t{published_century}\t{title}\t{volume_n}\t{published_year}\t{raw_published_year}\t{author}"
+            key = (
+                _century_sort_key(published_century),
+                (0, published_year)
+                if isinstance(published_year, int)
+                else (1, str(published_year)),
             )
-            out.write(
-                f"{directory_name}\t{file_name}\t{published_century}\t{title}\t{volume_n}\t{published_year}\t{raw_published_year}\t{author}\n"
-            )
+
+            fields = [
+                directory_name,
+                file_name,
+                "",
+                str(published_century),
+                title,
+                volume_n,
+                str(published_year),
+                raw_published_year,
+                author,
+                "",
+                "",
+            ]
+            rows.append((key, "\t".join(fields)))
+
+    if sort == "published_year":
+        rows.sort(key=lambda r: r[0])
+    elif sort == "published_century":
+        rows.sort(key=lambda r: r[0][0])
+
+    with open("corpus_list.txt", "w", encoding="utf-8") as out:
+        out.write(header + "\n")
+        for _, line in rows:
+            print(line)
+            out.write(line + "\n")
 
 
 def run_annotation(args: CLIArgs) -> None:
@@ -656,13 +668,15 @@ def run_annotation(args: CLIArgs) -> None:
             )
         )
 
-    chosen_sent_types = prompt_sent_types(collect_available_sent_types(files, encoding))
+    chosen_sent_types = prompt_sent_types(
+        collect_available_sent_types(files, encoding, period)
+    )
 
     t_tag = time.perf_counter()
     for file_path in files:
 
         tokens = attach_yale(
-            parse_file(file_path, encoding=encoding),
+            parse_file(file_path, encoding=encoding, period=period),
             classical_ch,
             exclude_ch,
         )
@@ -870,7 +884,7 @@ def run_search(args: CLIArgs) -> None:
 
             for file_path in files:
                 tokens = attach_yale(
-                    parse_file(file_path, encoding=encoding),
+                    parse_file(file_path, encoding=encoding, period=period),
                     classical_ch,
                     exclude_ch,
                 )
@@ -1061,7 +1075,7 @@ def run_print_corpus(args: CLIArgs) -> None:
 
     for file_path in files:
         tokens = attach_yale(
-            parse_file(file_path, encoding=encoding),
+            parse_file(file_path, encoding=encoding, period=period),
             classical_ch,
             exclude_ch,
         )
