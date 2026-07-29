@@ -11,7 +11,7 @@ import torch
 
 from .bilstm import (
     CandidateScorer,
-    encode_string,
+    predict_best_candidate,
 )
 from .model import Token
 
@@ -275,23 +275,6 @@ def load_bilstm_artifacts(
     except Exception as e:
         input(f"[WARN] BiLSTM 모델/vocab 로딩 실패: {e}. 규칙 기반으로 대체합니다.")
         return None, None
-
-
-def predict_best_candidate(
-    candidates: list[str],
-    vocab: dict[str, int],
-    model: CandidateScorer,
-    model_parameter: str | None = None,
-) -> str:
-    scores = []
-    for c in candidates:
-        unit_ids = encode_string(vocab, c, model_parameter)
-        unit_tensor = torch.tensor(unit_ids, dtype=torch.long).unsqueeze(0)
-        score = model(unit_tensor)
-        scores.append(score.item())
-
-    best_idx = scores.index(max(scores))
-    return candidates[best_idx]
 
 
 def tag_tokens(

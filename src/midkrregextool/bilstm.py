@@ -8,6 +8,8 @@ tagger.py의 tag_tokens()가 규칙 기반으로 생성한 여러 분석 후보(
 
 from __future__ import annotations
 
+import random
+
 import torch
 from torch import nn
 from torch.utils.data import Dataset
@@ -238,6 +240,30 @@ def build_char_vocab(annotated_examples: list[dict]) -> dict[str, int]:
     return c_dict
 
 
+def split_train_test(
+    annotated_examples: list[dict],
+    test_ratio: float = 0.2,
+    seed: int | None = None,
+) -> tuple[list[dict], list[dict]]:
+    """
+    source_id 단위로 문서를 먼저 나눈 뒤, 각 문서에 속한 예시를 통째로 train 또는 test로 보낸다. (같은 문서가 train/test에 걸쳐 섞이는 것을 방지)
+    """
+    source_ids = sorted({ex["source_id"] for ex in annotated_examples})
+
+    rng = random.Random(seed)
+    rng.shuffle(source_ids)
+
+    n_test = max(1, int(len(source_ids) * test_ratio))
+    test_ids = set(source_ids[:n_test])
+
+    train_examples = [
+        ex for ex in annotated_examples if ex["source_id"] not in test_ids
+    ]
+    test_examples = [ex for ex in annotated_examples if ex["source_id"] in test_ids]
+
+    return train_examples, test_examples
+
+
 def encode_string(
     vocab: dict[str, int], string: str | None = None, model_parameter: str | None = None
 ) -> list[int]:
@@ -260,6 +286,12 @@ def encode_string(
             -> [2, 3, 5, 6, 5, 7, 8, 9]
             (h=2, o=3, /=5, V=6, /=5, L=7, E=8, M=9)
     """
+
+    if string is None:
+        return []
+
+    if model_parameter not in ("c", "m"):
+        raise ValueError(f"model_parameter must be 'c' or 'm', got {model_parameter!r}")
 
     encoded_ids = []
 
@@ -285,6 +317,23 @@ def encode_string(
             encoded_ids.append(id)
 
     return encoded_ids
+
+
+def predict_best_candidate(
+    candidates: list[str],
+    vocab: dict[str, int],
+    model: CandidateScorer,
+    model_parameter: str | None = None,
+) -> str:
+    scores = []
+    for c in candidates:
+        unit_ids = encode_string(vocab, c, model_parameter)
+        unit_tensor = torch.tensor(unit_ids, dtype=torch.long).unsqueeze(0)
+        score = model(unit_tensor)
+        scores.append(score.item())
+
+    best_idx = scores.index(max(scores))
+    return candidates[best_idx]
 
 
 class DisambiguationDataset(Dataset):
@@ -438,3 +487,49 @@ def train_bilstm(
         # 틀렸는지 화면에 찍어서 확인한다. 이 숫자가 뒤로 갈수록
         # 점점 작아지면 "모델이 배우고 있다"는 뜻이다.
         print(f"[Epoch {epoch+1}/{epochs}] total_loss = {total_loss:.4f}")
+
+
+def evaluate_model(
+    examples: list[dict],
+    vocab: dict[str, int] | None,
+    model: CandidateScorer | None,
+    model_parameter: str | None = None,
+) -> dict:
+    """
+    examples: build_annotated_examples()가 만든 test 예시 리스트
+        (split_train_test()로 나눈 test_examples를 넣는다).
+    vocab, model: c_model/c_vocab 또는 m_model/m_vocab.
+        model이 None이면 baseline(candidates[0])으로 채점한다.
+    model_parameter: "c" 또는 "m". model이 None이면 안 쓰인다.
+
+    반환: {"correct": int, "total": int, "accuracy": float}
+        total은 candidates가 2개 이상인 예시만 센다
+        (후보가 1개뿐이면 disambiguation 자체가 필요 없는 자명한
+        케이스라, 정확도를 희석시키지 않기 위해 제외한다).
+    """
+    correct = 0
+    total = 0
+
+    for example in examples:
+        candidates = example["candidates"]
+
+        # 분석형 후보가 하나 뿐이면 제외
+        if len(candidates) <= 1:
+            continue
+
+        total += 1
+
+        if model is not None:
+            predicted = predict_best_candidate(
+                candidates, vocab, model, model_parameter
+            )
+            predicted_index = candidates.index(predicted)
+        else:
+            predicted_index = 0  # rule-based fallback
+
+        if predicted_index == example["gold_index"]:
+            correct += 1
+
+    accuracy = correct / total if total > 0 else 0.0
+
+    return {"correct": correct, "total": total, "accuracy": accuracy}

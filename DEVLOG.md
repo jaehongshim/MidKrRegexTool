@@ -941,12 +941,36 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
     - [x] `run_corpus_list()`: letter 하나당 한 행을 출력하도록 변경 (같은 파일 안에 다른 세기 letter가 섞여 있으면 행이 나뉨), 일반/언간 공통 헤더로 통일(Author/Sender/Receiver 컬럼 추가), `--sort published_year`가 행 단위로도 적용되도록 수정
   - [x] `tests/test_letter_parsing.py` 신규 작성 (13개 테스트, 전부 통과): attribute / writer-attribute / 내부요소 / date-fallback / 형제요소 / 세기혼재 파일 / period 필터링 / corpus-list 다중 행 / 정수·문자열 혼합 연도 정렬 / 연도 누락 / 일반 xml 회귀
 
-- [ ] 모델 성능 비교할 수 있도록 시각화
+## 2026-07-29
+
+"자소 기반 모델 vs 형태소 기반 모델" 성능 비교 기능을 설계하는 과정에서, 비교의 대상이 두 가지로 나뉠 수 있다는 걸 확인함:
+
+  - 병렬적 비교 (오늘 실제로 필요했던 것): 같은 시점에 c_model과 m_model 중 뭐가 더 잘 맞히는가
+  - 통시적 비교 (앞으로 필요할 것): annotation을 계속 추가하면서 같은 모델이 시간이 지나 개선되고 있는가
+
+이 둘을 분명히 구분하고, 오늘 필요한 건 병렬적 비교라는 점을 확정함.
+
+최종 결정한 범위 (병렬 비교):
+
+1. build_annotated_examples() 결과를 train/test로 1회 분리 (학습에 쓴 데이터로 채점하면 정확도가 부풀려지므로 필수 — 이 원칙은 병렬/통시 비교 모두에 공통)
+2. train으로 c_model, m_model 각각 학습
+3. 동일한 test 리스트에 대해 evaluate_model()을 c_model / m_model / baseline(candidates[0]) 세 번 실행, correct/total 비교
+
+해시 기반 고정 split과 로그 누적 방식은 통시적 비교 전용이므로 이번 범위에서는 제외. 다음 세션에서 evaluate_model() 구현부터 시작 예정.
 
 ### 오늘 할 일
+- 자소 기반 모델(c_model)과 형태소 기반 모델(m_model) 병렬 비교 로직 구현
+  - [x] test/train 데이터 나누는 함수 split_train_test()를 bilstm.py에 구현
+  - [x] 모델 비교 함수 evaluate_model() (c_model / m_model / baseline 세 가지 비교)
+    - [x] 순환 참조를 피하기 위해 predict_best_candidate()을 bilstm.py로 옮김
+    - [ ] ~~cli.py에 관련 인터페이스 구축~~ -> 오늘은 run_bilstm_demo.py에서 임시로 검증.
 
-    - 트레이닝 결과 display 성능 형태로 대상 토큰 n개 중 몇 개가 제대로 되었는지
-  - [ ] training 이루어진 것과 이루어지지 않은 것 사이 즉각 비교 가능하도록 구현
+1. split_train_test() 구현
+
+토큰을 source_id 기준으로 나누어 같은 source_id에서 나온 토큰이 test 데이터와 train 데이터로 나뉘는 것을 방지.
+
+### 오늘 할 일
+- 모델 비교 로직 cli.py에 통합.
 
   - 중기:
     - 트레이닝을 한글 input으로 진행할 가능성

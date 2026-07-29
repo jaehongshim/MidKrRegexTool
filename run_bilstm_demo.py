@@ -13,6 +13,8 @@ from src.midkrregextool.bilstm import (
     build_annotated_examples,
     build_char_vocab,
     build_morph_vocab,
+    evaluate_model,
+    split_train_test,
     train_bilstm,
 )
 from src.midkrregextool.parser import parse_file
@@ -73,7 +75,13 @@ if not examples:
     )
 else:
     # 4. vocab, Dataset, 모델 준비
+
+    # 4-0. train/text 분리 (반드시 vocab 만들기 전에!)
+    train_examples, test_examples = split_train_test(examples, test_ratio=0.2, seed=123)
+    print(f"[INFO] train:{len(train_examples)} / test: {len(test_examples)}")
+
     # 4-1. 자소 단위 vocab
+    # (test에만 등장하는 글자/형태소는 <UNK>로 인코딩)
     c_vocab = build_char_vocab(examples)
     c_dataset = DisambiguationDataset(examples, c_vocab, "c")
     c_model = CandidateScorer(vocab_size=len(c_vocab))
@@ -87,6 +95,7 @@ else:
     # 5-0. repo root
     repo_root = Path(__file__).parents[0].resolve()
     model_dir = (repo_root / "data" / "model").resolve()
+    model_dir.mkdir(parents=True, exist_ok=True)
 
     # 5-1. 자소 단위
     train_bilstm(c_dataset, c_model, epochs=3)
@@ -109,5 +118,21 @@ else:
     print(f"[INFO] Morpheme-based model/vocab saved to: {model_dir}")
     print(f"\t- {model_dir / 'bilstm_m_model.pt'}")
     print(f"\t- {model_dir / 'bilstm_m_vocab.json'}")
+
+    # 6. 성능 비교: baseline / c_model / m_model을 같은 test_examples로 채점
+    baseline_result = evaluate_model(test_examples, None, None)
+    c_result = evaluate_model(test_examples, c_vocab, c_model, "c")
+    m_result = evaluate_model(test_examples, m_vocab, m_model, "m")
+
+    print("[RESULT] Accuracy compared based on the test set")
+    print(
+        f"\tbaseline (rule-based):\t{baseline_result['correct']}/{baseline_result['total']} ({baseline_result['accuracy']:.1%})"
+    )
+    print(
+        f"\tc_model (character-based):\t{c_result['correct']}/{c_result['total']} ({c_result['accuracy']:.1%})"
+    )
+    print(
+        f"\tm_model (morpheme-based):\t{m_result['correct']}/{m_result['total']} ({m_result['accuracy']:.1%})"
+    )
 
     print("[INFO] Done. Pipeline ran end to end.")
