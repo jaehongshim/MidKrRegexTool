@@ -969,9 +969,29 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 
 토큰을 source_id 기준으로 나누어 같은 source_id에서 나온 토큰이 test 데이터와 train 데이터로 나뉘는 것을 방지.
 
-### 오늘 할 일
-- 모델 비교 로직 cli.py에 통합.
+## 2026-07-31 — BiLSTM 맥락(context) 정보 접목 아이디어 정리
 
-  - 중기:
-    - 트레이닝을 한글 input으로 진행할 가능성
-    - 트레이닝에 context 적절히 구현할 방법
+### 목표 (한 줄 요약)
+BiLSTM 모델에 맥락 정보를 추가하자.
+
+### 오늘 실제로 한 것 (개념 정리만, 코드 구현은 없음)
+문맥을 BiLSTM에 접목한다는 아이디어를, 아래 실제 문장으로 구체화함:
+
+> 彌勒 위ᄒᆞ야 說法ᄒᆞ샤미 부텻 나히 셜흔아호비러시니
+
+"나히"를 채점한다고 할 때:
+
+- 앞 토큰("부텻")과 뒤 토큰("셜흔아호비러시니")의 정보를 문맥으로 함께 봄
+- 문맥으로 줄 정보는 "부텻"의 골드 정답이 아니라, 규칙 기반이 짐작한 값(`tagged_candidates[0]`)으로 함 — annotation 골드는 학습 시점에만 존재하고, 실전에서 새 코퍼스를 태깅할 때는 "부텻"도 아직 정답을 모르는 상태이므로 학습/실전 조건을 일치시키기 위함
+- "부텻" + "나히 후보" + "셜흔아호비러시니"를 하나로 이어붙여 모델에 넣되, 어디까지가 이웃 정보고 어디부터가 채점 대상인지 구분할 표시(`<SEP>`)가 필요함
+- "나히"가 문장 맨 끝이라 뒤에 볼 토큰이 없는 경우는 `<EOS>`로 대신 채움
+
+### 구현이 필요한 하위 항목 (설계만 됨, 코드 없음)
+- [x] `tag_tokens()`를 2-pass로 분리 — "나히"를 채점하기 전에 "셜흔아호비러시니"의 `tagged_candidates`가 먼저 만들어져 있어야 함 (현재는 앞에서부터 한 바퀴만 돌며 그 자리에서 바로 채점까지 끝내버려서, 뒤 토큰 정보가 아직 없음)
+- [x] `get_adjacent_words()` — 특정 토큰 기준 앞뒤 n개 토큰의 `tagged_candidates[0]`을 가져오는 함수. 문서 경계에서는 `<BOS>`/`<EOS>`로 채움
+- [x] vocab(`build_char_vocab()`, `build_morph_vocab()`)에 `<SEP>`, `<BOS>`, `<EOS>` 예약 토큰 추가
+- [x] `encode_candidate_with_context()` — "왼쪽 문맥 + `<SEP>` + 후보 + `<SEP>` + 오른쪽 문맥"을 하나의 시퀀스로 이어붙여 인코딩. 기존 `encode_string()`은 그대로 재사용
+- [x] build_annotated_examples()에 문맥 반영
+- [x] DisambiguationDataset.__getitem__ 수정
+- [x] predict_best_candidate()에 문맥 인자 추가
+- [ ] `evaluate_model()`로 문맥 추가 전/후 성능 비교

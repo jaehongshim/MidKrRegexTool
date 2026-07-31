@@ -20,6 +20,7 @@ from .model import Token
 def build_annotated_examples(
     tokens: list[Token],
     gold_lookup: dict[tuple[str, int], str],
+    n: int,
 ) -> list[dict]:
     """
     입력:
@@ -27,7 +28,9 @@ def build_annotated_examples(
             Token 객체의 리스트. parser.py -> yale.py -> tagger.py의
             tag_tokens()를 실제로 거쳐서 나온 결과여야 한다 (그래야
             source_id/token_index가 원본 코퍼스 상의 정확한 위치를
-            가리킨다).
+            가리킨다). 또한 문서 전체가 원래 순서 그대로 들어있어야
+            한다 (get_adjacent_words()가 리스트 안 위치(i)로 좌우
+            이웃을 찾기 때문에, 일부만 걸러낸 리스트를 넘기면 안 된다).
 
             예) 아래 골드 라인 하나가 있다고 하자:
                 {"period": "15c", "source_id": "1447_석보상절6:28b:2:kor",
@@ -47,6 +50,11 @@ def build_annotated_examples(
                     ],
                 )
 
+            그리고 tokens 리스트 안에서 이 토큰의 바로 앞뒤에는 이런
+            이웃 토큰들이 있다고 하자 (같은 sent_type, 같은 출전):
+                tokens[i-1].tagged_candidates == ["nim/N/LEM"]
+                tokens[i+1].tagged_candidates == ["is/V/LEM-i.ni/INFL"]
+
         gold_lookup: annotation_{period}c.jsonl을 미리 읽어서 만든
             {(source_id, token_index): gold_morph} 사전.
 
@@ -56,13 +64,17 @@ def build_annotated_examples(
                     ...
                 }
 
+        n: 좌우로 몇 개의 이웃 토큰을 문맥으로 가져올지 (get_adjacent_words()에
+            그대로 전달됨). 이웃이 문서/문장 경계에 부딪혀 부족하면 "<BOS>"나
+            "<EOS>"로 채워져서, 항상 길이 n짜리 리스트로 나온다.
+
     출력:
         각 토큰마다, gold_lookup에 정답이 있고 그 정답이 tagged_candidates
         안에서 실제로 발견된 경우에만 아래 형태의 딕셔너리를 만들어 리스트로
         반환한다. (gold_lookup에 없거나, 있어도 tagged_candidates 안에서
         못 찾으면 그 토큰은 결과에서 제외한다.)
 
-        위 예시에 대한 실제 출력:
+        위 예시에 대한 실제 출력 (n=1인 경우):
             [
                 {
                     "source_id": "1447_석보상절6:28b:2:kor",
@@ -73,6 +85,8 @@ def build_annotated_examples(
                         "kwokh/N/LEM-wa/COM",
                     ],
                     "gold_index": 0,   # candidates[0]이 gold_morph와 일치
+                    "left_context": ["nim/N/LEM"],           # 이웃(앞)의 규칙 기반 1순위 후보
+                    "right_context": ["is/V/LEM-i.ni/INFL"], # 이웃(뒤)의 규칙 기반 1순위 후보
                 },
                 ...
             ]
@@ -83,7 +97,7 @@ def build_annotated_examples(
     if tokens is None:
         return annotated_examples
 
-    for token in tokens:
+    for i, token in enumerate(tokens):
 
         gold_morph = gold_lookup.get((token.source_id, token.token_index))
 
@@ -96,6 +110,8 @@ def build_annotated_examples(
 
         gold_idx = token.tagged_candidates.index(gold_morph)
 
+        left_context, right_context = get_adjacent_words(tokens, i, n)
+
         annotated_example = dict()
 
         annotated_example["source_id"] = token.source_id
@@ -103,7 +119,8 @@ def build_annotated_examples(
         annotated_example["surface"] = token.unicode_form
         annotated_example["candidates"] = token.tagged_candidates
         annotated_example["gold_index"] = gold_idx
-        # annotated_example[]
+        annotated_example["left_context"] = left_context
+        annotated_example["right_context"] = right_context
 
         annotated_examples.append(annotated_example)
 
@@ -160,6 +177,9 @@ def build_morph_vocab(annotated_examples: list[dict]) -> dict[str, int]:
     m_dict = {
         "<PAD>": 0,
         "<UNK>": 1,
+        "<BOS>": 2,
+        "<EOS>": 3,
+        "<SEP>": 4,
     }
     idx = 2
 
@@ -230,6 +250,9 @@ def build_char_vocab(annotated_examples: list[dict]) -> dict[str, int]:
     c_dict = {
         "<PAD>": 0,
         "<UNK>": 1,
+        "<BOS>": 2,
+        "<EOS>": 3,
+        "<SEP>": 4,
     }
     idx = 2
 
@@ -238,6 +261,53 @@ def build_char_vocab(annotated_examples: list[dict]) -> dict[str, int]:
         idx += 1
 
     return c_dict
+
+
+def get_adjacent_words(
+    tokens: list[Token],
+    i: int,
+    n: int,
+) -> tuple[list[str], list[str]]:
+    current = tokens[i]
+
+    def _same_source(t) -> bool:
+        return t.source_id.split(":", 1)[0] == current.source_id.split(":", 1)[0]
+
+    def _walk(step: int) -> list[Token]:
+        found = []
+        idx = i + step
+        while 0 <= idx < len(tokens) and len(found) < n:
+            candidate = tokens[idx]
+            if not _same_source(candidate):
+                break
+
+            if current.sent_type == "anno":
+                if candidate.sent_type == "anno":
+                    found.append(candidate)
+                    idx += step
+                else:
+                    break
+            else:
+                if candidate.sent_type == current.sent_type:
+                    found.append(candidate)
+                    idx += step
+                elif candidate.sent_type == "anno":
+                    idx += step
+                else:
+                    break
+        return found
+
+    left_found = list(reversed(_walk(-1)))
+    right_found = _walk(1)
+
+    left_context = ["<BOS>"] * (n - len(left_found)) + [
+        t.tagged_candidates[0] if t.tagged_candidates else "<BOS>" for t in left_found
+    ]
+    right_context = [
+        t.tagged_candidates[0] if t.tagged_candidates else "<EOS>" for t in right_found
+    ] + ["<EOS>"] * (n - len(right_found))
+
+    return left_context, right_context
 
 
 def split_train_test(
@@ -319,17 +389,44 @@ def encode_string(
     return encoded_ids
 
 
+def encode_forward_sequence(vocab, left_context, candidate, model_parameter):
+    sep_id = vocab["<SEP>"]
+    ids = []
+    for lc in left_context:
+        ids.extend(encode_string(vocab, lc, model_parameter))
+        ids.append(sep_id)
+    ids.extend(encode_string(vocab, candidate, model_parameter))
+    return ids
+
+
+def encode_backward_sequence(vocab, right_context, candidate, model_parameter):
+    sep_id = vocab["<SEP>"]
+    ids = []
+    for rc in reversed(right_context):
+        ids.extend(encode_string(vocab, rc, model_parameter))
+        ids.append(sep_id)
+    ids.extend(encode_string(vocab, candidate, model_parameter))
+    return ids
+
+
 def predict_best_candidate(
     candidates: list[str],
     vocab: dict[str, int],
     model: CandidateScorer,
     model_parameter: str | None = None,
+    left_context: list[str] | None = None,
+    right_context: list[str] | None = None,
 ) -> str:
+    left_context = left_context or []
+    right_context = right_context or []
+
     scores = []
     for c in candidates:
-        unit_ids = encode_string(vocab, c, model_parameter)
-        unit_tensor = torch.tensor(unit_ids, dtype=torch.long).unsqueeze(0)
-        score = model(unit_tensor)
+        fwd_ids = encode_forward_sequence(vocab, left_context, c, model_parameter)
+        bwd_ids = encode_backward_sequence(vocab, right_context, c, model_parameter)
+        fwd_tensor = torch.tensor(fwd_ids, dtype=torch.long).unsqueeze(0)
+        bwd_tensor = torch.tensor(bwd_ids, dtype=torch.long).unsqueeze(0)
+        score = model(fwd_tensor, bwd_tensor)
         scores.append(score.item())
 
     best_idx = scores.index(max(scores))
@@ -356,18 +453,28 @@ class DisambiguationDataset(Dataset):
 
         candidates = annotated_example["candidates"]
 
-        encoded_candidates = []
+        left_context = annotated_example["left_context"]
+        right_context = annotated_example["right_context"]
+
+        encoded_forward = []
+        encoded_backward = []
 
         for candidate in candidates:
-            encoded_candidates.append(
-                encode_string(self.vocab, candidate, self.model_parameter)
+            encoded_forward.append(
+                encode_forward_sequence(
+                    self.vocab, left_context, candidate, self.model_parameter
+                )
+            )
+            encoded_backward.append(
+                encode_backward_sequence(
+                    self.vocab, right_context, candidate, self.model_parameter
+                )
             )
 
-        gold_index = annotated_example["gold_index"]
-
         return {
-            "candidates": encoded_candidates,
-            "gold_index": gold_index,
+            "forward": encoded_forward,
+            "backward": encoded_backward,
+            "gold_index": annotated_example["gold_index"],
         }
 
 
@@ -381,111 +488,49 @@ class CandidateScorer(nn.Module):
             padding_idx=0,
         )
 
-        self.lstm = nn.LSTM(
-            input_size=embed_dim,
-            hidden_size=hidden_dim,
-            bidirectional=True,
-            batch_first=True,
-        )
-
+        self.forward_lstm = nn.LSTM(embed_dim, hidden_dim, batch_first=True)
+        self.backward_lstm = nn.LSTM(embed_dim, hidden_dim, batch_first=True)
         self.fc = nn.Linear(hidden_dim * 2, 1)
 
-    def forward(self, char_ids: torch.Tensor) -> torch.Tensor:
-        embedded = self.embedding(char_ids)
-
-        lstm_out, (h_n, c_n) = self.lstm(embedded)
-
-        final_hidden = torch.cat([h_n[0], h_n[1]], dim=-1)
-
-        score = self.fc(final_hidden)
-
-        return score
+    def forward(
+        self, forward_ids: torch.Tensor, backward_ids: torch.Tensor
+    ) -> torch.Tensor:
+        _, (fwd_h, _) = self.forward_lstm(self.embedding(forward_ids))
+        _, (bwd_h, _) = self.backward_lstm(self.embedding(backward_ids))
+        combined = torch.cat([fwd_h[0], bwd_h[0]], dim=-1)
+        return self.fc(combined)
 
 
-def train_bilstm(
-    dataset: DisambiguationDataset,
-    model: CandidateScorer,
-    epochs: int = 3,
-) -> None:
-
-    # "손실을 보고 모델을 실제로 고쳐주는 도구"를 준비한다.
-    # model.parameters()는 이 모델 안에 있는, 고칠 수 있는 모든 숫자를
-    # 자동으로 다 긁어모아 준다. Adam은 그 숫자들을 어떻게 조금씩
-    # 고쳐나갈지 계산해주는 알고리즘 이름이다.
+def train_bilstm(dataset, model, epochs=3):
     optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
-
-    # "여러 개의 점수와 정답 인덱스를 비교해서, 얼마나 틀렸는지"를
-    # 숫자 하나로 계산해주는 도구를 준비한다.
     loss_fn = nn.CrossEntropyLoss()
 
     print(f"[INFO] dataset: {dataset} / model: {model}")
 
-    # 전체 데이터를 처음부터 끝까지 몇 번 반복해서 공부시킬지 정한다.
-    # (한 번 다 보는 것을 "1 epoch"라고 부른다.)
     for epoch in range(epochs):
-
-        # 이번 한 바퀴(epoch) 동안 얼마나 틀렸는지 합계를 저장할 변수.
-        # 나중에 이 값이 점점 줄어드는지 보려고 만든다.
         total_loss = 0.0
 
-        # 데이터(토큰들)를 하나씩 순서대로 꺼낸다.
         for i in range(len(dataset)):
-
-            # i번째 토큰 하나를 꺼낸다.
-            # (안에는 후보들 candidates, 그리고 정답 번호 gold_index가 들어있다)
             example = dataset[i]
-            candidates = example["candidates"]
             gold_index = example["gold_index"]
 
-            # 이 토큰의 각 후보마다 점수를 매겨서 담아둘 빈 상자.
             scores = []
-
-            # 후보를 하나씩 꺼내서, 모델에게 "이거 몇 점이야?"라고 물어본다.
-            for candidate_ids in candidates:
-
-                # 후보 하나(숫자 리스트)를, 모델이 알아먹는 정확한
-                # 텐서 모양으로 바꾼다. (이 모양 맞추는 절차는 PyTorch가
-                # 항상 요구하는 정해진 형식이라, 그냥 이렇게 쓴다고
-                # 생각해도 된다)
-                char_tensor = torch.tensor(candidate_ids, dtype=torch.long).unsqueeze(0)
-
-                # 모델에게 이 후보를 보여주고 점수를 하나 받는다.
-                score = model(char_tensor)
-
-                # 받은 점수를 상자에 담아둔다.
+            for fwd_ids, bwd_ids in zip(example["forward"], example["backward"]):
+                fwd_tensor = torch.tensor(fwd_ids, dtype=torch.long).unsqueeze(0)
+                bwd_tensor = torch.tensor(bwd_ids, dtype=torch.long).unsqueeze(0)
+                score = model(fwd_tensor, bwd_tensor)
                 scores.append(score)
 
-            # 후보별 점수들을 한 줄로 나란히 이어붙인다.
-            # (CrossEntropyLoss가 "후보들의 점수 한 줄"이라는 모양을
-            # 원하기 때문에 모양을 맞춰주는 것이다)
             scores_tensor = torch.cat(scores, dim=0).view(1, -1)
-
-            # 정답 번호도 같은 방식(텐서)으로 바꿔준다.
             gold_tensor = torch.tensor([gold_index], dtype=torch.long)
-
-            # "이 점수들 중에서, 정답이 몇 번째였는데 실제로 얼마나
-            # 잘 맞혔는지(혹은 못 맞혔는지)"를 숫자 하나(loss)로 계산한다.
             loss = loss_fn(scores_tensor, gold_tensor)
 
-            # 아래 세 줄은 "모델을 실제로 조금 더 똑똑하게 고치는 절차"다.
-            # 항상 이 순서, 이 세 줄로 쓴다고 생각하면 된다.
-
-            # 1) 이전에 계산해뒀던 "고칠 방향" 기록을 깨끗이 지운다.
             optimizer.zero_grad()
-
-            # 2) "이번엔 어느 방향으로, 얼마나 고쳐야 덜 틀리는지" 계산한다.
             loss.backward()
-
-            # 3) 계산된 방향대로 모델의 숫자들을 실제로 아주 조금 고친다.
             optimizer.step()
 
-            # 이번 토큰에서 얼마나 틀렸는지를 누적 합계에 더한다.
-            # (.item()은 "텐서 안에 든 숫자 하나만 순수하게 꺼내라"는 뜻)
             total_loss += loss.item()
 
-        # 이번 한 바퀴(epoch)가 끝날 때마다, 전체적으로 얼마나
-        # 틀렸는지 화면에 찍어서 확인한다. 이 숫자가 뒤로 갈수록
-        # 점점 작아지면 "모델이 배우고 있다"는 뜻이다.
         print(f"[Epoch {epoch+1}/{epochs}] total_loss = {total_loss:.4f}")
 
 

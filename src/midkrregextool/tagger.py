@@ -11,6 +11,7 @@ import torch
 
 from .bilstm import (
     CandidateScorer,
+    get_adjacent_words,
     predict_best_candidate,
 )
 from .model import Token
@@ -286,6 +287,7 @@ def tag_tokens(
     model: CandidateScorer | None = None,
     vocab: dict[str, int] | None = None,
     model_parameter: str | None = None,
+    n: int = 2,
 ) -> list[Token]:
     """Enrich tokens with morphological tagging for downstream processing."""
 
@@ -333,8 +335,6 @@ def tag_tokens(
 
         return True
 
-    pending_token_idx = []
-
     for i, token in enumerate(tokens):
         prev_token = tokens[i - 1] if i > 0 else None
 
@@ -349,20 +349,6 @@ def tag_tokens(
             token.tagged_candidates = [token.yale + "/" + "NO-TAGGED-FORM"]
             token.tagged_form = token.tagged_candidates[0]
             continue
-
-        aux_context = False
-        if (
-            prev_token
-            and prev_token.source_id == token.source_id
-            and prev_token.is_note == token.is_note
-            and prev_token.lang == "kor"
-            and token.lang == "kor"
-            and prev_token.tagged_form
-        ):
-            if "/V" in prev_token.tagged_form and (
-                prev_token.tagged_form.endswith("/CONN")
-            ):
-                aux_context = True
 
         candidates: list[str] = []
 
@@ -388,31 +374,34 @@ def tag_tokens(
                     if _segmented_chain_allowed(analyzed, segmented)
                 ]
                 for segmented in filtered_segmented:
-                    if aux_context and "/V" in analyzed and "/AUX" not in analyzed:
-                        candidates.append(
-                            analyzed.split("/LEM", 1)[0] + "/AUX/LEM-" + segmented
-                        )
-                    else:
-                        candidates.append(
-                            analyzed.split("/LEM", 1)[0] + "/LEM-" + segmented
-                        )
+                    candidates.append(
+                        analyzed.split("/LEM", 1)[0] + "/LEM-" + segmented
+                    )
 
         if not candidates:
             token.tagged_candidates = [token.yale + "/NO-TAGGED-FORM"]
         else:
             token.tagged_candidates = list(dict.fromkeys(candidates))
 
-        if model is not None and vocab is not None and len(token.tagged_candidates) > 1:
+    token_lookup = {(t.source_id, t.token_index): t for t in tokens}
+    pending_token_idx = []
 
+    for i, token in enumerate(tokens):
+        if model is not None and vocab is not None and len(token.tagged_candidates) > 1:
+            (
+                left_context,
+                right_context,
+            ) = get_adjacent_words(tokens, i, n)
             token.tagged_form = predict_best_candidate(
-                token.tagged_candidates, vocab, model, model_parameter
+                token.tagged_candidates,
+                vocab,
+                model,
+                model_parameter,
+                left_context,
+                right_context,
             )
         else:
-
             token.tagged_form = token.tagged_candidates[0]
-
-        if ("/DAT" in token.tagged_form) or ("/GEN" in token.tagged_form):
-            pending_token_idx.append(i)
 
     # post-adjustment
 

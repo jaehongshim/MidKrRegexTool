@@ -30,6 +30,7 @@ ANNOTATION_DATA = Path("data/annotation")
 CORPUS_FILE = Path(
     "D:/Corpus/NIKL/NIKL_Historical Korean Corpus 2023_v2.0/HXRW2320000612.xml"
 )
+N = 2
 # --------------------------------------------------
 
 annotation_file = ANNOTATION_DATA / f"annotation_{PERIOD}c.jsonl"
@@ -66,7 +67,7 @@ tokens = tag_tokens(
 )
 
 # 3. 학습 예시 만들기
-examples = build_annotated_examples(tokens, gold_lookup)
+examples = build_annotated_examples(tokens, gold_lookup, N)
 print(f"[INFO] annotation examples: {len(examples)}")
 
 if not examples:
