@@ -46,29 +46,6 @@ def candidate_generator(
 
     candidates: list[str] = []
 
-    prev_token = None
-    if token_lookup is not None:
-        prev_token = token_lookup.get((token.source_id, token.token_index - 1))
-
-    aux_context = False
-    if prev_token and prev_token.tagged_form:
-        if "/V" in prev_token.tagged_form and (
-            "/LEM-a/" in prev_token.tagged_form or "/LEM-e/" in prev_token.tagged_form
-        ):
-            aux_context = True
-
-    if aux_context and infl_decomp:
-        for lem, lem_pos in lexicon.items():
-            if "/V" not in lem_pos:
-                continue
-            if yale.startswith(lem):  # lem을 aux 목록으로 바꿀 것.
-                rest = yale[len(lem) :]
-                if rest in infl_decomp:
-                    for segmented in infl_decomp[rest]:
-                        candidates.append(f"{lem}/AUX/LEM-{segmented}")
-                elif not rest:
-                    candidates.append(f"{lem_pos}/LEM")
-
     m = re.match(r"^([\u4E00-\u9FFF]+hw?o)([^\u4E00-\u9FFF]+)$", yale)
     if m:
         lem = m.group(1)
@@ -482,7 +459,7 @@ def annotate(
 
         quit_annotation = False
 
-        candidate_cache: dict[tuple[str, bool], list[str]] = {}
+        candidate_cache: dict[str, list[str]] = {}
 
         # gold_morph values chosen earlier in *this* session, keyed by yale.
         # Reused to surface a just-made decision as a top candidate when the
@@ -534,14 +511,7 @@ def annotate(
                             (token.source_id, token.token_index - 1)
                         )
 
-                    aux_context = False
-                    if prev_token and prev_token.tagged_form:
-                        if "/V" in prev_token.tagged_form and (
-                            "/LEM-a/" in prev_token.tagged_form
-                            or "/LEM-e/" in prev_token.tagged_form
-                        ):
-                            aux_context = True
-                    cache_key = (yale, aux_context)
+                    cache_key = yale
 
                     if cache_key in candidate_cache:
                         candidates = candidate_cache[cache_key]

@@ -336,7 +336,6 @@ def tag_tokens(
         return True
 
     for i, token in enumerate(tokens):
-        prev_token = tokens[i - 1] if i > 0 else None
 
         analyzed_list = analyze_yale(
             token.yale,
@@ -383,7 +382,6 @@ def tag_tokens(
         else:
             token.tagged_candidates = list(dict.fromkeys(candidates))
 
-    token_lookup = {(t.source_id, t.token_index): t for t in tokens}
     pending_token_idx = []
 
     for i, token in enumerate(tokens):
