@@ -7,7 +7,7 @@ import re
 import sys
 import time
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path  # is_file(), is_dir()
 
 from midkrregextool.annotation import (
@@ -57,6 +57,7 @@ class CLIArgs:
     print_corpus: bool = False
     document_type: str | None = None
     chunk_start: str | None = None
+    print_tokens: bool = False
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -158,6 +159,11 @@ def build_parser() -> argparse.ArgumentParser:
         choices=["c", "m"],
         help="Specify the model unit: 'c' for character-based or 'm' for model-based.",
     )
+    p.add_argument(
+        "--print-tokens",
+        action="store_true",
+        help="Print tokens",
+    )
 
     return p
 
@@ -199,6 +205,7 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
     pattern = ns.pattern
     document_type = ns.document_type
     corpus_list = ns.corpus_list
+    print_tokens = ns.print_tokens
 
     if document_type:
         print(
@@ -210,7 +217,7 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
         )
 
     # Search mode requires --pattern
-    if not (annotation_mode or print_corpus or corpus_list):
+    if not (annotation_mode or print_corpus or corpus_list or print_tokens):
         if pattern is None:
             raise SystemExit(
                 "[ERROR] --pattern is required unless --annotation-mode is set."
@@ -295,6 +302,7 @@ def parse_cli_args(args: list[str] | None) -> CLIArgs:
         print_corpus=ns.print_corpus,
         document_type=ns.document_type,
         chunk_start=ns.chunk_start,
+        print_tokens=ns.print_tokens,
     )
 
 
@@ -404,9 +412,11 @@ def collect_input_files(
             if sort == "published_year":
                 sorting_key[file] = (
                     _century_sort_key(published_century),
-                    (0, published_year)
-                    if isinstance(published_year, int)
-                    else (1, str(published_year)),
+                    (
+                        (0, published_year)
+                        if isinstance(published_year, int)
+                        else (1, str(published_year))
+                    ),
                 )
             elif sort == "published_century":
                 sorting_key[file] = _century_sort_key(published_century)
@@ -517,9 +527,7 @@ def run_corpus_list(args: CLIArgs) -> None:
             # multiple centuries.
             letters = get_info_from_letters(root)
             if not corpus_list:
-                letters = [
-                    info for info in letters if info.published_century == period
-                ]
+                letters = [info for info in letters if info.published_century == period]
 
             for info in letters:
                 fields = [
@@ -552,9 +560,11 @@ def run_corpus_list(args: CLIArgs) -> None:
 
             key = (
                 _century_sort_key(published_century),
-                (0, published_year)
-                if isinstance(published_year, int)
-                else (1, str(published_year)),
+                (
+                    (0, published_year)
+                    if isinstance(published_year, int)
+                    else (1, str(published_year))
+                ),
             )
 
             fields = [
@@ -1091,7 +1101,14 @@ def run_print_corpus(args: CLIArgs) -> None:
         )
 
         for token in tokens:
-            print(f"{token.unicode_form}: {token.tagged_form}")
+            if args.print_corpus:
+                print(f"{token.unicode_form}: {token.tagged_form}")
+            elif args.print_tokens:
+                print("Token (")
+                for key, val in asdict(token).items():
+                    print(f"{key}={val},")
+                print(")")
+            print("\n")
 
 
 def run(args: CLIArgs) -> None:
@@ -1123,7 +1140,7 @@ def run(args: CLIArgs) -> None:
 
     # Print corpus mode
 
-    if args.print_corpus:
+    if args.print_corpus or args.print_tokens:
         print(
             "[INFO] print_corpus mode is on. Corpora will be printed with tagged morphemes based on the current annotation data."
         )

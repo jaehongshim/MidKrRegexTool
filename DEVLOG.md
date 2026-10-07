@@ -995,3 +995,9 @@ BiLSTM 모델에 맥락 정보를 추가하자.
 - [x] DisambiguationDataset.__getitem__ 수정
 - [x] predict_best_candidate()에 문맥 인자 추가
 - [ ] `evaluate_model()`로 문맥 추가 전/후 성능 비교
+
+## 2026-09-19
+
+* 발견한 문제점
+  - 실제로 CAUS로 분석되면 안 되는 것이 CAUS로 분석되는 예 보임.
+    - 
