@@ -19,6 +19,7 @@ _GLOSS_RX = re.compile(r"/[A-Za-z][A-Za-z0-9_-]*")
 
 CATEGORY_CHANGERS = {
     "NMLZ": "N",
+    "COP": "COP",
 }
 
 
@@ -837,6 +838,10 @@ def load_annotated_keys(annotation_path: Path) -> set[tuple[str, int]]:
 def load_infl_decomp_from_annotation(annotation_path: Path) -> dict[str, list[str]]:
     d: dict[str, list[str]] = {}
 
+    """
+    - 정밀 태깅을 위해 analyze_yale()에서 만들어지는 활용 곡용 어미의 초벌태깅 결과에 골드 파일에서 추출한 활용/곡용 어미 조합을 짝지어은 사전을 리턴하는 함수
+    - 예를 들어 `ᄒᆞ니라`라는 토큰의 어미 `nila/INFL`에 대해 골드로부터 `n/ADN.NFUT-i/N.DEP/COP-la/DECL`, `ni/ASS-la/DECL` 등을 짝지은 {"nila":["n/ADN.NFUT-i/N.DEP/COP-la/DECL","ni/ASS-la/DECL"]}를 돌려주게 됨.  
+    """
     try:
         with open(annotation_path, "r", encoding="utf-8") as f:
             for line in f:
@@ -874,6 +879,7 @@ def load_pos_to_allowed_morphemes_inventory_from_annotation(
 
     def _add_from_gold_morph(m: str) -> None:
         """
+        골드 파일로부터 추출한 활용/곡용 어미 전체 목록에 대해 각 어미가 후행할 수 있는 어휘 부류 정보를 담은 사전을 돌려주는 함수
         Input: "nulk/A/LEM-no/PRS-ni/AOR-la/DECL"
         Output:
         {
@@ -920,6 +926,8 @@ def load_pos_to_allowed_morphemes_inventory_from_annotation(
             if state not in pos_to_allowed_morphemes:
                 pos_to_allowed_morphemes[state] = set()
                 # pos_to_allowed_morphemes = {"A": set()}
+            if state in ("A", "V") and part.endswith("/TOP"):
+                print(f"[DEBUG] {state}에 TOP 추가: {m}")
             pos_to_allowed_morphemes[state].add(part)
             # pos_to_allowed_morphemes["A"] = set()
             # pos_to_allowed_morphemes["A"].add("no/PRS") → {"no/PRS"}

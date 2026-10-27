@@ -678,6 +678,12 @@ def run_annotation(args: CLIArgs) -> None:
             )
         )
 
+    for pos in pos_to_allowed_morphemes.keys():
+        suffixes = pos_to_allowed_morphemes.get(pos)
+        for suffix in suffixes:
+            print(f"{pos}: {suffix}")
+        m = input("")
+
     chosen_sent_types = prompt_sent_types(
         collect_available_sent_types(files, encoding, period)
     )

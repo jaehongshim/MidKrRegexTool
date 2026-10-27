@@ -16,9 +16,7 @@ from .bilstm import (
 )
 from .model import Token
 
-CATEGORY_CHANGERS = {
-    "NMLZ": "N",
-}
+CATEGORY_CHANGERS = {"NMLZ": "N", "COP": "COP"}
 
 
 def default_annotation_dir() -> Path:
@@ -138,6 +136,7 @@ def label_han(yale: str) -> list[str, str]:
     labeled_forms = []
 
     # compiling regex pattern for Chinese characters
+    # light verb ᄒᆞ/호가 붙은 형태
     m1 = re.match(
         r"^([\u4E00-\u9FFF]+hw?o)(.*?)$", yale
     )  # verb with a Sino-Korean root
@@ -150,7 +149,12 @@ def label_han(yale: str) -> list[str, str]:
         lem = m1.group(1)
         suf = m1.group(2)
 
-        lem = f"{lem}/V.CH/LEM"
+        # hwo(호)일 경우
+        if lem.endswith("hwo"):
+            lem = f"{lem}/V.CH/WO/LEM"
+        # ho(ᄒᆞ)일 경우
+        else:
+            lem = f"{lem}/V.CH/LEM"
         suf = f"{suf}/INFL"
 
     # 1-2. If yale contains any non-Chinese characters, parse a boundary between CH/LEM-...
@@ -198,6 +202,7 @@ def analyze_yale(
     # Then check lemmas with restored material in parentheses.
     # Ignore the parenthesized part only for surface matching.
 
+    # Gold 파일에서 추출한 lemma가 yale에 들어있는지 검사하고 yale에 일치하는 문자열이 있으면 나머지 부분을 굴절 어미로 초벌 태깅하여 candidates 리스트에 더하기
     for lem in lemma_list:
         surface_lem = re.sub(r"\([^)]*\)", "", lem)
 
@@ -207,21 +212,17 @@ def analyze_yale(
         if yale.startswith(surface_lem):
             suffix = yale[len(surface_lem) :]
 
-            if "(o)" in lem and suffix and not suffix.startswith("w"):
-                continue
-
             lem_pos = lexicon[lem]
 
             if not suffix:
-                # print(f"[DEBUG] {yale} -> {lem_pos}/LEM")
                 candidates.append(f"{lem_pos}/LEM")
             if suffix in infl_decomp:
-                # print(f"[DEBUG] {yale} -> {lem_pos}/LEM-{suffix}/INFL")
                 candidates.append(f"{lem_pos}/LEM-{suffix}/INFL")
 
+    # 한자를 포함하는 경우 기계적으로 태깅이 가능하도록 한자어 포함 여부를 검사
     has_han = contains_han(yale)
 
-    # 1. check if yale contains Chinese character
+    # 만약 한자어를 포함하면 label_han의 규약에 따라 기계적으로 candidate 생성
     if has_han:
 
         labeled_forms = label_han(yale)
@@ -300,25 +301,6 @@ def tag_tokens(
         if not parts:
             return True
 
-        first_surface = parts[0].split("/", 1)[0]
-
-        # Parenthetical vowel contraction conditions
-        if "(o)" in left:
-            if not first_surface.startswith("wo"):
-                return False
-
-        if "(u)" in left:
-            if not first_surface.startswith("wu"):
-                return False
-
-        if "(a)" in left:
-            if not first_surface.startswith("a"):
-                return False
-
-        if "(e)" in left:
-            if not first_surface.startswith("e"):
-                return False
-
         if not pos_to_allowed_morphemes:
             return True
 
@@ -337,13 +319,14 @@ def tag_tokens(
 
     for i, token in enumerate(tokens):
 
+        # 초벌 태깅: `token`의 `yale`에 대해 가능한 [LEMMA]/POS/LEM-[SUFFIX]/INFL를 담은 리스트를 돌려주는 부분
         analyzed_list = analyze_yale(
             token.yale,
             lexicon,
             infl_decomp,
         )
-        # print(f"[DEBUG] {token.yale} -> {analyzed}.")
 
+        # 2026년 10월 27일 현재 한자어를 포함한 경우가 아니라면 가능한 형태소 분석형이 골드로부터 추출되지 않는 경우 아예 "NO-TAGGED-FORM"이 리턴됨.
         if not analyzed_list:
             token.tagged_candidates = [token.yale + "/" + "NO-TAGGED-FORM"]
             token.tagged_form = token.tagged_candidates[0]
@@ -351,6 +334,7 @@ def tag_tokens(
 
         candidates: list[str] = []
 
+        # 정밀 태깅
         for analyzed in analyzed_list:
             if "/INFL" not in analyzed:
                 if analyzed.endswith("/LEM"):

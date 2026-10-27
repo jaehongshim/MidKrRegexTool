@@ -1055,3 +1055,34 @@ BiLSTM 모델에 맥락 정보를 추가하자.
 - 3번과 9번은 한자 + `ho`/`hi` 형태에서 같은 패턴일 가능성이 있음.
 - 5번과 7번은 어간 뒤 보조 표지(`WO`, `CONN`)가 빠진다는 공통점이 있음.
 - `tagged_candidates[0]`에 오염 후보가 오면 BiLSTM 이웃 문맥의 잡음 원인이 될 수 있어, 정확도 하락 조사와 연결될 가능성이 있음.
+
+## 2026-10-27
+
+### 디버그해야 할 부분 파악
+- [x] `candidate_generator` 실행 시 불가능한 조합이 추천되는 문제
+  - [x] /V 뒤에 /TOP이 추가되는 문제 (`na/V/LEM-non/TOP`, `tut/V/LEM-coW/HON.OBJ-a/EMPH-n/ADN.NFUT-mal/N-on/TOP` 등): gold 파일에 annotation 실수가 있었음. gold 수정 완료
+    - [x] 잇ᄂᆞᆫ 포함 `V`/`A` 뒤 `/TOP` 잔여 없음 확인
+  - [x] /N 뒤에 /ADN이 추가되는 문제 (`nom/N/LEM-i/COP-n/ADN.NFUT` 계열): `CATEGORY_CHANGERS`에 `"COP": "COP"` 추가 (코드 반영 확인 완료)
+    - [x] `N` 뒤 `/ADN` 잔여 없음 확인
+  - 앞으로 다른 전성어미 부류가 발견되면 추가하면 됨.
+
+### Candidate generator 개선
+
+- [x] `tagger.py/analyze_yale()` 개선
+  - [x] 단어가 형성되는 과정에서 형태소의 분절음이 삭제되는 경우를 더 이상 고려하지 않으므로 관련 처리 코드 삭제
+
+### 남은 과제 (TDL)
+
+- [ ] `a/V/LEM-la/DECL` (아라): 계사 뒤 한정 이형태 `la/DECL`, `ta/DECL`이 어간 직후가 아닌 위치에서도 `V` 집합에 들어가는 구조적 한계. `COP` 분리만으로는 불충분
+  - 구조 후보: gold에서 `직전 형태소 → 직후 형태소` 전이표(또는 부류 → 첫 어미, 어미 → 다음 어미 두 표) 자동 추출. 재현율 하락 위험 있음
+  - 미결정: 전이표 전환 여부
+- [ ] `nawos`: 정답 `na/PRON.1SG/LEM-wos/EMPH` 대신 `na/V/LEM-wos/EMPH`가 제시됨
+  - [x] 원인: `wos/EMPH`가 gold에서 `V` 뒤에만 기록되어 있어 `PRON.1SG` 허용 집합에 없었음. `na/PRON.1SG/LEM-wos/EMPH`를 gold에 추가하여 정답 후보가 생성됨
+  - [ ] `V` 집합에 `wos/EMPH`가 들어간 경로 확인 (gold 오기 여부). 오기라면 gold 수정으로 `na/V/LEM-wos/EMPH` 제거
+- [ ] `몯`: `mwot/NEG/LEM` 누락, `mwot/V/LEM`(용언 어간 단독) 제시. 규칙으로 막을지 BiLSTM에 맡길지 결정
+- [ ] `盛hi` → `盛/N.CH/LEM`: 입력 일부(`hi`)가 소실된 후보가 제시되지 않도록 수정 (입력 표면형 전체를 설명하지 못하는 후보 금지)
+- [ ] `降服ᄒᆞ려뇨`: 실제 제시되는 후보 전체 확인, 입력 일부 소실 여부 판정
+- [ ] `恭敬hwon`: `恭敬hwo/V.CH/WO/LEM-n/ADN.NFUT`에서 `WO` 표지 누락 확인
+- [ ] `네`: `ney/PRON.2SG.GEN/LEM`이 후보에 안 올라오는 원인 확인 (nawos와 같은 gold 분포 문제인지, 후보 생성 쪽 문제인지 함께 확인)
+- [ ] `가`, `나`: `ka/V/CONN/LEM`, `na/V/CONN/LEM` 누락 확인 (`CONN` 포함 후보와 미포함 후보의 공존 여부 결정)
+
