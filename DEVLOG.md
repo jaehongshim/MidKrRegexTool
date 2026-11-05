@@ -25,14 +25,14 @@ The tool will always take one or more external file paths as input.
 
 ### What I actually did today
 - Implemented the first functional version of `parser.py`, which:
-    - detects source markers (e.g., `<釋詳3:1a>`),
-    - performs whitespace-based tokenization on Middle Korean text encoded in Hanyang PUA,
-    - handles both main text and note content (wrapped with [note] ... [/note] markers),
-    and assign token-level metadata (`source_id`, `token_index`, `is_note`).
+        - detects source markers (e.g., `<釋詳3:1a>`),
+        - performs whitespace-based tokenization on Middle Korean text encoded in Hanyang PUA,
+        - handles both main text and note content (wrapped with [note] ... [/note] markers),
+        and assign token-level metadata (`source_id`, `token_index`, `is_note`).
 - Checked if `parser.py` works properly using `sample_sekpo_excerpt.txt`, confirming:
-    - correct source marker detection and `token_index` reset,
-    - correct identification of note vs. non-note segments,
-    - and stable handling of Hanyang PUA characters.
+        - correct source marker detection and `token_index` reset,
+        - correct identification of note vs. non-note segments,
+        - and stable handling of Hanyang PUA characters.
 
 ### Decisions made
 - Notes (`[note] ... [/note]`) are included in the token stream, distinguished only by an `is_note` flag.
@@ -48,9 +48,9 @@ The tool will always take one or more external file paths as input.
 ### What I did today
 - Improved `quick_check_parser.py` to make parser verification easier:
 - Reviewed parser behavior with the sample excerpt and confirmed correct handling of:
-    - source marker resets,
-    - note vs. main text distinction,
-    - token indexing logic.
+        - source marker resets,
+        - note vs. main text distinction,
+        - token indexing logic.
 - Add parser behavior documentation to `design.md`.
 
 ### Next tasks
@@ -60,12 +60,12 @@ The tool will always take one or more external file paths as input.
 
 ### What I did today
 - Implemented `yale.py`
-    - Used YaleKorean package (https://github.com/SeHaan/YaleKorean/)
+        - Used YaleKorean package (https://github.com/SeHaan/YaleKorean/)
 - Connected the parser output to the Yale conversion module (`yale.py`).
 - Verified the pipeline using `quick_check_parser.py`, confirming:
-    - correct PUA -> Unicode -> Yale transformations,
-    - consistent behavior for mixed hanja/PUA tokens,
-    - Collected several post-processing rule candidates based on the observed ouput patterns. 
+        - correct PUA -> Unicode -> Yale transformations,
+        - consistent behavior for mixed hanja/PUA tokens,
+        - Collected several post-processing rule candidates based on the observed ouput patterns. 
 
 ### Decisions made
 - Yale conversion will be kept as a separate stage rather than integrated into the parser.
@@ -73,8 +73,8 @@ The tool will always take one or more external file paths as input.
 
 ### Next tasks
 - Begin implementing `search.py`, which will support:
-    - regex search over Yale forms,
-    - extraction of matched tokens and their metadata,
+        - regex search over Yale forms,
+        - extraction of matched tokens and their metadata,
 - After search is stable, revisit and finalize the post-processing rules.
 
 ## 2025-12-12 (logged on 2025-12-15)
@@ -86,10 +86,10 @@ The tool will always take one or more external file paths as input.
 
 - Implemented and experimented with a helper script (`quick_check_parser.py`).
 - Explored how parsed tokens flow through:
-    - file parsing (`parse_file`)
-    - token objects (`Token`)
-    - Yale romanization attachment (`attach_yale`)
-    - regex-based search over `token.yale`
+        - file parsing (`parse_file`)
+        - token objects (`Token`)
+        - Yale romanization attachment (`attach_yale`)
+        - regex-based search over `token.yale`
 - Encountered significant complexity relative to the intended goal of a "quick" inspection script.
 
 ### Notes
@@ -101,8 +101,8 @@ The tool will always take one or more external file paths as input.
 ### Work summary
 
 - Implemented `report.py`, which plays the following two key roles:
-    1. Display search results
-    2. Optionally save the results as a UTF-8 text file.
+        1. Display search results
+        2. Optionally save the results as a UTF-8 text file.
 - Designed `report.py` so that only `report_hits` and `maybe_save_hits` are exposed as its public interface. 
 
 ### Next tasks
@@ -115,10 +115,10 @@ The tool will always take one or more external file paths as input.
 ### Work summary
 
 - Extended the regex search to **bigram searches**.
-    - Bigram search is triggered when the user's regex pattern contains a **literal space character** (`" "`, as opposed to `\s`).
+        - Bigram search is triggered when the user's regex pattern contains a **literal space character** (`" "`, as opposed to `\s`).
 - Updated `search.py` so that:
-    - monogram search returns `list[Token]`
-    - bigram search returns `list[tuple[Token, Token]]`
+        - monogram search returns `list[Token]`
+        - bigram search returns `list[tuple[Token, Token]]`
 - Updated `readme.md` to reflect the current search behavior and limitation.
 
 ### Example
@@ -140,7 +140,7 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 - Extend the module to support processing multiple input files at once. 
 - Add an optional `comment` field to the `Token` objects so that the researcher can keep track of the intended purpose of a given regex pattern.
 - Implement `maybe_save_hits` support for bigram search results. 
-    
+        
 ## 2025-12-18
 
 ### What I did today 
@@ -172,16 +172,16 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 ### What I did today
 - Completed the migration from the helper script (`quick_check_parser.py`) to a full package-level CLI (`cli.py`).
 - Finalized the CLI execution pipeline.
-    - argument parsing via `argparse`
-    - validation and normalization in `parse_cli_args`
-    - batch-capable execution logic in `run`
+        - argument parsing via `argparse`
+        - validation and normalization in `parse_cli_args`
+        - batch-capable execution logic in `run`
 - Added support for running the tool on the **working directory** when no `--path` argument is provided. 
 - Enforced `--pattern` as a required argument with a clear error message.
 - Verified that the tool runs correctly via the package entry point (`python -m midkrregextool`)
 - Confirmed stable behavior for:
-    - directory-based batch searches,
-    - monogram and bigram regex patterns,
-    - interactive saving of aggregated search results.
+        - directory-based batch searches,
+        - monogram and bigram regex patterns,
+        - interactive saving of aggregated search results.
 
 ### Decisions made
 - Argument validation (e.g., missing `--pattern`, default path resolution) is handled exclusively in `parse_cli_args`, keeping `run` free of input validation logic.
@@ -190,12 +190,12 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 
 ### Next tasks
 - Prepare the package for public installation via `pip`:
-    - finalize `pyproject.toml`,
-    - add console entry points if needed.
+        - finalize `pyproject.toml`,
+        - add console entry points if needed.
 - Revise and expand `README.md` with:
-    - installation instructions,
-    - CLI usage examples,
-    - sample outputs.
+        - installation instructions,
+        - CLI usage examples,
+        - sample outputs.
 
 ## 2025-12-23
 
@@ -210,73 +210,73 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 - This change removes the previous reliance on `PYTHONPATH` / CWD-dependent execution.
 - The project is now ready for pip-based usage and future PyPI distribution.
 
-## 2026-01-05  
+## 2026-01-05    
 *(work carried out roughly between 2025-12-24 and 2026-01-05, committed on 2026-01-05)*
 
 ### Work summary
 
 - Introduced an initial **morphological tagging layer** (`tagger.py`) on top of the existing
-  parser → Yale conversion pipeline.
+    parser → Yale conversion pipeline.
 - Extended the `Token` model with a `tagged_form` field to store morphologically annotated output.
 - Implemented a **suffix-based lemma/inflection split** over Yale-romanized forms, designed as a
-  preprocessing step prior to regex-based search.
+    preprocessing step prior to regex-based search.
 - Added support for **externalized suffix management**:
-  - inflectional suffixes are now loaded from a separate text file (`infl_suffixes.txt`),
-    rather than being hard-coded.
+    - inflectional suffixes are now loaded from a separate text file (`infl_suffixes.txt`),
+        rather than being hard-coded.
 - Implemented a **corpus-driven suffix discovery mechanism**:
-  - suffix candidates are collected from tokens where inflectional parsing fails,
-  - candidate suffixes are aggregated across all input files using a global `Counter`,
-  - final proposals are generated once at the end of batch processing.
+    - suffix candidates are collected from tokens where inflectional parsing fails,
+    - candidate suffixes are aggregated across all input files using a global `Counter`,
+    - final proposals are generated once at the end of batch processing.
 - Integrated the suffix discovery pipeline into the CLI execution flow,
-  while keeping it clearly separated from the core search functionality.
+    while keeping it clearly separated from the core search functionality.
 
 ### Design notes
 
 - The suffix discovery logic is intentionally **non-destructive**:
-  automatically proposed suffixes are *not* added to the active suffix list,
-  but are instead intended for manual review and incremental refinement.
+    automatically proposed suffixes are *not* added to the active suffix list,
+    but are instead intended for manual review and incremental refinement.
 - Inflectional parsing currently relies on suffix matching heuristics;
-  this is recognized as an intentionally incomplete baseline to be improved
-  with lemma-aware and score-based decision rules in later iterations.
+    this is recognized as an intentionally incomplete baseline to be improved
+    with lemma-aware and score-based decision rules in later iterations.
 
 ### Timeline / status
 
 - This work spans several incremental development sessions following the
-  stabilization of the package-level CLI (post-2025-12-23).
+    stabilization of the package-level CLI (post-2025-12-23).
 - All changes related to the tagging layer and suffix proposal mechanism
-  are committed together in this update on **2026-01-05**.
+    are committed together in this update on **2026-01-05**.
 
 ### Next tasks
 
 - Refine the inflectional parser to reduce false positives:
-  - move from greedy suffix matching to candidate-based scoring,
-  - incorporate lemma-level heuristics and/or lemma whitelists.
+    - move from greedy suffix matching to candidate-based scoring,
+    - incorporate lemma-level heuristics and/or lemma whitelists.
 - Improve filtering of automatically proposed suffixes
-  (e.g., minimum lemma quality, script boundaries, noise reduction).
+    (e.g., minimum lemma quality, script boundaries, noise reduction).
 - Decide how tagged forms should interact with downstream regex search
-  (search over raw Yale vs. tagged representations).
+    (search over raw Yale vs. tagged representations).
 
-  ## 2026-01-06
+    ## 2026-01-06
 
 ### What I did today
 - Introduced a lemma whitelist mechanism to guide morphological analysis.
 - Added `lemma_whitelist.txt` and implemented loading known lemmas as a `set`.
 - Added support for consulting a lemma whitelist during tagging.
 - Extended the analyzer to support han-aware lemma–inflection splits
-  (e.g. Chinese character + verbalizer patterns).
+    (e.g. Chinese character + verbalizer patterns).
 - Refined lemma candidate collection by separating exploratory tools
-  (lemma/suffix proposal) from the main tagging logic.
+    (lemma/suffix proposal) from the main tagging logic.
 - Integrated lemma seed collection into the CLI as a debug-only workflow.
 
 ### Design decisions
 - Lemma whitelist is introduced as an explicit external resource
-  but its matching strategy is still under active development.
+    but its matching strategy is still under active development.
 - Lemma/suffix proposal mechanisms are kept inspectable and non-automatic.
 - Core tagging logic and exploratory diagnostics are explicitly separated.
 
 ### Notes
 - Some whitelist-based matching strategies were explored and temporarily
-  commented out during development; only the stable structure is recorded here.
+    commented out during development; only the stable structure is recorded here.
 
 ## 2026-01-07
 
@@ -326,11 +326,11 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 
 ### What I did today
 - Added a context display option (`--displaycontext`) to show the sentence-level context containing matched items.
-  - When `--displaycontext` is enabled, the context is displayed with the matched token highlighted using brackets (`<<...>>`).
-  - Context highlighting is implemented based on token indices, so that only the actual hit token is highlighted even when the same string appears multiple times.
+    - When `--displaycontext` is enabled, the context is displayed with the matched token highlighted using brackets (`<<...>>`).
+    - Context highlighting is implemented based on token indices, so that only the actual hit token is highlighted even when the same string appears multiple times.
 - Added a period selection option (`--period`) as a date filter for corpus files.
-  - XML files are filtered by extracting year information from `<date>` tags and converting it to centuries. 
-  - Currently, searching over more than one century is not implemented.
+    - XML files are filtered by extracting year information from `<date>` tags and converting it to centuries. 
+    - Currently, searching over more than one century is not implemented.
 - Rename the `--comment` argument to `--purpose`, allowing an optional free-form description to be attached when saving results.
 
 ## 2026-01-23
@@ -344,20 +344,20 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 
 ### What I did today
 - **Started developing an automatic tagging function**
-  - Initiated `feature/label-mode` branch
+    - Initiated `feature/label-mode` branch
 
 ## 2026-01-25
 
 ### What I did today
 - Introduced an interactive training pipeline for manual morphological annotation.
-  - Implemented a `train()` function that presents candidate analyses per token and records gold selections in a JSONL file.
-  - Training data are now saved separately by period (e.g., `training_15c.jsonl`) to prevent cross-period contamination.
+    - Implemented a `train()` function that presents candidate analyses per token and records gold selections in a JSONL file.
+    - Training data are now saved separately by period (e.g., `training_15c.jsonl`) to prevent cross-period contamination.
 - Refactored CLI logic to support training-mode interaction across multiple search rounds.
-  - Period filtering is enforced in training mode and can be updated between rounds.
-  - Tokens from all target files are aggregated before training to support batch annotation.
+    - Period filtering is enforced in training mode and can be updated between rounds.
+    - Tokens from all target files are aggregated before training to support batch annotation.
 - Standardized period handling by normalizing user input to integer centuries internally and tagging outputs with a canonical `{period}c` format.
 - Added scaffolding for a rule-based candidate generation framework.
-  - `candidate_generator()` is currently a placeholder and will be extended to generate LEM/INFL split candidates based on suffix rules.
+    - `candidate_generator()` is currently a placeholder and will be extended to generate LEM/INFL split candidates based on suffix rules.
 
 ### Notes
 - At this stage, lemma lists are intentionally not used in candidate generation to prioritize recall.
@@ -373,18 +373,18 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 ### What I did today
 - Included the published year of a given source to `source_id` for XML files.
 - Implemented an interactive training pipeline for morphological tagging.
-  - Added a `train()` routine that presents candidate analyses and records gold labels.
-  - Introduced period-specific training data files (e.g. `training_15c.jsonl`).
+    - Added a `train()` routine that presents candidate analyses and records gold labels.
+    - Introduced period-specific training data files (e.g. `training_15c.jsonl`).
 - Initiated `candidate_generator()` and connected it to the training loop.
 - Added support for reusing previously trained data:
-  - Loaded gold analyses from existing training files.
-  - Extended candidate rules with learned INFL suffixes.
+    - Loaded gold analyses from existing training files.
+    - Extended candidate rules with learned INFL suffixes.
 - Created a dedicated `data/training` under the root repo to manage training corpora.
 - Randomized the order of tokens during training to avoid biased data accumulation.
 - Implemented a training-only mode when a `--pattern` argument is not provided. 
 - Refactored the CLI control flow to separate search logic from the main dispatcher.
-  - Added `run_search()` and moved the interactive search loop into it.
-  - Simplified `run()` to act as a lightweight mode dispatcher (`run_train` vs. `run_search`).
+    - Added `run_search()` and moved the interactive search loop into it.
+    - Simplified `run()` to act as a lightweight mode dispatcher (`run_train` vs. `run_search`).
 - Fixed boolean flag parsing for training mode by switching `--training-mode` to `action="store_true"`.
 - Added a `build_rules()` helper to construct tagging rules by merging base INFL suffixes with learned suffixes from training data (when `--training-data` and `--period` are provided).
 - Tightened CLI validation so that `--pattern` is required unless `--training-mode` is enabled.
@@ -400,14 +400,14 @@ python quick_check_parser.py --pattern "[^\s]+[ae] is"
 
 ### What I did today
 - Added a dedicated candidate-mining mode to the CLI
-  - Introduced `--candidate-mining {lemma, suffix}` as a first-class execution mode.
-  - Implemented `run_candidate_mining()` as a top-level CLI workflow, replacing the former debug-only logic.
-  - Candidate-mining now runs independently from search and training.
+    - Introduced `--candidate-mining {lemma, suffix}` as a first-class execution mode.
+    - Implemented `run_candidate_mining()` as a top-level CLI workflow, replacing the former debug-only logic.
+    - Candidate-mining now runs independently from search and training.
 - Reorganized CLI execution logic around three explicit modes
-  - Search mode: requires `--pattern`
-  - Training mode: allows running without `--pattern`
-  - Candidate-mining mode: allows running without `--pattern` (with `pattern` optionally reused as a suffix anchor).
-  - Updated `parse_cli_args()` accordingly so that `--pattern` is required *only* in search mode.
+    - Search mode: requires `--pattern`
+    - Training mode: allows running without `--pattern`
+    - Candidate-mining mode: allows running without `--pattern` (with `pattern` optionally reused as a suffix anchor).
+    - Updated `parse_cli_args()` accordingly so that `--pattern` is required *only* in search mode.
 - Removed legacy debug scaffolding and consolidated it into a reusable workflow
 - Stabilized the candidate-mining execution path
 - Extablished a clear roadmap for further refactoring
@@ -426,8 +426,8 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 ### Tagging
 - Tokens are always assigned a coarse `tagged_form`.
 - If morph analyses exist in training data, corresponding tokens are enriched with:
-  - `token.morph_str` (full morph string)
-  - `token.morphs` (parsed list of `(form, tag)` pairs)
+    - `token.morph_str` (full morph string)
+    - `token.morphs` (parsed list of `(form, tag)` pairs)
 
 ### Search
 - Search now prefers `token.morph_str` when available, falling back to `tagged_form`.
@@ -436,10 +436,10 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 
 ### Reporting
 - Search output now includes:
-  - `[TAGGED-FORM]`
-  - `[MORPH-STR]` (when available)
-  - `[MATCHED-PART]`
-  - `[CONTEXT]`
+    - `[TAGGED-FORM]`
+    - `[MORPH-STR]` (when available)
+    - `[MATCHED-PART]`
+    - `[CONTEXT]`
 
 ### Notes
 - No attempt was made to auto-generate morph candidates during training yet.
@@ -457,10 +457,10 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 
 ### What I did today
 - Rename attributes in the `Token` class:
-  - `tagged_form` -> `coarse_form`
-  - `morph_str` -> `tagged_form`
-- Add a `token-repr` argument to allow the user to select the token representation used in both search and training modes.  
-  - If `token-repr` is not provided, "yale" is used as the default for training mode and "tagged_form" for search mode.
+    - `tagged_form` -> `coarse_form`
+    - `morph_str` -> `tagged_form`
+- Add a `token-repr` argument to allow the user to select the token representation used in both search and training modes.    
+    - If `token-repr` is not provided, "yale" is used as the default for training mode and "tagged_form" for search mode.
 
 ## 2026-02-23
 
@@ -468,12 +468,12 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 - Temporarily disabled the `candidate-mining` module to simplify the pipeline.
 - Separated training logic into a new `training.py`, simplifying `tagger.py` and clarifying module responsibilities.
 - Reduced false positives and false negatives in stem-suffix boundary detection.
-  - Boundary evaluation is now performed **only when both the lemma and the suffix are attested** in the recorded lexicon and training files.
+    - Boundary evaluation is now performed **only when both the lemma and the suffix are attested** in the recorded lexicon and training files.
 - Incorporated POS information provided during training into the existing lemma inventory to improve tagging accuracy. 
 - Enabled optional POS output during search/training.
 - Identified a limitation:
-  - Negative prefixes are recorded separately in the training file, but prefix information is not currently reflected in tagging. -> Temporarily solved by an ad hoc solution.
-  - Possible optimal solution: introduce a small, controlled prefix list and handle prefix annotation explicitly.
+    - Negative prefixes are recorded separately in the training file, but prefix information is not currently reflected in tagging. -> Temporarily solved by an ad hoc solution.
+    - Possible optimal solution: introduce a small, controlled prefix list and handle prefix annotation explicitly.
 
 ## 2026-02-24
 
@@ -481,32 +481,32 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 - Renamed `displaycontext` -> `display-context` and converted it into a boolean flag for cleaner CLI behavior.
 - Introduced an empty `rest_set()` fallback for cases where `--training-data` is not provided.
 - Restructured the `lexicon` dictionary to support prefix annotation.
-  - Legacy structure: {"mwotho":"V", "kwoksik":"N", ...}
-  - Updated structure: {"mwotho":"mwot/NEG/PREFIX-ho/V", "kwoksik":"kwoksik/N"}
+    - Legacy structure: {"mwotho":"V", "kwoksik":"N", ...}
+    - Updated structure: {"mwotho":"mwot/NEG/PREFIX-ho/V", "kwoksik":"kwoksik/N"}
 - Integrated jsonl training file lookup into `candidate_generator`.
-  - Added `load_lemma_lexicon` support inside `candidate_generator`
+    - Added `load_lemma_lexicon` support inside `candidate_generator`
 - Enabled full training-from-scratch workflow.
 - Refined `parse_gold_morph_to_coarse` function to correctly render coarse forms. 
 
 ### Detected issues
 - The current lemma whitelist does not properly handle tokens with prefixes.
-  - Temporary workaround: remove such tokens from the whitelist and delegate handling to the jsonl-based training lexicon. 
+    - Temporary workaround: remove such tokens from the whitelist and delegate handling to the jsonl-based training lexicon. 
 - Need a more efficient strategy for predicates with Sino-Korean (Chinese) roots.
 
 ## 2026-02-26
 
 ### Detected issue
 - Classical Chinese segments (e.g., <sent type="main" lang="chi" page="04b" n="5">孟子ᅵ 對曰</sent>) do not need to be included in default search or training.
-  - These texts are minimally annotated and irrelevant to the core Middle Korean analysis.
-  - Example: <sent type="main" lang="chi" page="04b" n="5">孟子ᅵ 對曰</sent>
+    - These texts are minimally annotated and irrelevant to the core Middle Korean analysis.
+    - Example: <sent type="main" lang="chi" page="04b" n="5">孟子ᅵ 對曰</sent>
 
 ## 2026-02-27
 
 ### What I did today
 - Excluded minimally annotated classical Chinese (`lang="chi"`) segments from search and training **by default**. 
-  - Users must explicitly pass `--include-ch` to include such texts.  
-  - Updated `attach_yale` in `yale.py`:
-    - Tokens with `lang="chi"` are filtered out unless `--include-ch` argument is provided.
+    - Users must explicitly pass `--include-ch` to include such texts.    
+    - Updated `attach_yale` in `yale.py`:
+        - Tokens with `lang="chi"` are filtered out unless `--include-ch` argument is provided.
 - Forced context display in training mode to ensure full visibility during training diagnostics.
 
 ## 2026-03-09
@@ -532,15 +532,15 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 - Introduced split-point based search in `training_priority()` to eliminate full lexicon/rest scans.
 - Removed redundant training data loading in `run_train()` (reused `rest_set` instead of reloading).
 - Added timing instrumentation to training pipeline:
-  - file collection
-  - parsing + Yale attachment
-  - tagging
-  - target selection
-  - sorting
-  - training loop
+    - file collection
+    - parsing + Yale attachment
+    - tagging
+    - target selection
+    - sorting
+    - training loop
 - Implemented candidate caching in `train()`:
-  - cache key based on `(yale, aux_context)`
-  - avoided repeated calls to `candidate_generator()` for identical inputs
+    - cache key based on `(yale, aux_context)`
+    - avoided repeated calls to `candidate_generator()` for identical inputs
 - Built a minimal test script (`test_candidate_generator.py`) to verify candidate equivalence before/after refactoring.
 
 ### Performance note
@@ -611,19 +611,19 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 
 ### What I did today
 - Support `exclude_ch` mode to improve efficency
-  - When `exclude_ch` mode is on, only tokens with Chinese characters are excluded from the further pipeline. 
+    - When `exclude_ch` mode is on, only tokens with Chinese characters are excluded from the further pipeline. 
 - Support a tagged-corpus print function to overview morpheme-tagging performance.
-  - To be developed further.
+    - To be developed further.
 
 ## 2026-04-21
 
 ### What I did today
 - Improved monogram training mode to skip tokens that are already fully parseable from known data.
-  - Added `has_known_parse()` in `training.py`:
-    - Returns `True` if a token's Yale form can be split into a lexicon stem + a known `infl_decomp` suffix, or vice versa.
-    - Checks only learned suffix decompositions (`infl_decomp`), not the base inflectional suffix rules — avoiding over-confident skips.
-  - In the monogram training loop, tokens that pass `has_known_parse` are skipped before the candidate prompt is shown.
-  - Bigram training loop is unchanged for now; criteria for skipping bigrams require further consideration.
+    - Added `has_known_parse()` in `training.py`:
+        - Returns `True` if a token's Yale form can be split into a lexicon stem + a known `infl_decomp` suffix, or vice versa.
+        - Checks only learned suffix decompositions (`infl_decomp`), not the base inflectional suffix rules — avoiding over-confident skips.
+    - In the monogram training loop, tokens that pass `has_known_parse` are skipped before the candidate prompt is shown.
+    - Bigram training loop is unchanged for now; criteria for skipping bigrams require further consideration.
 
 ### Design note
 - The motivation: tokens like `듣ᄌᆞᄫᆞ시고` (tut/V + coWosikwo suffix) were surfacing as training candidates even though both components existed in the training data. The fix ensures that only genuinely ambiguous or unknown tokens reach the annotation prompt.
@@ -634,8 +634,8 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 ### What I did today
 - Support specifying the document type via --document-type argument.
 - Improve xml parsing function
-  - There was a bug in which vernacular letter files were filtered from analysis in a wholesale way. 
-  - The problem stemmed from `analyze_yale` function's Classical Chinese-filtering line where tokens without `lang` attribute are completely filtered out.  
+    - There was a bug in which vernacular letter files were filtered from analysis in a wholesale way. 
+    - The problem stemmed from `analyze_yale` function's Classical Chinese-filtering line where tokens without `lang` attribute are completely filtered out.    
 
 ## 2026-05-08
 
@@ -653,62 +653,62 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 
 - 새 브랜치를 파기 전에 `universal-dependencies`의 working tree를 정리(커밋)해둠
 - `tagger.py` 재점검: 지금은 토큰마다 후보 하나만 고르고 나머지는 버리는 구조.
-  BiLSTM 기반 disambiguation을 적용하려면 이 구조부터 바꿔야 함
+    BiLSTM 기반 disambiguation을 적용하려면 이 구조부터 바꿔야 함
 - 브랜치 로드맵 정리:
-  - `tagger-candidates`(main에서 새로 분기) — `tagger.py`가 후보를 전부
-    노출하도록 리팩토링
-  - 완료되면 `main`에 merge
-  - `universal-dependencies`는 그 뒤에 `main`을 merge해서 리팩토링 결과를 받아옴
-  - `bilstm-disambiguation`(갱신된 `main`에서 새로 분기)에서 BiLSTM 작업 시작
-  - 두 브랜치 모두 리팩토링된 `tagger.py` 위에 올라간 뒤에는 서로 독립적으로 진행
+    - `tagger-candidates`(main에서 새로 분기) — `tagger.py`가 후보를 전부
+        노출하도록 리팩토링
+    - 완료되면 `main`에 merge
+    - `universal-dependencies`는 그 뒤에 `main`을 merge해서 리팩토링 결과를 받아옴
+    - `bilstm-disambiguation`(갱신된 `main`에서 새로 분기)에서 BiLSTM 작업 시작
+    - 두 브랜치 모두 리팩토링된 `tagger.py` 위에 올라간 뒤에는 서로 독립적으로 진행
 - `tagger-candidates` 브랜치 생성
 
 - `infl_suffixes.txt`, `lemma_whitelist.txt` 재평가
-  - 둘 다 손으로 되는대로 적어둔 불완전한 placeholder였지, 신뢰할 수 있는
-    언어학적 참고자료가 아니었음. 특히 `infl_suffixes.txt`는 형태소 배열
-    제약이 전혀 없는 원자 단위 목록이라, 이걸 그대로 쓰는 코드 경로는
-    구조적으로 overgeneration에 취약함
-  - 16~18세기 구간은 이미 파일 내용이 비어있는 상태로도 도구가 멀쩡히
-    돌아간다는 걸 실증적으로 확인 — `rest_set`(training jsonl 기반)이
-    이미 같은 역할을 더 나은 형태로 대신하고 있었기 때문
-  - 결정: 두 파일 다 삭제. 이건 코드만 봐서 판단할 수 있는 게 아니라,
-    코퍼스에 대한 도메인 지식에 기반한 내 판단
+    - 둘 다 손으로 되는대로 적어둔 불완전한 placeholder였지, 신뢰할 수 있는
+        언어학적 참고자료가 아니었음. 특히 `infl_suffixes.txt`는 형태소 배열
+        제약이 전혀 없는 원자 단위 목록이라, 이걸 그대로 쓰는 코드 경로는
+        구조적으로 overgeneration에 취약함
+    - 16~18세기 구간은 이미 파일 내용이 비어있는 상태로도 도구가 멀쩡히
+        돌아간다는 걸 실증적으로 확인 — `rest_set`(training jsonl 기반)이
+        이미 같은 역할을 더 나은 형태로 대신하고 있었기 때문
+    - 결정: 두 파일 다 삭제. 이건 코드만 봐서 판단할 수 있는 게 아니라,
+        코퍼스에 대한 도메인 지식에 기반한 내 판단
 
 - 월~화 계획 (수요일 오전 이상아 교수님 미팅 전)
-  - 월: `tagger-candidates` 리뷰 + `main` merge만. BiLSTM은 손대지 않음
-  - 화: `bilstm-disambiguation` 브랜치, 최소 동작 baseline 한 번 — 목표는
-    "정확도"가 아니라 "에러 없이 한 바퀴 도는 것". 뭐가 나오든 수요일
-    미팅에 그대로 들고 가기
+    - 월: `tagger-candidates` 리뷰 + `main` merge만. BiLSTM은 손대지 않음
+    - 화: `bilstm-disambiguation` 브랜치, 최소 동작 baseline 한 번 — 목표는
+        "정확도"가 아니라 "에러 없이 한 바퀴 도는 것". 뭐가 나오든 수요일
+        미팅에 그대로 들고 가기
 
 - Claude Code로 기계적 리팩토링 실행 (판단은 위에서 이미 끝났고, 이 커밋은
-  그걸 코드에 반영한 것뿐 — atomic commit으로 분리)
-  - `infl_suffixes`/`rules` 완전 제거. `infl_suffixes.txt` 삭제 이후
-    `build_rules()`가 이미 무조건 `[]`를 반환하고 있어서, 그 아래 딸린
-    파라미터와 분기(`analyze_yale()`의 `infl_suffixes` 관련 두 분기,
-    `tag_tokens()`의 `rules` 파라미터, `candidate_generator()`의 fallback
-    블록 3–4번)가 전부 죽은 코드였음
-  - `rest_set`을 `infl_decomp`으로 통합. 둘 다 같은 training jsonl의
-    `gold_morph` 필드에서 동일한 파싱 로직으로 만들어지고 있었음
-    (`load_rest_surfaces_from_training()`이 `load_infl_decomp_from_training()`의
-    키 생성 로직을 그대로 중복). `analyze_yale()`의 `suffix in rest_set`은
-    `suffix in infl_decomp`과 동치라서(dict 멤버십 검사는 키만 봄) `rest_set`은
-    중복이었음
-  - `tag_tokens()`를 실제 15세기 training 데이터로 돌려보고
-    `test_candidate_generator.py`로 검증 완료
+    그걸 코드에 반영한 것뿐 — atomic commit으로 분리)
+    - `infl_suffixes`/`rules` 완전 제거. `infl_suffixes.txt` 삭제 이후
+        `build_rules()`가 이미 무조건 `[]`를 반환하고 있어서, 그 아래 딸린
+        파라미터와 분기(`analyze_yale()`의 `infl_suffixes` 관련 두 분기,
+        `tag_tokens()`의 `rules` 파라미터, `candidate_generator()`의 fallback
+        블록 3–4번)가 전부 죽은 코드였음
+    - `rest_set`을 `infl_decomp`으로 통합. 둘 다 같은 training jsonl의
+        `gold_morph` 필드에서 동일한 파싱 로직으로 만들어지고 있었음
+        (`load_rest_surfaces_from_training()`이 `load_infl_decomp_from_training()`의
+        키 생성 로직을 그대로 중복). `analyze_yale()`의 `suffix in rest_set`은
+        `suffix in infl_decomp`과 동치라서(dict 멤버십 검사는 키만 봄) `rest_set`은
+        중복이었음
+    - `tag_tokens()`를 실제 15세기 training 데이터로 돌려보고
+        `test_candidate_generator.py`로 검증 완료
 
 ## 2026-07-13
 
 ### 한 일
 
 - [x] `analyze_yale()` 리팩토링
-  - `tagger.py`의 `analyze_yale()` 함수가 이미 매치된 lemma가 있어도 더 짧은 lemma로 분석될 수 있는지 검토하도록 리팩토링. 
-    - `analyze_yale()`의 아웃풋 시그니처를 str에서 list[str]으로 변경
-    - `analyze_yale()`의 시작 지점에 candidates = []로 초기화
-    - 이전에 매치된 어형을 return 시키던 라인을 모두 candidates.append...로 교체
-  - 가능한 모든 분석을 `tag_tokens()`가 뽑아낼 수 있도록 리팩토링해야 함. 
+    - `tagger.py`의 `analyze_yale()` 함수가 이미 매치된 lemma가 있어도 더 짧은 lemma로 분석될 수 있는지 검토하도록 리팩토링. 
+        - `analyze_yale()`의 아웃풋 시그니처를 str에서 list[str]으로 변경
+        - `analyze_yale()`의 시작 지점에 candidates = []로 초기화
+        - 이전에 매치된 어형을 return 시키던 라인을 모두 candidates.append...로 교체
+    - 가능한 모든 분석을 `tag_tokens()`가 뽑아낼 수 있도록 리팩토링해야 함. 
 - [x] 커맨드 라인 인자 개선
-  - `--training-data` 인자 관련 사용성 개선: `--training-data` 인자가 주어지지 않으면 기본 디렉토리로 리디렉트하도록 개선함. 
-  - `--display-context` 인자 삭제: 기본적으로 context를 보이도록 함. 
+    - `--training-data` 인자 관련 사용성 개선: `--training-data` 인자가 주어지지 않으면 기본 디렉토리로 리디렉트하도록 개선함. 
+    - `--display-context` 인자 삭제: 기본적으로 context를 보이도록 함. 
 - [x] `tag_tokens()` 리팩토링
 - [x] `Token` 모델 리팩토링
 
@@ -782,104 +782,104 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 ### 오늘 한 일
 
 - [x] `annotation.py`의 `prompt_gold()` 사용성 개선
-  - `_segmentation()`의 출력 `parsed_forms`의 원소가 한자로 시작하면 사용자 인터페이스에 미리 plausible gold를 제시.
-    
-    - 예: 
+    - `_segmentation()`의 출력 `parsed_forms`의 원소가 한자로 시작하면 사용자 인터페이스에 미리 plausible gold를 제시.
+        
+        - 예: 
 
-      > parsed_form == 巖
-      >
-      > Please label 巖 with an appropriate label: 巖/N.CH/LEM <- 기본 제시
+            > parsed_form == 巖
+            >
+            > Please label 巖 with an appropriate label: 巖/N.CH/LEM <- 기본 제시
 
-  - 현재 비슷한 기능을 수행하는 부분이 `tagger.py`의 `analyze_yale`에 있으므로 `tagger.py`에 이 부분을 전담하는 함수 `label_han()`을 구현
-    - `candidate_generator()`에도 비슷한 부분이 있어 정리 필요할 수 있음. 
+    - 현재 비슷한 기능을 수행하는 부분이 `tagger.py`의 `analyze_yale`에 있으므로 `tagger.py`에 이 부분을 전담하는 함수 `label_han()`을 구현
+        - `candidate_generator()`에도 비슷한 부분이 있어 정리 필요할 수 있음. 
 
 ## 2026-07-19
 
 ### 오늘 한 일
 
 - 유저 편의성 증진
-  - [x] 개별 파일이 `--path`로 들어오면 `--period` 인자가 주어지지 않아도 그냥 모든 모드를 실행시킬 수 있도록 함.  
-    - `parse_cli()` 초단부에서 `--path`가 개별 파일인 것으로 확인되면 강제로 `--period` 인자를 주는 방식
+    - [x] 개별 파일이 `--path`로 들어오면 `--period` 인자가 주어지지 않아도 그냥 모든 모드를 실행시킬 수 있도록 함.    
+        - `parse_cli()` 초단부에서 `--path`가 개별 파일인 것으로 확인되면 강제로 `--period` 인자를 주는 방식
 
 - [x] `sent type`을 토큰 메타데이터로 받아올 수 있게 `model.py`의 `Token` 자료형j 확장
-  - [x] 이미 훈련한 데이터에 `sent_type` = "anno" 따위의 데이터 추가할 것
+    - [x] 이미 훈련한 데이터에 `sent_type` = "anno" 따위의 데이터 추가할 것
 
 - `annotation.py` 확장
-  - gold에 `sent_type` 필드 추가
-  - `anno` 뿐 아니라 모든 sent type을 할 수 있게.
-    - [x] `build_anno_chunks()` 함수 이름을 `sent_type_selection()`으로 변경 
-    - [x] `cli.py`의 `sent_type_selection()` 초단에 해당 코퍼스의 `sent type`이 무엇이 있는지 모두 보여주고 분석 원하는 sent type 선택하게 하기. 
-    - [x] annotation에 포함할 `sent_type` 선택하는 유저 인터페이스 추가
+    - gold에 `sent_type` 필드 추가
+    - `anno` 뿐 아니라 모든 sent type을 할 수 있게.
+        - [x] `build_anno_chunks()` 함수 이름을 `sent_type_selection()`으로 변경 
+        - [x] `cli.py`의 `sent_type_selection()` 초단에 해당 코퍼스의 `sent type`이 무엇이 있는지 모두 보여주고 분석 원하는 sent type 선택하게 하기. 
+        - [x] annotation에 포함할 `sent_type` 선택하는 유저 인터페이스 추가
 
 ## 2026-07-22
 ### 오늘 한 일
 - `tagger.py`에 bilstm 이용한 추론 함수 `predict_best_candidate()` 구현
-  - [x] 함수 파이프라인 구현
-  - [x] tag_tokens()의 기존 candidate 선택 라인 대체
-    - [x] tag_tokens()의 input에 다음을 추가
-      - model: CandidateScorer | None = None,
-      - vocab: dict[str, int] | None = None,
-    - [x] tag_tokens()의 기존 candidate selection line은 fallback으로 남겨 둠. 
+    - [x] 함수 파이프라인 구현
+    - [x] tag_tokens()의 기존 candidate 선택 라인 대체
+        - [x] tag_tokens()의 input에 다음을 추가
+            - model: CandidateScorer | None = None,
+            - vocab: dict[str, int] | None = None,
+        - [x] tag_tokens()의 기존 candidate selection line은 fallback으로 남겨 둠. 
 
 ## 2026-07-23
 
 ### 오늘 한 일
 
 - gold file 관련
-  - [x] gold file의 tagged_form이 모두 surface form에 기반하도록 업데이트
-    - 괄호 포함하는 토큰 검색해서 수정
-  - 현재 모델 트레이닝 시 context 정보가 직접적으로 들어가고 있지 않다는 문제가 있음. 
-    - 앞 뒤 sent chunk를 gold에 정보로 넣어 이후 트레이닝 시 context가 필요하면 바로 활용할 수 있도록 확장
-    - 지금까지 annotation한 토큰에 context 정보 넣을 수 있도록 확장 필요함.
+    - [x] gold file의 tagged_form이 모두 surface form에 기반하도록 업데이트
+        - 괄호 포함하는 토큰 검색해서 수정
+    - 현재 모델 트레이닝 시 context 정보가 직접적으로 들어가고 있지 않다는 문제가 있음. 
+        - 앞 뒤 sent chunk를 gold에 정보로 넣어 이후 트레이닝 시 context가 필요하면 바로 활용할 수 있도록 확장
+        - 지금까지 annotation한 토큰에 context 정보 넣을 수 있도록 확장 필요함.
 
-      1. [x] annotate.py의 annotate()에서 저장 코드에 다음 필드를 추가.
-        - "context": token.context
-        - "prev_context": prev_context
-        - "next_context": next_context
+            1. [x] annotate.py의 annotate()에서 저장 코드에 다음 필드를 추가.
+                - "context": token.context
+                - "prev_context": prev_context
+                - "next_context": next_context
 
-      2. [x] prev_context와 next_context 할당
-        - 다음 정보를 기반으로 처리:
-          - 현재 token_index
-          - 현재 sent_type
-        - 이전 컨텍스트와 다음 컨텍스트는 모두 **sent_type**이 같은 것 가운데
-          **source_id**가 가장 가까운 것을 가져온다 (중간에 다른 sent_type이
-          끼어 있어도 건너뛰고, 같은 sent_type 안에서만 가장 가까운 이웃을 찾음).
-        - 구현 방식:
-          - [x] 토큰에 태깅된 직후, sent_type별로 (그 sent_type에 속한 토큰만
-                필터링된) source_id:token.context 사전을 담은
-                context_by_sent_type 생성
-          - [x] sent_type이 바뀔 때만 context_by_source_id / context_idx를
-                새로 계산하고, 그 외에는 직전에 계산해둔 것을 재사용
-                (재계산 여부와 무관하게, 매 토큰은 항상 처리된다)
-          - [x] current_context_idx = context_idx.index(token.source_id)로
-                현재 위치 확인
-          - [x] prev_context, next_context는 서로 독립적으로 판단 —
-                맨 처음 위치면 prev_context = None, 맨 마지막 위치면
-                next_context = None, 그 외에는 각각
-                context_idx[current_context_idx - 1] /
-                context_idx[current_context_idx + 1]로 조회
-          - [x] main과 anno 모두 동일한 방식(sent_type별 사전 + source_id 순서
-                색인)으로 처리
-          - [ ] lang까지 같이 걸러서 그룹 짓는 것은 아직 미반영 —
-                지금은 sent_type만으로 그룹화 (다음 단계 과제)
+            2. [x] prev_context와 next_context 할당
+                - 다음 정보를 기반으로 처리:
+                    - 현재 token_index
+                    - 현재 sent_type
+                - 이전 컨텍스트와 다음 컨텍스트는 모두 **sent_type**이 같은 것 가운데
+                    **source_id**가 가장 가까운 것을 가져온다 (중간에 다른 sent_type이
+                    끼어 있어도 건너뛰고, 같은 sent_type 안에서만 가장 가까운 이웃을 찾음).
+                - 구현 방식:
+                    - [x] 토큰에 태깅된 직후, sent_type별로 (그 sent_type에 속한 토큰만
+                                필터링된) source_id:token.context 사전을 담은
+                                context_by_sent_type 생성
+                    - [x] sent_type이 바뀔 때만 context_by_source_id / context_idx를
+                                새로 계산하고, 그 외에는 직전에 계산해둔 것을 재사용
+                                (재계산 여부와 무관하게, 매 토큰은 항상 처리된다)
+                    - [x] current_context_idx = context_idx.index(token.source_id)로
+                                현재 위치 확인
+                    - [x] prev_context, next_context는 서로 독립적으로 판단 —
+                                맨 처음 위치면 prev_context = None, 맨 마지막 위치면
+                                next_context = None, 그 외에는 각각
+                                context_idx[current_context_idx - 1] /
+                                context_idx[current_context_idx + 1]로 조회
+                    - [x] main과 anno 모두 동일한 방식(sent_type별 사전 + source_id 순서
+                                색인)으로 처리
+                    - [ ] lang까지 같이 걸러서 그룹 짓는 것은 아직 미반영 —
+                                지금은 sent_type만으로 그룹화 (다음 단계 과제)
 
-      3. [x] 지금까지 한 annotation 파일에 context 정보(context/prev_context/
-            next_context)를 소급 추가 -> Claude AI 활용
+            3. [x] 지금까지 한 annotation 파일에 context 정보(context/prev_context/
+                        next_context)를 소급 추가 -> Claude AI 활용
 
-      4. [x] anno의 prev/next_context가 실제로는 인접하지 않은 경우까지
-            연결되는 버그 수정
-        - 문제: sent_type별로 필터링된 source_id 목록에서만 이웃을 찾다 보니,
-          두 anno 문장 사이에 main 문장이 끼어 있어도(즉, 실제 원문 순서상
-          서로 떨어져 있어도) "같은 sent_type 안에서 가장 가까운 이웃"으로
-          잘못 연결되고 있었음.
-        - 수정: sent_type == "anno"인 토큰에 한해서는, 전체 문서 순서
-          (sent_type 무관, cli.py의 sent_type_by_source_id)상 바로 이전/다음
-          source_id를 확인하고, 그 source_id도 sent_type == "anno"일 때만
-          prev_context/next_context로 사용. main은 기존 방식 그대로 유지.
-        - annotation_15c.jsonl의 기존 anno 항목(659개 중 655개)도 corpus
-          원문(D:\Corpus\NIKL 소재 XML)을 다시 파싱해 소급 수정.
+            4. [x] anno의 prev/next_context가 실제로는 인접하지 않은 경우까지
+                        연결되는 버그 수정
+                - 문제: sent_type별로 필터링된 source_id 목록에서만 이웃을 찾다 보니,
+                    두 anno 문장 사이에 main 문장이 끼어 있어도(즉, 실제 원문 순서상
+                    서로 떨어져 있어도) "같은 sent_type 안에서 가장 가까운 이웃"으로
+                    잘못 연결되고 있었음.
+                - 수정: sent_type == "anno"인 토큰에 한해서는, 전체 문서 순서
+                    (sent_type 무관, cli.py의 sent_type_by_source_id)상 바로 이전/다음
+                    source_id를 확인하고, 그 source_id도 sent_type == "anno"일 때만
+                    prev_context/next_context로 사용. main은 기존 방식 그대로 유지.
+                - annotation_15c.jsonl의 기존 anno 항목(659개 중 655개)도 corpus
+                    원문(D:\Corpus\NIKL 소재 XML)을 다시 파싱해 소급 수정.
 
-      4. [x] sent_type = "anno"일 경우 인접한 chunk만을 context로 참조하게 리팩토링.
+            4. [x] sent_type = "anno"일 경우 인접한 chunk만을 context로 참조하게 리팩토링.
 
 ## 2026-07-24
 
@@ -887,66 +887,66 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 
 ### 오늘 할 일
 - BiLSTM 모듈 개선
-  - [x] bilstm.py > build_annotated_examples() > annotated_example 확장
-    - 목표: annotated_example에 prev_context, next_context를 추가
-      - 선결 과제: prev_context와 next_context를 bilstm.py에서 참조할 수 있는 방안 마련
-        - 지금은 prev_context와 next_context가 annotation.py > annotate()에서 할당되어 골드로 들어가기 때문에 bilstm 파이프라인에서 이를 직접 참조할 수 없음. 
-        - 해결 방안:
-          - [x] annotate.py > annotate()에서 prev_context와 next_context 및 current_context를 만드는 로직을 build_adjacent_contexts()로 함수화. 
-            - 이 함수는 다음 입력을 필요로 함.
-              - tokens
-              - sent_type_by_source_id
-              - context_by_source_id
-            - 출력은 모든 토큰 각각의 source_id를 키로 하여 (sent_type, prev_context, current_context, next_context)를 값으로 하는 dictionary
-            - 맨 끝단에서 다른 출전에서 나온 것들끼리 context로 잡는 것을 막을 수 있도록 guard clause 넣어줄 것. 
-          - [x] source_id 만을 입력으로 받는 래퍼 함수 get_adjacent_context()도 함수화.
-          - [x] cli.py에 맞추어 리팩토링
-          - [x] sent_type_selection()을 prompt_sent_types()와 filter_chunks_by_sent_type()으로 분리. 
+    - [x] bilstm.py > build_annotated_examples() > annotated_example 확장
+        - 목표: annotated_example에 prev_context, next_context를 추가
+            - 선결 과제: prev_context와 next_context를 bilstm.py에서 참조할 수 있는 방안 마련
+                - 지금은 prev_context와 next_context가 annotation.py > annotate()에서 할당되어 골드로 들어가기 때문에 bilstm 파이프라인에서 이를 직접 참조할 수 없음. 
+                - 해결 방안:
+                    - [x] annotate.py > annotate()에서 prev_context와 next_context 및 current_context를 만드는 로직을 build_adjacent_contexts()로 함수화. 
+                        - 이 함수는 다음 입력을 필요로 함.
+                            - tokens
+                            - sent_type_by_source_id
+                            - context_by_source_id
+                        - 출력은 모든 토큰 각각의 source_id를 키로 하여 (sent_type, prev_context, current_context, next_context)를 값으로 하는 dictionary
+                        - 맨 끝단에서 다른 출전에서 나온 것들끼리 context로 잡는 것을 막을 수 있도록 guard clause 넣어줄 것. 
+                    - [x] source_id 만을 입력으로 받는 래퍼 함수 get_adjacent_context()도 함수화.
+                    - [x] cli.py에 맞추어 리팩토링
+                    - [x] sent_type_selection()을 prompt_sent_types()와 filter_chunks_by_sent_type()으로 분리. 
 
 ## 2026-07-27
 
 ### 오늘 한 일
 - BiLSTM 모듈 개선
-  - [x] 자소가 아닌 형태소 단위로 토큰화해서 encode할 수 있도록 refactoring
-    - 실제 나오는 vocab 확인할 것
-    - [x] build_morph_vocab() 구현
-  - 기반하는 모델을 선택하도록 하는 model_parameter 도입
-    - [x] 자소 단위(접두사 c_)와 형태소 단위(접두사 m_)로 각각 학습
-    - [x] 자소 단위 모델을 쓸지 형태소 기반 모델을 쓸지 결정하도록 하는 인자 model_parameter 도입.
-      - tagger.py > tag_tokens() > predict_best_candidate() > encode_string() 파이프라인에서 encode_string()이 model_parameter()를 필요로 함.
-        - [x] cli.py에서 tag_tokens()에 model_parameter가 전달되어야 함.  
-        - [x] predict_best_candidate()과 encode_string()에 model_parameter 인자 추가
-        - encode_string()이 받는 vocab을 m_vocab으로 할지 c_vocab으로 할지 정해주는 분기
-          - [x] load_bilstm_artifacts()에 model_parameter 분기
+    - [x] 자소가 아닌 형태소 단위로 토큰화해서 encode할 수 있도록 refactoring
+        - 실제 나오는 vocab 확인할 것
+        - [x] build_morph_vocab() 구현
+    - 기반하는 모델을 선택하도록 하는 model_parameter 도입
+        - [x] 자소 단위(접두사 c_)와 형태소 단위(접두사 m_)로 각각 학습
+        - [x] 자소 단위 모델을 쓸지 형태소 기반 모델을 쓸지 결정하도록 하는 인자 model_parameter 도입.
+            - tagger.py > tag_tokens() > predict_best_candidate() > encode_string() 파이프라인에서 encode_string()이 model_parameter()를 필요로 함.
+                - [x] cli.py에서 tag_tokens()에 model_parameter가 전달되어야 함.    
+                - [x] predict_best_candidate()과 encode_string()에 model_parameter 인자 추가
+                - encode_string()이 받는 vocab을 m_vocab으로 할지 c_vocab으로 할지 정해주는 분기
+                    - [x] load_bilstm_artifacts()에 model_parameter 분기
 
 - xml 파일 처리시 연도 처리 기능 개선
-  - xml에서 읽은 원시 연도 데이터 raw_published_year에서 노이즈를 제거하는 cli.py > trimming_date() 구현하고 collect_input_files()에 적용
-  - run_corpus_list() 구현 시 출판 세기 정보가 아예 없는 것들 제외하고는 모두 출판 세기 정보를 뽑아 정렬 가능해짐. 
-    - 언간처럼 연대가 여러 세기에 걸치는 자료형은 아직 완전하게 처리하지 못 함.
+    - xml에서 읽은 원시 연도 데이터 raw_published_year에서 노이즈를 제거하는 cli.py > trimming_date() 구현하고 collect_input_files()에 적용
+    - run_corpus_list() 구현 시 출판 세기 정보가 아예 없는 것들 제외하고는 모두 출판 세기 정보를 뽑아 정렬 가능해짐. 
+        - 언간처럼 연대가 여러 세기에 걸치는 자료형은 아직 완전하게 처리하지 못 함.
 
 - 언간(letter) XML의 letter 단위 처리 구현 (Claude Code 활용, 위에서 남긴 "언간처럼 연대가 여러 세기에 걸치는 자료형" 문제 해결)
-  - `parser.py`
-    - [x] `LetterInfo` dataclass와 `get_info_from_letters()` 추가
-      - `<letter>`의 attribute / 내부 element(`<writer>`, `<addressee>`, `<year>`, `<date>`) / 같은 부모 아래 형제 element, 세 가지 구조 모두에서 sender/receiver/year를 우선순위대로 정규화
-      - 형제 metadata는 인접한 다른 `<letter>`로 경계지어진 구간 안에서만 탐색(`_get_corresponding_sibling_text()`)해 무관한 다른 letter의 정보가 섞이지 않도록 함
-    - [x] `trimming_date()`, `convert_to_century()`를 `cli.py`에서 `parser.py`로 이동
-      - `get_info_from_letters()`가 이 둘을 필요로 하는데 `parser.py`가 `cli.py`를 import하면 순환 참조가 생기기 때문
-      - `trimming_date()`의 반환 타입을 실제 동작(`"1400s"`, `"<UNK>"` 등 문자열도 반환)에 맞춰 `int | str | None`으로 수정
-    - [x] `parse_file()` / `parse_xml_file()`에 `period` 인자 추가, `_parse_letter_xml()` 신설
-      - letter가 있는 xml이면 letter 단위로 세기/연도 필터링·정렬 후 해당 letter의 `<sent>`만 Token화 (다른 세기 letter는 건드리지 않음)
-      - 일반 xml은 기존 동작 그대로 유지
-  - `cli.py`
-    - [x] `collect_input_files()`: letter xml이면 파일 안에 요청한 세기의 letter가 하나라도 있으면 그 파일을 포함하도록 변경, `sorting_key` 타입을 실제 저장값(tuple)에 맞게 수정
-    - [x] `run_annotation()` / `run_search()` / `run_print_corpus()` / `collect_available_sent_types()`가 `parse_file()`에 `period`를 넘기도록 수정
-    - [x] `run_corpus_list()`: letter 하나당 한 행을 출력하도록 변경 (같은 파일 안에 다른 세기 letter가 섞여 있으면 행이 나뉨), 일반/언간 공통 헤더로 통일(Author/Sender/Receiver 컬럼 추가), `--sort published_year`가 행 단위로도 적용되도록 수정
-  - [x] `tests/test_letter_parsing.py` 신규 작성 (13개 테스트, 전부 통과): attribute / writer-attribute / 내부요소 / date-fallback / 형제요소 / 세기혼재 파일 / period 필터링 / corpus-list 다중 행 / 정수·문자열 혼합 연도 정렬 / 연도 누락 / 일반 xml 회귀
+    - `parser.py`
+        - [x] `LetterInfo` dataclass와 `get_info_from_letters()` 추가
+            - `<letter>`의 attribute / 내부 element(`<writer>`, `<addressee>`, `<year>`, `<date>`) / 같은 부모 아래 형제 element, 세 가지 구조 모두에서 sender/receiver/year를 우선순위대로 정규화
+            - 형제 metadata는 인접한 다른 `<letter>`로 경계지어진 구간 안에서만 탐색(`_get_corresponding_sibling_text()`)해 무관한 다른 letter의 정보가 섞이지 않도록 함
+        - [x] `trimming_date()`, `convert_to_century()`를 `cli.py`에서 `parser.py`로 이동
+            - `get_info_from_letters()`가 이 둘을 필요로 하는데 `parser.py`가 `cli.py`를 import하면 순환 참조가 생기기 때문
+            - `trimming_date()`의 반환 타입을 실제 동작(`"1400s"`, `"<UNK>"` 등 문자열도 반환)에 맞춰 `int | str | None`으로 수정
+        - [x] `parse_file()` / `parse_xml_file()`에 `period` 인자 추가, `_parse_letter_xml()` 신설
+            - letter가 있는 xml이면 letter 단위로 세기/연도 필터링·정렬 후 해당 letter의 `<sent>`만 Token화 (다른 세기 letter는 건드리지 않음)
+            - 일반 xml은 기존 동작 그대로 유지
+    - `cli.py`
+        - [x] `collect_input_files()`: letter xml이면 파일 안에 요청한 세기의 letter가 하나라도 있으면 그 파일을 포함하도록 변경, `sorting_key` 타입을 실제 저장값(tuple)에 맞게 수정
+        - [x] `run_annotation()` / `run_search()` / `run_print_corpus()` / `collect_available_sent_types()`가 `parse_file()`에 `period`를 넘기도록 수정
+        - [x] `run_corpus_list()`: letter 하나당 한 행을 출력하도록 변경 (같은 파일 안에 다른 세기 letter가 섞여 있으면 행이 나뉨), 일반/언간 공통 헤더로 통일(Author/Sender/Receiver 컬럼 추가), `--sort published_year`가 행 단위로도 적용되도록 수정
+    - [x] `tests/test_letter_parsing.py` 신규 작성 (13개 테스트, 전부 통과): attribute / writer-attribute / 내부요소 / date-fallback / 형제요소 / 세기혼재 파일 / period 필터링 / corpus-list 다중 행 / 정수·문자열 혼합 연도 정렬 / 연도 누락 / 일반 xml 회귀
 
 ## 2026-07-29
 
 "자소 기반 모델 vs 형태소 기반 모델" 성능 비교 기능을 설계하는 과정에서, 비교의 대상이 두 가지로 나뉠 수 있다는 걸 확인함:
 
-  - 병렬적 비교 (오늘 실제로 필요했던 것): 같은 시점에 c_model과 m_model 중 뭐가 더 잘 맞히는가
-  - 통시적 비교 (앞으로 필요할 것): annotation을 계속 추가하면서 같은 모델이 시간이 지나 개선되고 있는가
+    - 병렬적 비교 (오늘 실제로 필요했던 것): 같은 시점에 c_model과 m_model 중 뭐가 더 잘 맞히는가
+    - 통시적 비교 (앞으로 필요할 것): annotation을 계속 추가하면서 같은 모델이 시간이 지나 개선되고 있는가
 
 이 둘을 분명히 구분하고, 오늘 필요한 건 병렬적 비교라는 점을 확정함.
 
@@ -960,10 +960,10 @@ Implemented morph-aware search infrastructure on top of the existing coarse (LEM
 
 ### 오늘 할 일
 - 자소 기반 모델(c_model)과 형태소 기반 모델(m_model) 병렬 비교 로직 구현
-  - [x] test/train 데이터 나누는 함수 split_train_test()를 bilstm.py에 구현
-  - [x] 모델 비교 함수 evaluate_model() (c_model / m_model / baseline 세 가지 비교)
-    - [x] 순환 참조를 피하기 위해 predict_best_candidate()을 bilstm.py로 옮김
-    - [ ] ~~cli.py에 관련 인터페이스 구축~~ -> 오늘은 run_bilstm_demo.py에서 임시로 검증.
+    - [x] test/train 데이터 나누는 함수 split_train_test()를 bilstm.py에 구현
+    - [x] 모델 비교 함수 evaluate_model() (c_model / m_model / baseline 세 가지 비교)
+        - [x] 순환 참조를 피하기 위해 predict_best_candidate()을 bilstm.py로 옮김
+        - [ ] ~~cli.py에 관련 인터페이스 구축~~ -> 오늘은 run_bilstm_demo.py에서 임시로 검증.
 
 1. split_train_test() 구현
 
@@ -999,7 +999,7 @@ BiLSTM 모델에 맥락 정보를 추가하자.
 ## 2026-09-19
 
 * 발견한 문제점
-  - 실제로 CAUS로 분석되면 안 되는 것이 CAUS로 분석되는 예 보임.
+    - 실제로 CAUS로 분석되면 안 되는 것이 CAUS로 분석되는 예 보임.
 
 ## 2026-10-26
 
@@ -1010,8 +1010,8 @@ BiLSTM 모델에 맥락 정보를 추가하자.
 
 - 아직 코드에 반영하지 않은 분석이 안 나오는 것(예: `盛hi/V.CH/ADVZ/LEM`)은 미구현이므로 문제로 보지 않음.
 - 문제로 보는 것은 아래 두 가지.
-  - 후보가 입력 표면형 전체를 설명하지 못하고 일부를 버리는 경우
-  - 불가능한 결합이나 환경의 후보가 제시되는 경우
+    - 후보가 입력 표면형 전체를 설명하지 못하고 일부를 버리는 경우
+    - 불가능한 결합이나 환경의 후보가 제시되는 경우
 
 ### 디버깅 목록
 
@@ -1038,9 +1038,9 @@ BiLSTM 모델에 맥락 정보를 추가하자.
 ### 미결정 사항
 
 - **용언 어간 단독 후보를 규칙으로 막을지, 확률 모델(BiLSTM)에 맡길지** (8번에서 제기)
-  - 용언은 어간만으로 실현되지 않으므로 8번의 `mwot/V/LEM`은 단독 토큰에서 성립할 수 없음.
-  - 결정은 내리지 않음.
-  - 1, 2, 4, 10번의 "결합·환경 제약을 어디서 적용할 것인가"와 같은 질문인지는 아직 묶지 않았음.
+    - 용언은 어간만으로 실현되지 않으므로 8번의 `mwot/V/LEM`은 단독 토큰에서 성립할 수 없음.
+    - 결정은 내리지 않음.
+    - 1, 2, 4, 10번의 "결합·환경 제약을 어디서 적용할 것인가"와 같은 질문인지는 아직 묶지 않았음.
 
 ### 확인 필요 항목
 
@@ -1060,25 +1060,44 @@ BiLSTM 모델에 맥락 정보를 추가하자.
 
 ### 디버그해야 할 부분 파악
 - [x] `candidate_generator` 실행 시 불가능한 조합이 추천되는 문제
-  - [x] /V 뒤에 /TOP이 추가되는 문제 (`na/V/LEM-non/TOP`, `tut/V/LEM-coW/HON.OBJ-a/EMPH-n/ADN.NFUT-mal/N-on/TOP` 등): gold 파일에 annotation 실수가 있었음. gold 수정 완료
-    - [x] 잇ᄂᆞᆫ 포함 `V`/`A` 뒤 `/TOP` 잔여 없음 확인
-  - [x] /N 뒤에 /ADN이 추가되는 문제 (`nom/N/LEM-i/COP-n/ADN.NFUT` 계열): `CATEGORY_CHANGERS`에 `"COP": "COP"` 추가 (코드 반영 확인 완료)
-    - [x] `N` 뒤 `/ADN` 잔여 없음 확인
-  - 앞으로 다른 전성어미 부류가 발견되면 추가하면 됨.
+    - [x] /V 뒤에 /TOP이 추가되는 문제 (`na/V/LEM-non/TOP`, `tut/V/LEM-coW/HON.OBJ-a/EMPH-n/ADN.NFUT-mal/N-on/TOP` 등): gold 파일에 annotation 실수가 있었음. gold 수정 완료
+        - [x] 잇ᄂᆞᆫ 포함 `V`/`A` 뒤 `/TOP` 잔여 없음 확인
+    - [x] /N 뒤에 /ADN이 추가되는 문제 (`nom/N/LEM-i/COP-n/ADN.NFUT` 계열): `CATEGORY_CHANGERS`에 `"COP": "COP"` 추가 (코드 반영 확인 완료)
+        - [x] `N` 뒤 `/ADN` 잔여 없음 확인
+    - 앞으로 다른 전성어미 부류가 발견되면 추가하면 됨.
 
 ### Candidate generator 개선
 
 - [x] `tagger.py/analyze_yale()` 개선
-  - [x] 단어가 형성되는 과정에서 형태소의 분절음이 삭제되는 경우를 더 이상 고려하지 않으므로 관련 처리 코드 삭제
+    - [x] 단어가 형성되는 과정에서 형태소의 분절음이 삭제되는 경우를 더 이상 고려하지 않으므로 관련 처리 코드 삭제
+
+## 2026-11-04
+
+### Candidate generator 개선
+
+- 새로 발견한 문제:
+    - 이 모든 문제는 `annotation.py/candidate_generator`를 수정해야 함.
+
+    - [x] `내니`에 대해 후보군에 `nay/V/LEM-ni/CONN`가 나타나지 않음.
+        - -> `candidate_generator`가 받는 `lexicon`에 `nay/V/LEM`이 포함되지 않았을 가능성 
+        - **`tagger.py/load_lemma_lexicon`** 검토 필요
+        - 진단 결과: nay/V/LEM가 lexicon에 아예 포함되지 않음.
+        - 딕셔너리 자료형을 쓰니 값이 덮어 쓰여지는 문제가 있는 것으로 보임.
+        - 해결 방안: `tagger.py/load_lemma_lexicon`의 출력 자료형을 dict[str, str]에서 dict[str, set]로 변경할 것.
+
+    - [ ] `못과`에 대해 `mwos/V/LEM-kwa/COM`가 제시됨. 두 가지 문제
+        - [x] `mwos/N/LEM`이 포함되지 않음: gold에 이미 `mwos/N/LEM`이 있음.
+            - -> `candidate_generator`가 받는 `lexicon`에 `mwos/N/LEM`이 포함되지 않았을 가능성
+        - [ ] N 다음에 /COM가 제시되는데 이미 전성 어미가 개재할 경우 그 뒤는 날려버린 상태임에도 계속 이렇게 제시됨.
 
 ### 남은 과제 (TDL)
 
 - [ ] `a/V/LEM-la/DECL` (아라): 계사 뒤 한정 이형태 `la/DECL`, `ta/DECL`이 어간 직후가 아닌 위치에서도 `V` 집합에 들어가는 구조적 한계. `COP` 분리만으로는 불충분
-  - 구조 후보: gold에서 `직전 형태소 → 직후 형태소` 전이표(또는 부류 → 첫 어미, 어미 → 다음 어미 두 표) 자동 추출. 재현율 하락 위험 있음
-  - 미결정: 전이표 전환 여부
+    - 구조 후보: gold에서 `직전 형태소 → 직후 형태소` 전이표(또는 부류 → 첫 어미, 어미 → 다음 어미 두 표) 자동 추출. 재현율 하락 위험 있음
+    - 미결정: 전이표 전환 여부
 - [ ] `nawos`: 정답 `na/PRON.1SG/LEM-wos/EMPH` 대신 `na/V/LEM-wos/EMPH`가 제시됨
-  - [x] 원인: `wos/EMPH`가 gold에서 `V` 뒤에만 기록되어 있어 `PRON.1SG` 허용 집합에 없었음. `na/PRON.1SG/LEM-wos/EMPH`를 gold에 추가하여 정답 후보가 생성됨
-  - [ ] `V` 집합에 `wos/EMPH`가 들어간 경로 확인 (gold 오기 여부). 오기라면 gold 수정으로 `na/V/LEM-wos/EMPH` 제거
+    - [x] 원인: `wos/EMPH`가 gold에서 `V` 뒤에만 기록되어 있어 `PRON.1SG` 허용 집합에 없었음. `na/PRON.1SG/LEM-wos/EMPH`를 gold에 추가하여 정답 후보가 생성됨
+    - [ ] `V` 집합에 `wos/EMPH`가 들어간 경로 확인 (gold 오기 여부). 오기라면 gold 수정으로 `na/V/LEM-wos/EMPH` 제거
 - [ ] `몯`: `mwot/NEG/LEM` 누락, `mwot/V/LEM`(용언 어간 단독) 제시. 규칙으로 막을지 BiLSTM에 맡길지 결정
 - [ ] `盛hi` → `盛/N.CH/LEM`: 입력 일부(`hi`)가 소실된 후보가 제시되지 않도록 수정 (입력 표면형 전체를 설명하지 못하는 후보 금지)
 - [ ] `降服ᄒᆞ려뇨`: 실제 제시되는 후보 전체 확인, 입력 일부 소실 여부 판정

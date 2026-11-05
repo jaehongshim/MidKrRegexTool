@@ -70,14 +70,16 @@ def candidate_generator(
         candidates.append(f"{lem}/N.CH/LEM")
 
     # 1. lexicon-first + learned exact suffix
-    for lem, lem_pos in lexicon.items():
+    for lem, lem_pos_set in lexicon.items():
         if yale.startswith(lem):
             rest = yale[len(lem) :]
             if rest in infl_decomp:
                 for segmented in infl_decomp[rest]:
-                    candidates.append(f"{lem_pos}/LEM-{segmented}")
+                    for lem_pos in lem_pos_set:
+                        candidates.append(f"{lem_pos}/LEM-{segmented}")
             elif not rest:
-                candidates.append(f"{lem_pos}/LEM")
+                for lem_pos in lem_pos_set:
+                    candidates.append(f"{lem_pos}/LEM")
 
     # 2. suffix-first + learned exact suffix
     for rest, segmented_list in infl_decomp.items():
@@ -85,7 +87,8 @@ def candidate_generator(
             stem = yale[: -len(rest)]
             if stem and stem in lexicon:
                 for segmented in segmented_list:
-                    candidates.append(f"{lexicon[stem]}/LEM-{segmented}")
+                    for lem_pos in lexicon[stem]:
+                        candidates.append(f"{lem_pos}/LEM-{segmented}")
 
     return list(dict.fromkeys(candidates))
 

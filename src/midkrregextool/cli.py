@@ -630,6 +630,17 @@ def run_annotation(args: CLIArgs) -> None:
             period = convert_to_century(raw)
 
     lexicon = load_lemma_lexicon(period, annotation_data=annotation_data)
+
+    # ######### Debugging
+    # test = ["nay", "mwos"]
+
+    # for key in lexicon:
+    #     if key in test:
+    #         print(f"{key}: {lexicon[key]}")
+
+    # m = input("")
+    # ######### Debugging
+
     model, vocab = load_bilstm_artifacts(model_parameter=model_parameter)
 
     t0 = time.perf_counter()
@@ -678,11 +689,11 @@ def run_annotation(args: CLIArgs) -> None:
             )
         )
 
-    for pos in pos_to_allowed_morphemes.keys():
-        suffixes = pos_to_allowed_morphemes.get(pos)
-        for suffix in suffixes:
-            print(f"{pos}: {suffix}")
-        m = input("")
+    # for pos in pos_to_allowed_morphemes.keys():
+    #     suffixes = pos_to_allowed_morphemes.get(pos)
+    #     for suffix in suffixes:
+    #         print(f"{pos}: {suffix}")
+    #     m = input("")
 
     chosen_sent_types = prompt_sent_types(
         collect_available_sent_types(files, encoding, period)

@@ -47,7 +47,7 @@ def _period_tag(period: int | str | None) -> str | None:
 
 def load_lemma_lexicon(
     period: int | str | None = None, *, annotation_data: Path
-) -> dict[str, str]:
+) -> dict[str, set[str]]:
 
     def _assign_pos(form_pos: str) -> tuple[str, str]:
         """
@@ -93,13 +93,11 @@ def load_lemma_lexicon(
 
         m1 = m.split("/LEM")[0]  # The part before "/LEM", e.g., kwoksik/N <-
 
-        [lem, pos] = _assign_pos(m1)
+        lem, pos = _assign_pos(m1)
 
-        if lem in lex:
-            return
-        lex[lem] = pos
+        lex.setdefault(lem, set()).add(pos)
 
-    lex: dict[str, str] = {}
+    lex: dict[str, set[str]] = {}
 
     if annotation_data is not None:
         annotation_file = _resolve_annotation_data(annotation_data, period)
