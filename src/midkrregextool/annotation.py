@@ -34,7 +34,46 @@ def candidate_generator(
     token_lookup: dict[tuple[str, int], Token] | None = None,
     infl_decomp: dict[str, list[str]] | None = None,
     lexicon: dict[str, str] | None = None,
+    pos_to_allowed_morphemes: dict[str, set[str]] | None = None,
 ) -> list[str]:
+
+    def _suffix_filter(
+        lem_pos: str, segmented: str, pos_to_allowed_morphemes: dict[str, set[str]]
+    ) -> bool:
+
+        possible_tagging = True
+
+        if "/" not in lem_pos:
+            input(f"print: {lem_pos}")
+
+        pos = lem_pos.split("/")[1]
+
+        # 상위 어휘 부류 정보를 찾아내서 broader_pos로 저장
+        if "." in pos:
+            broader_pos = pos.split(".")[0]
+        else:
+            broader_pos = pos
+
+        state = broader_pos
+
+        # segmented를 처음부터 잘라서 주어진 broader_pos에 후행 가능한지 검사
+        # segmented를 각각의 형태소로 자름.
+        segmented_morphemes = segmented.split("-")
+
+        # 일단은 태그된 어형 자체로 판단하지만 나중에 태그 정보만 빼서 할 것인지 결정해야 함.
+        for morpheme in segmented_morphemes:
+            # 전성어미를 위해 형태소 정보만을 뽑아냄.
+            tag = morpheme.split("/")[-1]
+            # 해당 형태소가 현재 어휘 부류에서 허용되지 않는 것이면 bool을 FALSE로 하고 더 이상 검사하지 않음.
+            if morpheme not in pos_to_allowed_morphemes[state]:
+                possible_tagging = False
+                return possible_tagging
+
+            # 전성어미를 만나면 state를 바꿈.
+            if tag in CATEGORY_CHANGERS:
+                state = CATEGORY_CHANGERS[tag]
+
+        return possible_tagging
 
     yale = (token.yale or "").strip()
     if not yale:
@@ -53,6 +92,13 @@ def candidate_generator(
         rest = m.group(2)
         if rest in infl_decomp:
             for segmented in infl_decomp[rest]:
+                lem_pos = lem + "/V.CH/LEM"
+                if not _suffix_filter(
+                    lem_pos,
+                    segmented,
+                    pos_to_allowed_morphemes,
+                ):
+                    continue
                 candidates.append(f"{lem}/V.CH/LEM-{segmented}")
 
     else:
@@ -62,6 +108,14 @@ def candidate_generator(
             rest = m.group(2)
             if rest in infl_decomp:
                 for segmented in infl_decomp[rest]:
+                    # 여기도 필터링
+                    lem_pos = lem + "/N.CH/LEM"
+                    if not _suffix_filter(
+                        lem_pos,
+                        segmented,
+                        pos_to_allowed_morphemes,
+                    ):
+                        continue
                     candidates.append(f"{lem}/N.CH/LEM-{segmented}")
 
     m = re.match(r"^([\u4E00-\u9FFF]+)$", yale)
@@ -76,6 +130,12 @@ def candidate_generator(
             if rest in infl_decomp:
                 for segmented in infl_decomp[rest]:
                     for lem_pos in lem_pos_set:
+                        if not _suffix_filter(
+                            lem_pos,
+                            segmented,
+                            pos_to_allowed_morphemes,
+                        ):
+                            continue
                         candidates.append(f"{lem_pos}/LEM-{segmented}")
             elif not rest:
                 for lem_pos in lem_pos_set:
@@ -88,6 +148,12 @@ def candidate_generator(
             if stem and stem in lexicon:
                 for segmented in segmented_list:
                     for lem_pos in lexicon[stem]:
+                        if not _suffix_filter(
+                            lem_pos,
+                            segmented,
+                            pos_to_allowed_morphemes,
+                        ):
+                            continue
                         candidates.append(f"{lem_pos}/LEM-{segmented}")
 
     return list(dict.fromkeys(candidates))
@@ -437,6 +503,7 @@ def annotate(
     annotation_data: Path | None,
     lexicon: dict[str, str] | None = None,
     token_lookup: dict[tuple[str, int], Token] | None = None,
+    pos_to_allowed_morphemes: dict[str, set[str]] | None = None,
 ) -> None:
 
     period_tag = f"{period}c"
@@ -526,6 +593,7 @@ def annotate(
                             token_lookup=token_lookup,
                             infl_decomp=infl_decomp,
                             lexicon=lexicon,
+                            pos_to_allowed_morphemes=pos_to_allowed_morphemes,
                         )
                         candidate_cache[cache_key] = candidates
 
@@ -666,6 +734,7 @@ def annotate(
                                 token_lookup=token_lookup,
                                 infl_decomp=infl_decomp,
                                 lexicon=lexicon,
+                                pos_to_allowed_morphemes=pos_to_allowed_morphemes,
                             )
                             candidate_cache[cache_key] = candidates
 
@@ -899,13 +968,15 @@ def load_pos_to_allowed_morphemes_inventory_from_annotation(
         left, right = m.split("/LEM-", 1)
 
         # m = "nulk/A/LEM-no/PRS-ni/AOR-la/DECL"
-        #   → left  = "nulk/A"
+        #   → left  = "nulk/A", "naawona/V/KE", ...,
         #   → right = "no/PRS-ni/AOR-la/DECL"
 
         if "/" not in left:
             return
 
-        state = left.split("/")[-1]
+        state = left.split("/")[1]
+        if "." in state:
+            state = state.split(".")[0]
 
         # left  = "nulk/A"
         # state = "A"

@@ -1090,6 +1090,28 @@ BiLSTM 모델에 맥락 정보를 추가하자.
             - -> `candidate_generator`가 받는 `lexicon`에 `mwos/N/LEM`이 포함되지 않았을 가능성
         - [ ] N 다음에 /COM가 제시되는데 이미 전성 어미가 개재할 경우 그 뒤는 날려버린 상태임에도 계속 이렇게 제시됨.
 
+## 2026-11-06
+
+### Candidate generator 개선 (계속)
+
+- [x] 어휘 부류에 따라 후행할 수 있는 어미의 종류가 필터링되지 않는 문제
+    - 문제: 현재는 분절된 레마 후보의 어휘 부류에 따라 어미를 걸러내는 과정이 없다는 것을 발견함.
+    - 해결 방법: candidate_generator() 내 helper 함수로 `suffix_filter`를 정의하고 활용.
+        - 개요: 
+        - 입력:
+            - `lem_pos: str`: 어휘 부류 정보가 태그된 레마  
+            - `segmented: str`: 어미 후보
+            - `pos_to_allowed_morphemes: dict[str,set[str]]`: 골드로부터 자동으로 생성되는 어휘 부류에 후행 가능한 어미 목록
+        - 출력:
+            - `possible_tagging: bool`
+        - 필요한 feature
+            - [x] `lem_pos`에는 세부적인 어휘 부류 정보가 들어 있으므로 이를 적절히 상위 어휘 부류로 인식하는 과정 필요함. 
+            - [x] `pos_to_allowed_morphemes`를 받아올 수 있도록 `candidate_generator`, `annotate`까지 이를 인수로 추가해야 함. 
+
+- 어휘 부류에 따라 후행할 수 있는 어미를 알려주는 사전을 생성하는 `load_pos_to_allowed_morphemes_inventory_from_annotation` 개선
+    - 하위 부류 각각을 별개의 어휘 부류로 파악하는 문제가 있었다. N과 N.CH는 이 함수의 목적에서 N이라는 어휘 부류 정보만 가져오면 되는데 N과 N.CH를 별개의 어휘 부류로 처리하는 문제가 있었던 것이다. 이를 개선하여 N만 가져올 수 있도록 했다. 
+
+
 ### 남은 과제 (TDL)
 
 - [ ] `a/V/LEM-la/DECL` (아라): 계사 뒤 한정 이형태 `la/DECL`, `ta/DECL`이 어간 직후가 아닌 위치에서도 `V` 집합에 들어가는 구조적 한계. `COP` 분리만으로는 불충분

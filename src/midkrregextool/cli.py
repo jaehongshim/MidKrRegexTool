@@ -688,6 +688,8 @@ def run_annotation(args: CLIArgs) -> None:
                 annotation_data, period
             )
         )
+        for keys in pos_to_allowed_morphemes:
+            print(f"{keys}: {pos_to_allowed_morphemes[keys]}")
 
     # for pos in pos_to_allowed_morphemes.keys():
     #     suffixes = pos_to_allowed_morphemes.get(pos)
@@ -830,6 +832,7 @@ def run_annotation(args: CLIArgs) -> None:
         annotation_data=annotation_data,
         lexicon=lexicon,
         token_lookup=token_lookup,
+        pos_to_allowed_morphemes=pos_to_allowed_morphemes,
     )
     print(f"[TIMING] annotate(): {time.perf_counter() - t_annotate:.3f}s")
 
