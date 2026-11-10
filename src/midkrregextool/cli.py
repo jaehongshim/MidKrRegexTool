@@ -680,13 +680,14 @@ def run_annotation(args: CLIArgs) -> None:
     pos_to_allowed_morphemes: dict[str, set[str]] = {}
 
     if annotation_data is not None:
-        infl_decomp = load_infl_decomp_from_annotation(
-            annotation_data / f"annotation_{period}c.jsonl"
-        )
         pos_to_allowed_morphemes = (
             load_pos_to_allowed_morphemes_inventory_from_annotation(
                 annotation_data, period
             )
+        )
+        infl_decomp = load_infl_decomp_from_annotation(
+            annotation_data / f"annotation_{period}c.jsonl",
+            pos_to_allowed_morphemes=pos_to_allowed_morphemes,
         )
         for keys in pos_to_allowed_morphemes:
             print(f"{keys}: {pos_to_allowed_morphemes[keys]}")

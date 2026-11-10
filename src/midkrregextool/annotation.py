@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import random
 import re
+import traceback
 from pathlib import Path
 
 from prompt_toolkit import prompt
@@ -92,6 +93,7 @@ def candidate_generator(
         rest = m.group(2)
         if rest in infl_decomp:
             for segmented in infl_decomp[rest]:
+                # print(f"segmented: {segmented}")
                 lem_pos = lem + "/V.CH/LEM"
                 if not _suffix_filter(
                     lem_pos,
@@ -108,6 +110,7 @@ def candidate_generator(
             rest = m.group(2)
             if rest in infl_decomp:
                 for segmented in infl_decomp[rest]:
+                    # print(f"segmented: {segmented}")
                     # 여기도 필터링
                     lem_pos = lem + "/N.CH/LEM"
                     if not _suffix_filter(
@@ -129,6 +132,7 @@ def candidate_generator(
             rest = yale[len(lem) :]
             if rest in infl_decomp:
                 for segmented in infl_decomp[rest]:
+                    # print(f"segmented: {segmented}")
                     for lem_pos in lem_pos_set:
                         if not _suffix_filter(
                             lem_pos,
@@ -147,6 +151,7 @@ def candidate_generator(
             stem = yale[: -len(rest)]
             if stem and stem in lexicon:
                 for segmented in segmented_list:
+                    # print(f"segmented: {segmented}")
                     for lem_pos in lexicon[stem]:
                         if not _suffix_filter(
                             lem_pos,
@@ -519,7 +524,16 @@ def annotate(
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / f"annotation_{period_tag}.jsonl"
 
-    infl_decomp = load_infl_decomp_from_annotation(out_path)
+    infl_decomp = load_infl_decomp_from_annotation(
+        out_path, pos_to_allowed_morphemes=pos_to_allowed_morphemes
+    )
+
+    # -wo/WO 누락된 것 맞음.
+
+    # for item in infl_decomp:
+    #     print(f"{item}")
+    #     if item == "wo":
+    #         m = input(f"{infl_decomp[item]}")
 
     # If first item is a tuple, annotation unit is a bigram: (Token, Token).
     # Otherwise each item is an anno-chunk: list[Token] (context-ordered).
@@ -907,13 +921,63 @@ def load_annotated_keys(annotation_path: Path) -> set[tuple[str, int]]:
     return annotated_keys
 
 
-def load_infl_decomp_from_annotation(annotation_path: Path) -> dict[str, list[str]]:
+def identify_pos(gold: str) -> str:
+
+    current_gold = gold
+
+    # Strip the prefix if it exists
+
+    gold = gold.split("/PREFIX-", 1)[-1].strip() if "/PREFIX-" in gold else gold
+
+    # Token without suffixes
+
+    if "/LEM-" not in gold:
+        if "/LEM" in gold:
+            pos = (
+                (gold.split("/")[1].strip()).split(".")[0].strip()
+                if "." in gold.split("/")[1].strip()
+                else gold.split("/")[1].strip()
+            )
+            # Guard
+            if pos == "LEM":
+                raise ValueError(
+                    f"[GOLD ERROR] POS information not found in gold: {current_gold!r}"
+                )
+
+            return pos
+        else:
+            raise ValueError(f"[GOLD ERROR] '/LEM' not found in gold: {current_gold!r}")
+
+    # Token with suffixes
+
+    gold = gold.split("/LEM-", 1)[0].strip()
+
+    # Guard
+    if "/" not in gold:
+        raise ValueError(
+            f"[GOLD ERROR] POS information not found in gold: {current_gold!r}"
+        )
+
+    first_tag = gold.split("/")[1].strip()
+
+    pos = first_tag.split(".")[0].strip() if "." in first_tag else first_tag
+
+    return pos
+
+
+def load_infl_decomp_from_annotation(
+    annotation_path: Path,
+    *,
+    pos_to_allowed_morphemes: dict[str, set[str]] | None = None,
+) -> dict[str, list[str]]:
+
     d: dict[str, list[str]] = {}
 
     """
     - 정밀 태깅을 위해 analyze_yale()에서 만들어지는 활용 곡용 어미의 초벌태깅 결과에 골드 파일에서 추출한 활용/곡용 어미 조합을 짝지어은 사전을 리턴하는 함수
     - 예를 들어 `ᄒᆞ니라`라는 토큰의 어미 `nila/INFL`에 대해 골드로부터 `n/ADN.NFUT-i/N.DEP/COP-la/DECL`, `ni/ASS-la/DECL` 등을 짝지은 {"nila":["n/ADN.NFUT-i/N.DEP/COP-la/DECL","ni/ASS-la/DECL"]}를 돌려주게 됨.  
     """
+    current_gm = None
     try:
         with open(annotation_path, "r", encoding="utf-8") as f:
             for line in f:
@@ -921,11 +985,14 @@ def load_infl_decomp_from_annotation(annotation_path: Path) -> dict[str, list[st
 
                 for key in ("gold_morph", "gold_morph_a", "gold_morph_b"):
                     gm = obj.get(key)
+                    current_gm = gm
                     if not isinstance(gm, str) or not gm:
                         continue
 
                     if "/LEM-" not in gm:
                         continue
+
+                    pos = identify_pos(gm)
 
                     segmented = gm.split("/LEM-", 1)[1].strip()
                     parts = segmented.split("-")
@@ -938,8 +1005,24 @@ def load_infl_decomp_from_annotation(annotation_path: Path) -> dict[str, list[st
                             d[infl_surface] = []
                         if segmented not in d[infl_surface]:
                             d[infl_surface].append(segmented)
+
+                        # 마지막으로 pos_to_allowed_morphemes 검사
+
+                        for tagged_suffix in pos_to_allowed_morphemes[pos]:
+                            suffix = tagged_suffix.split("/", 1)[0].strip()
+                            if suffix == infl_surface:
+                                if tagged_suffix not in d[infl_surface]:
+                                    d[infl_surface].append(tagged_suffix)
+
+                        # if "wo" in segmented:
+                        #     print(f"segmented: {segmented}")
+                        #     print(f"\tinfl_surface:{infl_surface}")
+                        #     input(f"\tinfl_decomp(infl_surface):{d[infl_surface]}")
     except Exception as e:
         print(f"[ERROR] {e}. infl_decomp has not been created.")
+        print(f"[ERROR] last gm: {current_gm!r}")
+        traceback.print_exc()
+        raise
 
     return d
 
@@ -965,24 +1048,13 @@ def load_pos_to_allowed_morphemes_inventory_from_annotation(
         if "/LEM-" not in m:
             return
 
-        left, right = m.split("/LEM-", 1)
+        right = m.split("/LEM-", 1)[1].strip()
 
         # m = "nulk/A/LEM-no/PRS-ni/AOR-la/DECL"
         #   → left  = "nulk/A", "naawona/V/KE", ...,
         #   → right = "no/PRS-ni/AOR-la/DECL"
 
-        if "/" not in left:
-            return
-
-        state = left.split("/")[1]
-        if "." in state:
-            state = state.split(".")[0]
-
-        # left  = "nulk/A"
-        # state = "A"
-
-        if not state:
-            return
+        state = identify_pos(m)
 
         parts = right.split("-")
 
@@ -1002,6 +1074,9 @@ def load_pos_to_allowed_morphemes_inventory_from_annotation(
                 # pos_to_allowed_morphemes = {"A": set()}
             if state in ("A", "V") and part.endswith("/TOP"):
                 print(f"[DEBUG] {state}에 TOP 추가: {m}")
+            # 여전히 불필요한 정보가 있는지 걸러내는 가드
+            if "/LEM" in part:
+                raise ValueError(f"[GOLD ERROR] Unnecessary information found in {m!r}")
             pos_to_allowed_morphemes[state].add(part)
             # pos_to_allowed_morphemes["A"] = set()
             # pos_to_allowed_morphemes["A"].add("no/PRS") → {"no/PRS"}

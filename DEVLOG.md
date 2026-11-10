@@ -1111,6 +1111,33 @@ BiLSTM 모델에 맥락 정보를 추가하자.
 - 어휘 부류에 따라 후행할 수 있는 어미를 알려주는 사전을 생성하는 `load_pos_to_allowed_morphemes_inventory_from_annotation` 개선
     - 하위 부류 각각을 별개의 어휘 부류로 파악하는 문제가 있었다. N과 N.CH는 이 함수의 목적에서 N이라는 어휘 부류 정보만 가져오면 되는데 N과 N.CH를 별개의 어휘 부류로 처리하는 문제가 있었던 것이다. 이를 개선하여 N만 가져올 수 있도록 했다. 
 
+## 2026-11-09
+
+### Candidate generator 개선 (계속)
+
+- [x] 나와야 하는 후보가 누락되는 문제
+    - 문제점: `ᄀᆞ초`의 전사형 `kochwo`에 대해 `koch/V/LEM-wo/WO`가 제안되지 않음.
+        - 이미 `segmented` 자료형에 wo/WO가 안 들어와 있음.
+        - `segmented`는 `load_infl_decomp_from_annotation`이 출력하는 `infl_decomp`로부터 생성되므로 `infl_decomp`부터 `-wo/WO`가 누락될 가능성 의심.
+            - `infl_decomp`에서 누락된 것 확인.
+        - 골드에 동사에 단독으로 -wo/WO만 후행하는 경우가 없어서 생기는 일. 이는 어말 어미와 선어말 어미의 구별이 확실한 한국어에서는 바람직한 일이지만 이후 확장을 고려했을 때는 선어말어미도 단독으로 후보형으로 올려주는 것이 바람직할 것 같다. 
+        - 주어진 `infl_surface`가 `pos_to_allowed_morphemes`에 있는 어미 가운데 일치하는 것이 있으면 `infl_decomp[infl_surface]`의 값 집합에 넣어주는 과정이 필요할 것 같다.
+
+    - 구현 방법:
+        - `pos_to_allowed_morphemes`를 받아서 `load_infl_decomp_from_annotation`에서 생성된 `infl_surface`가 `pos_to_allowed_morphemes`에 매칭되는 어미가 있는지 검사하고 있으면 이를 `segmented`로 `infl_decomp[infl_surface]`값으로 append.
+
+        - `load_infl_decomp_from_annotation` 시그니처 변경
+        - `load_infl_decomp_from_annotation`, `load_pos_to_allowed_morphemes_inventory_from_annotation`에서 공통으로 쓸 품사 추출 함수 `identify_pos` 작성
+
+    - 작업 결과: 이제 `pos_to_allowed_morphemes`에 있는 접미사와 `infl_surface`의 문자열이 일치하면 `infl_decomp`에 없어도 후보형으로 추천함.
+
+    - 생각해 볼 점: 현재 candidate generator는 raw token을 lemma와 infl로 자른 후 infl을 gold에서 추출한 접미사 조합 단위로 대조하는 방식이기 때문에 gold에 존재하지 않더라도 실제로 가능한 후보형을 추천할 수 있는 방향으로 확장할 필요가 있어 보임. 
+
+- 불필요한 정보가 `infl_decomp`나 `pos_to_allowed_morphemes`에 들어가지 않도록 ValueError를 일으키는 방어 문구를 삽입하여 불필요한 정보가 조용히 포함되지 않도록 함. 
+
+
+
+
 
 ### 남은 과제 (TDL)
 
